@@ -1,5 +1,5 @@
 import { Option, pipe } from "effect";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import {
   fromNullableOption,
   ifSome,
