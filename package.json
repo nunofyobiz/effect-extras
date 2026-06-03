@@ -35,9 +35,11 @@
   "scripts": {
     "build": "tsup",
     "changeset": "changeset",
+    "check-all": "pnpm tc && pnpm lint && pnpm test && pnpm build && pnpm knip",
     "clean": "rm -rf dist *.tsbuildinfo",
     "knip": "knip",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "prepublishOnly": "pnpm build",
     "release": "pnpm build && changeset publish",
     "tc": "tsc --noEmit -p tsconfig.json",
@@ -82,6 +84,9 @@
     "effect": "4.0.0-beta.74"
   },
   "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=22"
+  },
   "publishConfig": {
     "access": "public",
     "provenance": true
