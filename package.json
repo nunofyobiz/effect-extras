@@ -37,15 +37,25 @@
     "changeset": "changeset",
     "check-all": "pnpm tc && pnpm lint && pnpm test && pnpm build && pnpm knip",
     "clean": "rm -rf dist *.tsbuildinfo",
+    "format": "prettier --write \"**/*.{md,mdx,yml,yaml,json5,css}\"",
     "knip": "knip",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "prepare": "husky",
     "prepublishOnly": "pnpm build",
     "release": "pnpm build && changeset publish",
     "tc": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "testw": "vitest",
     "version-packages": "changeset version"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}": [
+      "eslint --fix --max-warnings=0 --no-warn-ignored"
+    ],
+    "*.{md,mdx,yml,yaml,json5,css}": [
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "ts-dedent": "2.2.0"
@@ -73,7 +83,9 @@
     "eslint-plugin-package-json": "0.91.2",
     "eslint-plugin-prettier": "5.5.6",
     "eslint-plugin-unicorn": "64.0.0",
+    "husky": "9.1.7",
     "knip": "6.4.1",
+    "lint-staged": "17.0.7",
     "prettier": "3.8.3",
     "tsup": "8.5.0",
     "typescript": "6.0.3",
