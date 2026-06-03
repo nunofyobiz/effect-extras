@@ -39,9 +39,9 @@ const config = defineConfig([
   tsEslintConfigs.stylistic,
   unicorn.configs.all,
   // eslint-plugin-import-x registered under the `import` key so the rule
-  // entries below keep their familiar `import/*` names. (StoryCut gets these
-  // rules transitively via eslint-config-next; this is a pure-library package,
-  // so we wire the import plugin in directly.)
+  // entries below keep their familiar `import/*` names. This is a pure-library
+  // package, so we wire the import plugin in directly rather than inheriting it
+  // transitively from a framework preset.
   {
     plugins: { import: importX },
     settings: {
@@ -54,11 +54,6 @@ const config = defineConfig([
   {
     plugins: {
       vitest,
-    },
-    languageOptions: {
-      globals: {
-        ...vitest.environments.env.globals,
-      },
     },
     rules: {
       ...vitest.configs.recommended.rules,

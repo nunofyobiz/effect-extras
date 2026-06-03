@@ -1,6 +1,5 @@
 import { Array, Option, Order, Predicate, Record, pipe } from "effect";
 import { dual } from "effect/Function";
-import { dedent } from "ts-dedent";
 import { ArrayX } from "../ArrayX";
 
 export const isNonEmptyRecord = <K extends PropertyKey, V>(
@@ -110,10 +109,9 @@ export const getOrThrow = dual<
       record,
       key,
       (key) =>
-        new Error(dedent`
-        Key ${String(key)} not found in record
-        Existing keys=${Record.keys(record)}
-      `),
+        new Error(
+          `Key ${String(key)} not found in record\nExisting keys=${String(Record.keys(record))}`,
+        ),
     ),
 );
 

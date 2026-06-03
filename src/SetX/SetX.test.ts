@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { add, remove, safelyMutate, toggle } from "./SetX";
 
 describe("Set utils", () => {

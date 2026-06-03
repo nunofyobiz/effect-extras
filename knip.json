@@ -5,7 +5,7 @@
   "rules": {
     "dependencies": "error",
     "devDependencies": "error",
-    "exports": "off",
-    "types": "off"
+    "exports": "error",
+    "types": "error"
   }
 }

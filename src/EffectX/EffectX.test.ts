@@ -9,7 +9,7 @@ import {
   pipe,
 } from "effect";
 import * as TestClock from "effect/testing/TestClock";
-import { describe, expect } from "vitest";
+import { describe, expect, vi } from "vitest";
 import { it } from "@effect/vitest";
 import { flattenOption, fromOptionOrElse, tryUntil } from "./EffectX";
 
