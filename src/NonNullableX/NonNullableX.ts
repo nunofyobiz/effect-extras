@@ -6,7 +6,6 @@ import {
   Predicate,
 } from "effect";
 import { dual } from "effect/Function";
-import { dedent } from "ts-dedent";
 
 /**
  * Throw an `Error` if `value` is `null` or `undefined`, otherwise narrow it.
@@ -21,7 +20,7 @@ export const fromNullableOrThrow = <A>(
     return value;
   }
   throw new Error(
-    dedent`Value is nullable: ${value}${Predicate.isNotNullish(variableName) ? ` (variable name: ${variableName})` : ""}`,
+    `Value is nullable: ${String(value)}${Predicate.isNotNullish(variableName) ? ` (variable name: ${variableName})` : ""}`,
   );
 };
 
@@ -71,7 +70,7 @@ export const map = dual<
       return a;
     }
 
-    throw new Error(dedent`Value is neither nullable nor non-nullable: ${a}`);
+    throw new Error(`Value is neither nullable nor non-nullable: ${String(a)}`);
   },
 );
 
