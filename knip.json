@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "commitlint": true,
+  "project": ["src/**/*.ts"],
+  "rules": {
+    "dependencies": "error",
+    "devDependencies": "error",
+    "exports": "off",
+    "types": "off"
+  }
+}

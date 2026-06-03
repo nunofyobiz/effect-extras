@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2023", "DOM"],
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    // tsup's .d.ts bundler injects a `baseUrl`, which the pinned TypeScript
+    // flags as deprecated (TS5101). Silence the forward-compat deprecation.
+    "ignoreDeprecations": "6.0",
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "plugins": [{ "name": "@effect/language-service" }]
+  }
+}
