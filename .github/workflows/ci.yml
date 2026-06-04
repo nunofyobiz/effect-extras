@@ -125,8 +125,11 @@ jobs:
       - name: Verify generated docs are up to date
         run: git diff --exit-code docs/
 
-  # `pnpm publish --dry-run` against the built package. Catches `files` / `exports`
-  # misconfigurations that would otherwise only surface during a real release.
+  # `pnpm pack --dry-run` against the built package — validates the published file
+  # list (`files` / tarball contents) that would otherwise only surface during a
+  # real release. Uses `pack`, not `publish --dry-run`: the latter computes a
+  # dist-tag against the live registry and errors once the package is published and
+  # a branch sits at or below the released version. `pack` is registry-free.
   publish-dry-run:
     runs-on: ubuntu-latest
     steps:
@@ -138,4 +141,4 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm publish --dry-run --no-git-checks --access public
+      - run: pnpm pack --dry-run

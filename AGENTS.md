@@ -58,8 +58,10 @@ Before claiming a task done, run **`pnpm check-all`**. It runs, in order:
    the API docs under `docs/` from the source
 
 While iterating, run the individual checks (faster). CI mirrors these as one job per check, plus:
-`commitlint` on PR commits, a `renovate-config-validator --strict` job, and a `publish --dry-run`
-that catches `files` / `exports` misconfigurations before a real release. The `docgen` CI job runs
+`commitlint` on PR commits, a `renovate-config-validator --strict` job, and a `pack --dry-run`
+that catches `files` / tarball misconfigurations before a real release (it uses `pnpm pack`, not
+`publish --dry-run`: the latter computes a dist-tag against the live registry and errors once the
+package is published, since every non-release branch sits at an already-published version). The `docgen` CI job runs
 read-only (`contents: read`): it regenerates the docs and then fails on `git diff --exit-code docs/`
 if the committed `docs/` drifted — it never writes back or opens PRs. Keeping `docs/` current is the
 author's job locally (the pre-commit hook automates it; see below), so the committed docs that
