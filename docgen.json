@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/@effect/docgen/schema.json",
+  "enforceDescriptions": true,
+  "enforceExamples": true,
+  "enforceVersion": true,
+  "exclude": ["src/**/*.test.ts", "src/**/index.ts", "src/index.ts"],
+  "examplesCompilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true
+  }
+}
