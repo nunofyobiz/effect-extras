@@ -1,6 +1,6 @@
 {
   "name": "@nunofyobiz/effect-extras",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Generic, framework-agnostic extensions of the Effect standard library (ArrayX, OptionX, RecordX, StructX, …).",
   "keywords": [
     "effect",
