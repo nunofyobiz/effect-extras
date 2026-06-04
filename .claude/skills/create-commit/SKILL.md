@@ -75,3 +75,11 @@ Run verification so the commit won't break CI — `pnpm tc`, `pnpm lint`, `pnpm 
 If a hook fails, the commit is rejected and nothing is written — fix the issue, re-stage, and run
 `git commit` again (there's nothing to `--amend`, since no commit was created). Don't bypass with
 `--no-verify`.
+
+## Signed commits
+
+Commits are **SSH-signed automatically** so they land with GitHub's **Verified** badge: git signs
+because `commit.gpgsign=true` is configured by `scripts/setup-signing.sh`, which the `SessionStart`
+hook in `.claude/settings.json` runs every session. You don't pass any signing flag. If a commit
+comes out unsigned (e.g. after a fresh clone) or git complains about `user.signingkey`, run
+`bash scripts/setup-signing.sh` and commit again. Full setup: **AGENTS.md › Commit signing**.

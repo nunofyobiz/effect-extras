@@ -17,9 +17,18 @@ jobs:
     runs-on: ubuntu-latest
     environment: npm-publish
     steps:
+      # Run Changesets under a GitHub App token (not GITHUB_TOKEN) so the "Version
+      # Packages" PR triggers CI. A later step re-signs its commit via the API so the
+      # required-signatures rulesets are satisfied without any bypass.
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -29,11 +38,47 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - uses: changesets/action@v1
+        id: changesets
         with:
           publish: pnpm release
           version: pnpm version-packages
           commit: "chore(release): version packages"
           title: "chore(release): version packages"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           NPM_CONFIG_PROVENANCE: "true"
+      # Changesets commits the version bump with the git CLI, which is unsigned. Recreate
+      # that commit through the Git Data API (same tree/parent/message): API-created
+      # commits are web-flow-signed by GitHub, so the branch head becomes a Verified
+      # commit and the required-signatures rulesets pass with no bypass.
+      - name: Re-sign the Version Packages commit
+        id: resign
+        if: steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.published != 'true'
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const branch = "changeset-release/main";
+            const { owner, repo } = context.repo;
+            const { data: ref } = await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` });
+            const { data: head } = await github.rest.git.getCommit({ owner, repo, commit_sha: ref.object.sha });
+            if (head.verification?.verified) {
+              core.info(`Head ${ref.object.sha} already verified; nothing to re-sign.`);
+              return;
+            }
+            const { data: signed } = await github.rest.git.createCommit({
+              owner,
+              repo,
+              message: head.message,
+              tree: head.tree.sha,
+              parents: head.parents.map((p) => p.sha),
+            });
+            await github.rest.git.updateRef({ owner, repo, ref: `heads/${branch}`, sha: signed.sha, force: true });
+            core.info(`Re-signed ${ref.object.sha} -> ${signed.sha} (verified).`);
+      # Auto-merge the now-signed Version Packages PR so a release needs no manual click.
+      # CI must still pass; the merge commit GitHub creates is itself web-flow-signed.
+      - name: Enable auto-merge on the Version Packages PR
+        if: steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.published != 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh pr merge changeset-release/main --auto --merge

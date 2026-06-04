@@ -51,11 +51,13 @@ doubt, pick the higher one.
 
 ```bash
 pnpm check-all
-pnpm publish --dry-run --no-git-checks --access public
+pnpm pack --dry-run
 ```
 
-`check-all` is tc → lint → test → build → knip. The dry-run confirms `files` / `exports` produce a
-publishable tarball. If anything fails → stop, surface it.
+`check-all` is tc → lint → test → build → knip → docgen. `pack --dry-run` confirms `files` produce a
+publishable tarball **without contacting the registry** (a real `publish --dry-run` errors once the
+package exists, since the branch sits at an already-published version). If anything fails → stop,
+surface it.
 
 ### 4. Write the changeset
 
@@ -87,15 +89,17 @@ git push -u origin HEAD
 gh pr create --fill
 ```
 
-Once merged to `main` (or if pushing directly to `main`), the **Release** workflow's
-`changesets/action` opens a **"Version Packages"** PR that bumps the version and updates the
-changelog. **Merging that PR triggers the actual npm publish** (with provenance). Tell the user
-where to watch the workflow.
+Once merged to `main`, the **Release** workflow (running under a GitHub App token) opens a **"Version
+Packages"** PR that bumps the version and updates the changelog, re-signs its bump commit so it lands
+**Verified**, and **auto-merges it once CI is green** — no manual merge. That auto-merge re-triggers
+the workflow, which **publishes to npm via OIDC trusted publishing** (with provenance). The only
+manual step was the changeset; tell the user where to watch the workflow.
 
 ## What this skill never does
 
-- **Does not run `npm publish` / `pnpm publish` for real.** The Release workflow publishes via the
-  `NPM_TOKEN` secret with provenance — a local publish bypasses the audit trail.
+- **Does not run `npm publish` / `pnpm publish` for real.** The Release workflow publishes from CI via
+  OIDC trusted publishing (no stored token) with provenance — a local publish bypasses both the audit
+  trail and the provenance attestation.
 - **Does not bump the version by hand.** `changeset version` (run by CI on merge of the Version
   Packages PR) handles that.
 - **Does not amend or force-push a shared branch.** If something's wrong, fix forward.
@@ -103,8 +107,8 @@ where to watch the workflow.
 ## Failure modes
 
 - `pnpm changeset` errors with "no packages selected" → re-run and select the package.
-- `publish --dry-run` complains about missing files → check `files` in `package.json` and that
+- `pnpm pack --dry-run` complains about missing files → check `files` in `package.json` and that
   `pnpm build` produced `dist/`.
-- The Release workflow runs but nothing publishes → confirm the repo has `NPM_TOKEN` set and
-  Actions has "Read and write permissions" + "Allow GitHub Actions to create and approve pull
-  requests" (see README → Repository setup).
+- The Release workflow runs but nothing publishes → confirm the `RELEASE_APP_ID` /
+  `RELEASE_APP_PRIVATE_KEY` secrets exist and the npm **trusted publisher** is configured for the
+  package (see README → Repository setup).

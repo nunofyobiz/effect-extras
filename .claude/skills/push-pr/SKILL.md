@@ -79,3 +79,6 @@ description from the full commit set:
 - Use a HEREDOC for `--body` to preserve formatting.
 - Never force-push unless the user explicitly asks (and then `--force-with-lease`).
 - If the branch has no upstream, use `git push -u origin HEAD`.
+- Commits are SSH-signed automatically (see AGENTS.md › Commit signing); pushed commits should show
+  GitHub's **Verified** badge. If one doesn't, run `bash scripts/setup-signing.sh`, re-create the
+  commit, and `git push --force-with-lease`.

@@ -438,6 +438,73 @@ which wires up two git hooks:
 If a hook blocks a commit, read the output, fix the surfaced issue, re-stage, and commit again —
 don't bypass with `--no-verify`. CI re-runs commitlint on PRs as a backstop.
 
+### Commit signing
+
+**Agent commits in this repo are authored as a distinct "Claude Code" identity and signed** with a
+dedicated SSH key, so they land under a separate author with GitHub's green **Verified** badge — kept
+apart from the human contributor's normal name and key. You (the agent) don't decide any of this —
+git does it because the agent identity is configured for your worktree, and
+[`scripts/setup-signing.sh`](./scripts/setup-signing.sh) keeps it in place. You should never need a
+reminder.
+
+How it stays configured without anyone remembering: the `SessionStart` hook in
+[`.claude/settings.json`](./.claude/settings.json) runs `bash scripts/setup-signing.sh` at the start
+of every agent session. On a `claude/*` or `agent/*` branch it copies the agent identity
+(`user.name`, `user.email`, `user.signingkey`, `gpg.format`, `gpg.ssh.allowedSignersFile`,
+`commit.gpgsign=true`) from `~/.gitconfig.claude` into the **worktree** config (via
+`extensions.worktreeConfig`) — which sits above local `.git/config`, so it overrides the human
+identity + key only inside this agent worktree. It's idempotent; on any other branch (`main`,
+`feature/…`) it exits early and your normal identity applies. If you ever see an unsigned commit, the
+wrong author, or git complaining about `user.signingkey`, run `bash scripts/setup-signing.sh`
+directly — it's safe any time.
+
+This adopts StoryCut's model: the **author** becomes `Claude Code (<contributor>)` — same email as
+your normal commits (typically the GitHub noreply form), only the name differs — distinguishing agent
+commits from yours without needing a separate verified email. No identity or key material is baked
+into the script; it all comes from `~/.gitconfig.claude`. If that file is missing the script prints a
+hint and exits 0 (never blocking a session or CI), so the only consequence of skipping setup is
+normal-author, unsigned commits.
+
+**One-time machine setup** (per machine, for a new contributor — skip it if your agent commits
+already show the Claude author + Verified):
+
+1. Generate a passwordless ed25519 signing key:
+   ```sh
+   ssh-keygen -t ed25519 -f ~/.ssh/git_signing_claude -C "Claude Code (<your-name>)" -N ""
+   ```
+2. Create `~/.gitconfig.claude` with the agent identity — a distinct name, your **normal** commit
+   email, and the key (the script reads every value from here):
+   ```ini
+   [user]
+       name = Claude Code (<your-name>)
+       email = <your-normal-commit-email>
+       signingkey = ~/.ssh/git_signing_claude.pub
+   [gpg]
+       format = ssh
+   [gpg "ssh"]
+       allowedSignersFile = ~/.config/git/allowed_signers
+   [commit]
+       gpgsign = true
+   ```
+3. Trust the key locally so `git log --show-signature` verifies agent commits:
+   ```sh
+   mkdir -p ~/.config/git
+   echo "<your-normal-commit-email> namespaces=\"git\" $(cat ~/.ssh/git_signing_claude.pub)" \
+     >> ~/.config/git/allowed_signers
+   ```
+4. Register the public key on GitHub as a **Signing Key** (not an Authentication key — same form, a
+   different **Key type** dropdown) at <https://github.com/settings/keys>, using that same commit
+   email. This is what produces the Verified badge.
+5. Apply it to this worktree (also runs automatically every session — idempotent):
+   ```sh
+   bash scripts/setup-signing.sh
+   ```
+
+Verify with `git config --get user.name` (→ `Claude Code (<your-name>)`),
+`git config --get commit.gpgsign` (→ `true`), and `git config --get user.signingkey`
+(→ `~/.ssh/git_signing_claude.pub`); the next commit's PR should show the Claude author and
+**Verified**.
+
 ## Versioning & releasing (Changesets)
 
 Single package, standard semver. **Cut the changeset in the same PR as the change that earns it** —
@@ -460,10 +527,16 @@ CI / workflow edits, husky hooks, `AGENTS.md` / `CLAUDE.md` and other contributo
 tooling config, and devDep-only lockfile bumps. When you skip a changeset, add a one-line note to the
 PR (e.g. "no changeset: CI-only, nothing ships") so the omission reads as deliberate, not forgotten.
 
-Flow: `pnpm changeset` (in the same PR) → merge to `main` → the **Release** workflow opens a "Version
-Packages" PR → merging it publishes to npm via OIDC trusted publishing, with provenance. Never
-`npm publish` by hand; the workflow carries the audit trail and provenance. Skill:
-[`release-bump`](.claude/skills/release-bump).
+Flow: `pnpm changeset` (in the same PR) → merge to `main`. The **Release** workflow
+([release.yml](./.github/workflows/release.yml)) — running under a **GitHub App token**, not
+`GITHUB_TOKEN` — then opens a **"Version Packages"** PR that bumps the version and rolls up the
+changelog. That PR is hands-off: because it's App-authored it triggers CI like any other PR; its
+bump commit is recreated through the **Git Data API** so it lands **Verified** (a bot can't hold an
+SSH key, so it earns the same signed-`main` bar the [Commit signing](#commit-signing) section sets
+for agent commits, via a different mechanism); and it **auto-merges** once CI is green. That merge
+re-triggers the workflow, which now **publishes to npm via OIDC trusted publishing**, with
+provenance and no stored token. So a release needs nothing past the changeset — no manual version PR
+merge, no `npm publish` by hand. Skill: [`release-bump`](.claude/skills/release-bump).
 
 ## Dependency upgrades (Renovate)
 
