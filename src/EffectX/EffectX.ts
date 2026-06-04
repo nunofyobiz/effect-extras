@@ -1,3 +1,8 @@
+/**
+ * Generic, framework-agnostic extensions to Effect's `Effect` module.
+ *
+ * @since 0.0.0
+ */
 import { Cause, Duration, Effect, Option, Predicate, pipe } from "effect";
 import { dual } from "effect/Function";
 
@@ -8,6 +13,40 @@ import { dual } from "effect/Function";
  */
 const USER_INSTANT_DURATION = Duration.millis(200);
 
+/**
+ * Flattens an `Effect` that succeeds with an `Option` into an `Effect` that
+ * fails with `onNone()` when the `Option` is `None`.
+ *
+ * When the wrapped `Option` is `Some(value)` the effect succeeds with `value`;
+ * when it is `None` the effect fails with the error produced by the `onNone`
+ * thunk. An existing failure of the source effect is preserved untouched, so the
+ * result's error channel is the union of the original error and the `None`
+ * error.
+ *
+ * @example
+ * ```ts
+ * import { Effect, Option, Result } from "effect"
+ * import { EffectX } from "@nunofyobiz/effect-extras"
+ *
+ * const some = EffectX.flattenOption(
+ *   Effect.succeed(Option.some(1)),
+ *   () => "missing",
+ * )
+ * assert.deepStrictEqual(Effect.runSync(Effect.result(some)), Result.succeed(1))
+ *
+ * const none = EffectX.flattenOption(
+ *   Effect.succeed(Option.none<number>()),
+ *   () => "missing",
+ * )
+ * assert.deepStrictEqual(
+ *   Effect.runSync(Effect.result(none)),
+ *   Result.fail("missing"),
+ * )
+ * ```
+ *
+ * @category sequencing
+ * @since 0.0.0
+ */
 export const flattenOption = dual<
   <A, E1, E2, R>(
     onNone: () => E2,
@@ -30,26 +69,40 @@ export const flattenOption = dual<
 );
 
 /**
- * Converts an {@link Option} to an {@link Effect}, mapping the `None` case to
- * a domain-specific error via the `onNone` thunk.
+ * Converts an `Option` to an `Effect`, mapping the `None` case to a caller-chosen
+ * error via the `onNone` thunk.
  *
- * Bridges the gap in v4 where `Effect.mapError` no longer accepts `Option`
- * directly: instead of writing
+ * Equivalent to `Effect.mapError(Effect.fromOption(option), onNone)`: it bridges
+ * the `NoSuchElementError` that `Effect.fromOption` produces to the caller's own
+ * error type, so callers never have to handle `NoSuchElementError`. This fills
+ * the v4 gap where `Effect.mapError` no longer accepts an `Option` directly —
+ * instead of
+ * `pipe(option, Effect.fromOption, Effect.mapError(() => new MyError()))`, write
+ * `pipe(option, EffectX.fromOptionOrElse(() => new MyError()))`. The `onNone`
+ * thunk runs only when the `Option` is `None`.
  *
+ * @example
  * ```ts
- * pipe(option, Effect.fromOption, Effect.mapError(() => new MyError()))
+ * import { Effect, Option, Result, pipe } from "effect"
+ * import { EffectX } from "@nunofyobiz/effect-extras"
+ *
+ * // data-first
+ * const some = EffectX.fromOptionOrElse(Option.some(42), () => "missing")
+ * assert.deepStrictEqual(Effect.runSync(Effect.result(some)), Result.succeed(42))
+ *
+ * // data-last (piped) — None maps to the chosen error
+ * const none = pipe(
+ *   Option.none<number>(),
+ *   EffectX.fromOptionOrElse(() => "missing"),
+ * )
+ * assert.deepStrictEqual(
+ *   Effect.runSync(Effect.result(none)),
+ *   Result.fail("missing"),
+ * )
  * ```
  *
- * write
- *
- * ```ts
- * pipe(option, EffectX.fromOptionOrElse(() => new MyError()))
- * ```
- *
- * Equivalent to
- * `Effect.mapError(Effect.fromOption(option), onNone)` — bridges the
- * `NoSuchElementError` produced by `Effect.fromOption` to the caller's domain
- * error type so callers never see `NoSuchElementError`.
+ * @category conversions
+ * @since 0.0.0
  */
 export const fromOptionOrElse: {
   <E>(onNone: () => E): <A>(option: Option.Option<A>) => Effect.Effect<A, E>;
@@ -60,6 +113,38 @@ export const fromOptionOrElse: {
     pipe(Effect.fromOption(option), Effect.mapError(onNone)),
 );
 
+/**
+ * Repeatedly calls a synchronous `try` thunk until its result satisfies the
+ * `until` refinement, sleeping `sleepDuration` between attempts and failing with
+ * a `TimeoutError` once `maxDuration` elapses.
+ *
+ * The thunk is evaluated immediately; if its first result already passes the
+ * refinement the effect succeeds without any delay. Otherwise it polls on the
+ * `sleepDuration` interval (defaulting to 200ms — the threshold below which a
+ * delay reads as "instant" to a user) until either the predicate holds (the
+ * effect succeeds with the narrowed `B` value) or `maxDuration` is exceeded (the
+ * effect fails with a `Cause.TimeoutError`). Use it to await an external,
+ * non-effectful condition such as a flag flipped by a callback.
+ *
+ * @example
+ * ```ts
+ * import { Duration, Effect } from "effect"
+ * import { EffectX } from "@nunofyobiz/effect-extras"
+ *
+ * // First attempt already matches, so it resolves immediately.
+ * const effect = EffectX.tryUntil({
+ *   try: () => 1,
+ *   until: (value: number): value is number => value === 1,
+ *   sleepDuration: Duration.millis(100),
+ *   maxDuration: Duration.seconds(1),
+ * })
+ *
+ * assert.deepStrictEqual(Effect.runSync(effect), 1)
+ * ```
+ *
+ * @category sequencing
+ * @since 0.0.0
+ */
 export const tryUntil = <A, B extends A>({
   try: doTry,
   until: isDone,

@@ -1,5 +1,32 @@
+/**
+ * Generic, framework-agnostic extensions to Effect's `Schema` module.
+ *
+ * @since 0.0.0
+ */
 import { BigInt, Schema, SchemaGetter, Struct } from "effect";
 
+/**
+ * A `Schema` for a non-empty string that is trimmed on both decode and encode.
+ *
+ * Leading and trailing whitespace is stripped, and the resulting value must be
+ * non-empty — so a whitespace-only input (e.g. `"   "`) fails the
+ * `NonEmptyString` refinement after trimming. Use it wherever user-supplied text
+ * should be normalized and guaranteed to carry content.
+ *
+ * @example
+ * ```ts
+ * import { Effect, Schema } from "effect"
+ * import { SchemaX } from "@nunofyobiz/effect-extras"
+ *
+ * const decoded = Effect.runSync(
+ *   Schema.decodeEffect(SchemaX.TrimmedNonEmptyString)("  hello  "),
+ * )
+ * assert.deepStrictEqual(decoded, "hello")
+ * ```
+ *
+ * @category constructors
+ * @since 0.0.0
+ */
 export const TrimmedNonEmptyString = Schema.NonEmptyString.pipe(
   Schema.decode({
     decode: SchemaGetter.transform((s) => s.trim()),
@@ -7,6 +34,37 @@ export const TrimmedNonEmptyString = Schema.NonEmptyString.pipe(
   }),
 );
 
+/**
+ * A `Schema` for a URL-safe file path built on top of {@link
+ * TrimmedNonEmptyString}.
+ *
+ * On decode the path is `decodeURIComponent`-ed (percent-escapes are expanded);
+ * on encode it is `encodeURIComponent`-ed back into its URL-safe form. The
+ * underlying value is also trimmed and required to be non-empty. Use it at the
+ * boundary between stored/transmitted encoded paths and the decoded paths your
+ * code works with.
+ *
+ * @example
+ * ```ts
+ * import { Effect, Schema } from "effect"
+ * import { SchemaX } from "@nunofyobiz/effect-extras"
+ *
+ * // Decoding expands percent-escapes
+ * const decoded = Effect.runSync(
+ *   Schema.decodeEffect(SchemaX.URLSafeFilePath)("a%2Fb.txt"),
+ * )
+ * assert.deepStrictEqual(decoded, "a/b.txt")
+ *
+ * // Encoding produces the URL-safe form
+ * const encoded = Effect.runSync(
+ *   Schema.encodeEffect(SchemaX.URLSafeFilePath)("a/b.txt"),
+ * )
+ * assert.deepStrictEqual(encoded, "a%2Fb.txt")
+ * ```
+ *
+ * @category constructors
+ * @since 0.0.0
+ */
 export const URLSafeFilePath = TrimmedNonEmptyString.pipe(
   Schema.decode({
     decode: SchemaGetter.transform((path) => decodeURIComponent(path)),
@@ -25,16 +83,64 @@ const clampMinBigInt =
       }),
     );
 
+/**
+ * Transforms a `bigint` `Schema` so its value is clamped to be non-negative,
+ * mapping any value below `0n` up to `0n` on both decode and encode.
+ *
+ * Unlike a refinement that *rejects* negative input, this *coerces* it: a
+ * negative `bigint` decodes to `0n` rather than failing. Apply it to a `bigint`
+ * schema whenever negative magnitudes are meaningless and should be floored at
+ * zero rather than treated as errors.
+ *
+ * @example
+ * ```ts
+ * import { Effect, Schema } from "effect"
+ * import { SchemaX } from "@nunofyobiz/effect-extras"
+ *
+ * const NonNegative = SchemaX.nonNegativeBigInt(Schema.BigInt)
+ *
+ * // Negative values are clamped up to 0n
+ * assert.deepStrictEqual(
+ *   Effect.runSync(Schema.decodeEffect(NonNegative)(-5n)),
+ *   0n,
+ * )
+ *
+ * // Non-negative values pass through unchanged
+ * assert.deepStrictEqual(
+ *   Effect.runSync(Schema.decodeEffect(NonNegative)(7n)),
+ *   7n,
+ * )
+ * ```
+ *
+ * @category combinators
+ * @since 0.0.0
+ */
 export const nonNegativeBigInt = clampMinBigInt(0n);
 
 /**
- * Extracts the "constructor input" type of a Schema — what `.make({...})`
- * accepts. Differs from `S["Type"]` (the decoded type) in that fields with
- * constructor defaults (e.g. `Model.DateTimeInsertFromDate` via `Overrideable`)
- * are optional in MakeIn but required in Type.
+ * Extracts the "constructor input" type of a `Schema` — what `.make({...})`
+ * accepts.
  *
- * Use this in repository signatures so callers can write a plain object literal
- * without needing to provide override-branded `createdAt` / `updatedAt` values.
+ * Differs from `S["Type"]` (the decoded type) in that fields carrying
+ * constructor defaults (e.g. an `Overrideable` timestamp) are *optional* in
+ * `MakeIn` but *required* in `Type`. Use it in signatures that accept a value to
+ * construct, so callers can pass a plain object literal without supplying the
+ * defaulted, override-branded fields.
+ *
+ * @example
+ * ```ts
+ * import { Schema } from "effect"
+ * import { SchemaX } from "@nunofyobiz/effect-extras"
+ *
+ * const Person = Schema.Struct({ name: Schema.String, age: Schema.Number })
+ *
+ * const input: SchemaX.MakeIn<typeof Person> = { name: "Ada", age: 36 }
+ *
+ * assert.deepStrictEqual(input, { name: "Ada", age: 36 })
+ * ```
+ *
+ * @category models
+ * @since 0.0.0
  */
 export type MakeIn<S extends { readonly "~type.make.in": unknown }> =
   S["~type.make.in"];
@@ -46,9 +152,34 @@ export type MakeIn<S extends { readonly "~type.make.in": unknown }> =
 // ---------------------------------------------------------------------------
 
 /**
- * Pick a subset of fields from a {@link Schema.Struct}.
+ * Returns a new `Schema.Struct` containing only the named `keys` of `schema`.
  *
- * v3 equivalent: `mySchema.pick("a", "b")`.
+ * Restores the v3 ergonomics of `mySchema.pick("a", "b")` — v4 removed the
+ * `.pick(...)` method from `Schema.Struct` instances, so this rebuilds it on top
+ * of v4's `mapFields` primitive. Each picked field keeps its original schema,
+ * including any refinements.
+ *
+ * @example
+ * ```ts
+ * import { Effect, Schema } from "effect"
+ * import { SchemaX } from "@nunofyobiz/effect-extras"
+ *
+ * const Source = Schema.Struct({
+ *   a: Schema.Number,
+ *   b: Schema.String,
+ *   c: Schema.Boolean,
+ * })
+ *
+ * const Picked = SchemaX.pick(Source, "a", "b")
+ *
+ * const decoded = Effect.runSync(
+ *   Schema.decodeEffect(Picked)({ a: 1, b: "hi" }),
+ * )
+ * assert.deepStrictEqual(decoded, { a: 1, b: "hi" })
+ * ```
+ *
+ * @category combinators
+ * @since 0.0.0
  */
 export const pick = <
   const Fields extends Schema.Struct.Fields,
@@ -66,9 +197,33 @@ export const pick = <
   );
 
 /**
- * Omit a subset of fields from a {@link Schema.Struct}.
+ * Returns a new `Schema.Struct` with the named `keys` of `schema` removed.
  *
- * v3 equivalent: `mySchema.omit("a")`.
+ * The complement of {@link pick}, restoring the v3 ergonomics of
+ * `mySchema.omit("a")` that v4 dropped from `Schema.Struct` instances. Every
+ * surviving field keeps its original schema, including any refinements.
+ *
+ * @example
+ * ```ts
+ * import { Effect, Schema } from "effect"
+ * import { SchemaX } from "@nunofyobiz/effect-extras"
+ *
+ * const Source = Schema.Struct({
+ *   a: Schema.Number,
+ *   b: Schema.String,
+ *   c: Schema.Boolean,
+ * })
+ *
+ * const Omitted = SchemaX.omit(Source, "c")
+ *
+ * const decoded = Effect.runSync(
+ *   Schema.decodeEffect(Omitted)({ a: 1, b: "hi" }),
+ * )
+ * assert.deepStrictEqual(decoded, { a: 1, b: "hi" })
+ * ```
+ *
+ * @category combinators
+ * @since 0.0.0
  */
 export const omit = <
   const Fields extends Schema.Struct.Fields,
@@ -86,9 +241,34 @@ export const omit = <
   );
 
 /**
- * Make every field of a {@link Schema.Struct} optional.
+ * Returns a new `Schema.Struct` in which every field of `schema` is made
+ * optional.
  *
- * v3 equivalent: `Schema.partial(mySchema)`.
+ * Restores the v3 `Schema.partial(mySchema)` behaviour that v4 removed, by
+ * wrapping each field in `Schema.optional`. A decoded value may therefore omit
+ * any field; fields that *are* present still have to satisfy their original
+ * schema, refinements included.
+ *
+ * @example
+ * ```ts
+ * import { Effect, Schema } from "effect"
+ * import { SchemaX } from "@nunofyobiz/effect-extras"
+ *
+ * const Source = Schema.Struct({ a: Schema.Number, b: Schema.String })
+ * const Partial = SchemaX.partial(Source)
+ *
+ * // All fields may be absent
+ * assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(Partial)({})), {})
+ *
+ * // A present subset still decodes
+ * assert.deepStrictEqual(
+ *   Effect.runSync(Schema.decodeEffect(Partial)({ a: 1 })),
+ *   { a: 1 },
+ * )
+ * ```
+ *
+ * @category combinators
+ * @since 0.0.0
  */
 export const partial = <Fields extends Schema.Struct.Fields>(
   schema: Schema.Struct<Fields>,
@@ -102,27 +282,37 @@ export const partial = <Fields extends Schema.Struct.Fields>(
   });
 
 /**
- * Pick a subset of fields from a {@link Schema.Struct} and make those fields
- * optional. Equivalent to `partial(pick(schema, ...keys))` but reads more
- * directly for the common "partial-update on a subset of fields" pattern used
- * by every action that updates an existing entity.
+ * Returns a new `Schema.Struct` containing only the named `keys` of `schema`,
+ * with every picked field made optional.
  *
- * Replaces the 2-step chain:
- * ```ts
- * recordingClip: RecordingClip.RecordingClip.update
- *   .mapFields(Struct.pick(["startOffsetMillis", "endOffsetMillis", "rating"]))
- *   .mapFields(Struct.map(Schema.optional))
- * ```
+ * Equivalent to `partial(pick(schema, ...keys))`, but reads more directly for
+ * the common "partial update over a subset of fields" pattern: select the
+ * mutable fields of an entity, then allow any of them to be omitted in the
+ * update payload. Composes {@link pick} and {@link partial} in one call.
  *
- * With:
+ * @example
  * ```ts
- * recordingClip: SchemaX.pickPartial(
- *   RecordingClip.RecordingClip.update,
- *   "startOffsetMillis",
- *   "endOffsetMillis",
- *   "rating",
+ * import { Effect, Schema } from "effect"
+ * import { SchemaX } from "@nunofyobiz/effect-extras"
+ *
+ * const Source = Schema.Struct({
+ *   a: Schema.Number,
+ *   b: Schema.String,
+ *   c: Schema.Boolean,
+ * })
+ *
+ * const Update = SchemaX.pickPartial(Source, "a", "b")
+ *
+ * // Only picked fields are known, and each may be omitted
+ * assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(Update)({})), {})
+ * assert.deepStrictEqual(
+ *   Effect.runSync(Schema.decodeEffect(Update)({ a: 1 })),
+ *   { a: 1 },
  * )
  * ```
+ *
+ * @category combinators
+ * @since 0.0.0
  */
 export const pickPartial = <
   const Fields extends Schema.Struct.Fields,

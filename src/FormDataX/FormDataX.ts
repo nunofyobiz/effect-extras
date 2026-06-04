@@ -1,18 +1,43 @@
+/**
+ * Helpers for decoding `FormData` with Effect `Schema`.
+ *
+ * @since 0.0.0
+ */
 import { Function, Schema } from "effect";
 
 /**
- * Decode a FormData into a typed value using a schema.
+ * Decodes a `FormData` into a typed value using a `Schema`, throwing on
+ * validation failure.
  *
- * Built on v4's native `Schema.fromFormData` which:
- * 1. Parses FormData entries into a nested tree record (bracket-path notation supported)
- * 2. Decodes the tree using the provided inner schema
+ * Built on v4's native `Schema.fromFormData`, which first parses the `FormData`
+ * entries into a nested tree record (bracket-path notation is supported) and then
+ * decodes that tree with the provided inner schema. For schemas with non-string
+ * fields (for example `Schema.Int`), wrap the inner schema in
+ * `Schema.toCodecStringTree(schema, { keepDeclarations: true })` so the
+ * string → number/boolean coercion happens. Usable only with schemas that have
+ * no decoding services — this is enforced at the type level via
+ * `S["DecodingServices"] = never` — and it throws synchronously when the input
+ * fails validation.
  *
- * For schemas with non-string fields (e.g. `Schema.Int`), wrap the inner schema
- * in `Schema.toCodecStringTree(schema, { keepDeclarations: true })` so string
- * → number/boolean coercion happens.
+ * @example
+ * ```ts
+ * import { Schema } from "effect"
+ * import { FormDataX } from "@nunofyobiz/effect-extras"
  *
- * Throws on validation failure. Use only when the schema has no decoding
- * services (constrained at the type level via `S["DecodingServices"] = never`).
+ * const formData = new FormData()
+ * formData.append("name", "John")
+ * formData.append("age", "30")
+ *
+ * const result = FormDataX.decodeSync(
+ *   formData,
+ *   Schema.Struct({ name: Schema.String, age: Schema.NumberFromString }),
+ * )
+ *
+ * assert.deepStrictEqual(result, { name: "John", age: 30 })
+ * ```
+ *
+ * @category conversions
+ * @since 0.0.0
  */
 export const decodeSync: {
   <S extends Schema.Top & { readonly DecodingServices: never }>(
