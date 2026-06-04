@@ -14,7 +14,7 @@ import {
 } from "effect";
 import { dual, identity } from "effect/Function";
 import { RecordX } from "../RecordX";
-import { These } from "../These";
+import { WarnResult } from "../WarnResult";
 import { ResultX } from "../ResultX";
 
 /**
@@ -48,50 +48,52 @@ export const slice = dual<
 );
 
 /**
- * Zips two arrays into one, calling `f` with a `These` for each index so that
- * length mismatches are handled explicitly rather than truncated.
+ * Zips two arrays into one, calling `f` with a `WarnResult` for each index so
+ * that length mismatches are handled explicitly rather than truncated.
  *
  * Unlike `Array.zipWith` (which stops at the shorter array), this walks to the
- * length of the *longer* array. At each index `f` receives a `These.These<A, B>`:
- * `LeftAndRight` when both arrays have an element, `LeftOnly` when only the
- * first does, and `RightOnly` when only the second does. Use it when the
- * "extra" tail of either array still carries meaning.
+ * length of the *longer* array. The first array's element fills the `warnings`
+ * side and the second array's element fills the `success` side, so at each index
+ * `f` receives a `WarnResult.WarnResult<A, B>`: `SuccessWithWarnings` when both
+ * arrays have an element, `WarningsOnly` when only the first does, and
+ * `SuccessOnly` when only the second does. Use it when the "extra" tail of either
+ * array still carries meaning.
  *
  * @example
  * ```ts
- * import { ArrayX, These } from "@nunofyobiz/effect-extras"
+ * import { ArrayX, WarnResult } from "@nunofyobiz/effect-extras"
  *
- * const describe = These.match({
- *   LeftOnly: ({ left }) => `left ${left}`,
- *   RightOnly: ({ right }) => `right ${right}`,
- *   LeftAndRight: ({ left, right }) => `both ${left}/${right}`,
+ * const describe = WarnResult.match({
+ *   WarningsOnly: ({ warnings }) => `warnings ${warnings}`,
+ *   SuccessOnly: ({ success }) => `success ${success}`,
+ *   SuccessWithWarnings: ({ warnings, success }) => `both ${warnings}/${success}`,
  * })
  *
- * assert.deepStrictEqual(ArrayX.zipWithThese([1, 2, 3], [10, 20], describe), [
+ * assert.deepStrictEqual(ArrayX.zipWithWarnings([1, 2, 3], [10, 20], describe), [
  *   "both 1/10",
  *   "both 2/20",
- *   "left 3",
+ *   "warnings 3",
  * ])
  * ```
  *
  * @category combinators
  * @since 0.0.0
  */
-export const zipWithThese = dual<
+export const zipWithWarnings = dual<
   <A, B, C>(
-    f: (ab: These.These<A, B>) => C,
+    f: (ab: WarnResult.WarnResult<A, B>) => C,
   ) => (array1: readonly A[], array2: readonly B[]) => C[],
   <A, B, C>(
     array1: readonly A[],
     array2: readonly B[],
-    f: (ab: These.These<A, B>) => C,
+    f: (ab: WarnResult.WarnResult<A, B>) => C,
   ) => C[]
 >(
   3,
   <A, B, C>(
     array1: readonly A[],
     array2: readonly B[],
-    f: (ab: These.These<A, B>) => C,
+    f: (ab: WarnResult.WarnResult<A, B>) => C,
   ): C[] => {
     const newLength = Math.max(array1.length, array2.length);
 
@@ -102,25 +104,25 @@ export const zipWithThese = dual<
     return Array.makeBy(newLength, (index) => {
       if (index < array1.length && index < array2.length) {
         return f(
-          These.LeftAndRight({
-            left: array1[index],
-            right: array2[index],
+          WarnResult.SuccessWithWarnings({
+            warnings: array1[index],
+            success: array2[index],
           }),
         );
       }
 
       if (index < array1.length) {
         return f(
-          These.LeftOnly({
-            left: array1[index],
+          WarnResult.WarningsOnly({
+            warnings: array1[index],
           }),
         );
       }
 
       if (index < array2.length) {
         return f(
-          These.RightOnly({
-            right: array2[index],
+          WarnResult.SuccessOnly({
+            success: array2[index],
           }),
         );
       }

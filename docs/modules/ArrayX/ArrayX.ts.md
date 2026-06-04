@@ -16,7 +16,7 @@ Added in v0.0.0
 
 - [combinators](#combinators)
   - [insertUniq](#insertuniq)
-  - [zipWithThese](#zipwiththese)
+  - [zipWithWarnings](#zipwithwarnings)
 - [filtering](#filtering)
   - [compactNullable](#compactnullable)
   - [filterHead](#filterhead)
@@ -85,38 +85,40 @@ assert.deepStrictEqual(ArrayX.insertUniq(["a", "b"], { item: "new", insertToBeLe
 
 Added in v0.0.0
 
-## zipWithThese
+## zipWithWarnings
 
-Zips two arrays into one, calling `f` with a `These` for each index so that
-length mismatches are handled explicitly rather than truncated.
+Zips two arrays into one, calling `f` with a `WarnResult` for each index so
+that length mismatches are handled explicitly rather than truncated.
 
 Unlike `Array.zipWith` (which stops at the shorter array), this walks to the
-length of the _longer_ array. At each index `f` receives a `These.These<A, B>`:
-`LeftAndRight` when both arrays have an element, `LeftOnly` when only the
-first does, and `RightOnly` when only the second does. Use it when the
-"extra" tail of either array still carries meaning.
+length of the _longer_ array. The first array's element fills the `warnings`
+side and the second array's element fills the `success` side, so at each index
+`f` receives a `WarnResult.WarnResult<A, B>`: `SuccessWithWarnings` when both
+arrays have an element, `WarningsOnly` when only the first does, and
+`SuccessOnly` when only the second does. Use it when the "extra" tail of either
+array still carries meaning.
 
 **Signature**
 
 ```ts
-export declare const zipWithThese: (<A, B, C>(
-  f: (ab: These.These<A, B>) => C
+export declare const zipWithWarnings: (<A, B, C>(
+  f: (ab: WarnResult.WarnResult<A, B>) => C
 ) => (array1: readonly A[], array2: readonly B[]) => C[]) &
-  (<A, B, C>(array1: readonly A[], array2: readonly B[], f: (ab: These.These<A, B>) => C) => C[])
+  (<A, B, C>(array1: readonly A[], array2: readonly B[], f: (ab: WarnResult.WarnResult<A, B>) => C) => C[])
 ```
 
 **Example**
 
 ```ts
-import { ArrayX, These } from "@nunofyobiz/effect-extras"
+import { ArrayX, WarnResult } from "@nunofyobiz/effect-extras"
 
-const describe = These.match({
-  LeftOnly: ({ left }) => `left ${left}`,
-  RightOnly: ({ right }) => `right ${right}`,
-  LeftAndRight: ({ left, right }) => `both ${left}/${right}`
+const describe = WarnResult.match({
+  WarningsOnly: ({ warnings }) => `warnings ${warnings}`,
+  SuccessOnly: ({ success }) => `success ${success}`,
+  SuccessWithWarnings: ({ warnings, success }) => `both ${warnings}/${success}`
 })
 
-assert.deepStrictEqual(ArrayX.zipWithThese([1, 2, 3], [10, 20], describe), ["both 1/10", "both 2/20", "left 3"])
+assert.deepStrictEqual(ArrayX.zipWithWarnings([1, 2, 3], [10, 20], describe), ["both 1/10", "both 2/20", "warnings 3"])
 ```
 
 Added in v0.0.0

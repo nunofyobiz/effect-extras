@@ -352,7 +352,7 @@ which are the point of the repo.)
 Before writing a new helper, check whether one of the existing modules already covers it: `ArrayX`,
 `BigIntX`, `BooleanX`, `DurationX`, `EffectX`, `FormDataX`, `MapX`, `NonNullableX` (+ `nn`),
 `NumberX`, `OptionX`, `OrderX`, `PredicateX`, `PromiseX`, `RecordX`, `ResultX`, `SchemaX`, `SetX`,
-`StringX`, `StructX`, `These`. The [README Modules table](./README.md#modules) summarizes what each
+`StringX`, `StructX`, `WarnResult`. The [README Modules table](./README.md#modules) summarizes what each
 covers.
 
 ### Designing a good utility

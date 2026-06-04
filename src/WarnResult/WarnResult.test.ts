@@ -1,15 +1,15 @@
 import { describe, test } from "vitest";
 
-describe("These", () => {
-  describe("LeftOnly", () => {
+describe("WarnResult", () => {
+  describe("WarningsOnly", () => {
     test.todo("this function");
   });
 
-  describe("RightOnly", () => {
+  describe("SuccessOnly", () => {
     test.todo("this function");
   });
 
-  describe("LeftAndRight", () => {
+  describe("SuccessWithWarnings", () => {
     test.todo("this function");
   });
 
@@ -21,11 +21,11 @@ describe("These", () => {
     test.todo("this function");
   });
 
-  describe("WithLeft", () => {
+  describe("WithWarnings", () => {
     test.todo("this function");
   });
 
-  describe("WithRight", () => {
+  describe("WithSuccess", () => {
     test.todo("this function");
   });
 
@@ -37,11 +37,11 @@ describe("These", () => {
     test.todo("this function");
   });
 
-  describe("matchLeft", () => {
+  describe("matchWarnings", () => {
     test.todo("this function");
   });
 
-  describe("matchRight", () => {
+  describe("matchSuccess", () => {
     test.todo("this function");
   });
 
@@ -53,27 +53,27 @@ describe("These", () => {
     test.todo("this function");
   });
 
-  describe("leftOrElse", () => {
+  describe("warningsOrElse", () => {
     test.todo("this function");
   });
 
-  describe("leftOrUndefined", () => {
+  describe("warningsOrUndefined", () => {
     test.todo("this function");
   });
 
-  describe("rightOrElse", () => {
+  describe("successOrElse", () => {
     test.todo("this function");
   });
 
-  describe("rightOrUndefined", () => {
+  describe("successOrUndefined", () => {
     test.todo("this function");
   });
 
-  describe("rightOption", () => {
+  describe("successOption", () => {
     test.todo("this function");
   });
 
-  describe("leftOption", () => {
+  describe("warningsOption", () => {
     test.todo("this function");
   });
 
@@ -85,35 +85,35 @@ describe("These", () => {
     test.todo("this function");
   });
 
-  describe("mapLeft", () => {
+  describe("mapWarnings", () => {
     test.todo("this function");
   });
 
-  describe("flatMapLeft", () => {
+  describe("flatMapWarnings", () => {
     test.todo("this function");
   });
 
-  describe("mapLeftEffect", () => {
+  describe("mapWarningsEffect", () => {
     test.todo("this function");
   });
 
-  describe("flatMapLeftEffect", () => {
+  describe("flatMapWarningsEffect", () => {
     test.todo("this function");
   });
 
-  describe("mapRight", () => {
+  describe("mapSuccess", () => {
     test.todo("this function");
   });
 
-  describe("flatMapRight", () => {
+  describe("flatMapSuccess", () => {
     test.todo("this function");
   });
 
-  describe("mapRightEffect", () => {
+  describe("mapSuccessEffect", () => {
     test.todo("this function");
   });
 
-  describe("flatMapRightEffect", () => {
+  describe("flatMapSuccessEffect", () => {
     test.todo("this function");
   });
 });

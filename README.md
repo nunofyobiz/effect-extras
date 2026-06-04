@@ -1,5 +1,9 @@
 # @nunofyobiz/effect-extras
 
+[![npm version](https://img.shields.io/npm/v/@nunofyobiz/effect-extras)](https://www.npmjs.com/package/@nunofyobiz/effect-extras)
+[![CI](https://github.com/nunofyobiz/effect-extras/actions/workflows/ci.yml/badge.svg)](https://github.com/nunofyobiz/effect-extras/actions/workflows/ci.yml)
+[![License](https://img.shields.io/npm/l/@nunofyobiz/effect-extras)](./LICENSE)
+
 Generic, framework-agnostic extensions of the [Effect](https://effect.website)
 standard library. These are the `*X` utility modules — `ArrayX`, `OptionX`,
 `RecordX`, `StructX`, and friends — that extend Effect's own modules with small,
@@ -12,7 +16,13 @@ whole point, and the bar every addition has to clear (see
 [What belongs here](#what-belongs-here)).
 
 ```ts
-import { ArrayX, OptionX, RecordX, StructX, nn } from "@nunofyobiz/effect-extras";
+import {
+  ArrayX,
+  OptionX,
+  RecordX,
+  StructX,
+  nn,
+} from "@nunofyobiz/effect-extras";
 ```
 
 ## Install
@@ -87,7 +97,7 @@ Each module is exported as a namespace from the package root:
 
 | Module         | Extends / purpose                                                          |
 | -------------- | -------------------------------------------------------------------------- |
-| `ArrayX`       | Array helpers (grouping, ordered insertion, `These`-zip)                   |
+| `ArrayX`       | Array helpers (grouping, ordered insertion, `WarnResult`-zip)              |
 | `BigIntX`      | BigInt helpers (`toNumberOrThrow`)                                         |
 | `BooleanX`     | Boolean helpers                                                            |
 | `DurationX`    | Duration / DateTime diff helpers                                           |
@@ -104,9 +114,9 @@ Each module is exported as a namespace from the package root:
 | `ResultX`      | `Result` bridges (`fromOption`)                                            |
 | `SchemaX`      | Effect Schema extensions (`pick`/`omit`/`partial`, branded strings)        |
 | `SetX`         | Native `Set` helpers                                                       |
-| `StringX`      | String helpers                                                            |
+| `StringX`      | String helpers                                                             |
 | `StructX`      | Conditional object-field construction (`defined`, `filterDefined`, `some`) |
-| `These`        | `These` data type (both / this / that)                                     |
+| `WarnResult`   | Inclusive-or result: a success value, warnings, or both                    |
 
 ## Development
 
