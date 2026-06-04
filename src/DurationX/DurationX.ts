@@ -1,3 +1,8 @@
+/**
+ * Generic, framework-agnostic extensions to Effect's `Duration` module.
+ *
+ * @since 0.0.0
+ */
 import { DateTime, Duration, Match, Option } from "effect";
 import { dual, pipe } from "effect/Function";
 import { BigIntX } from "../BigIntX";
@@ -5,6 +10,37 @@ import { BigIntX } from "../BigIntX";
 // Some private constants for conversion
 const MICROS_PER_MILLI = 1000;
 
+/**
+ * Computes the elapsed `Duration` from `that` to `self`, clamped at zero.
+ *
+ * Represents the time that has passed since the reference instant `that`. When
+ * `that` lies in the future relative to `self`, the elapsed time is `zero`
+ * rather than a negative duration.
+ *
+ * @example
+ * ```ts
+ * import { DateTime, Duration, pipe } from "effect"
+ * import { DurationX } from "@nunofyobiz/effect-extras"
+ *
+ * const earlier = DateTime.makeUnsafe(1000)
+ * const later = DateTime.makeUnsafe(4000)
+ *
+ * // data-first
+ * assert.deepStrictEqual(DurationX.diff(later, earlier), Duration.seconds(3))
+ *
+ * // future reference clamps to zero
+ * assert.deepStrictEqual(DurationX.diff(earlier, later), Duration.zero)
+ *
+ * // data-last (piped)
+ * assert.deepStrictEqual(
+ *   pipe(later, DurationX.diff(earlier)),
+ *   Duration.seconds(3),
+ * )
+ * ```
+ *
+ * @category combinators
+ * @since 0.0.0
+ */
 export const diff = dual<
   // Data-last typing
   (that: DateTime.DateTime) => (self: DateTime.DateTime) => Duration.Duration,
@@ -75,6 +111,39 @@ const fromUnit = dual<
     ),
 );
 
+/**
+ * Transforms a `Duration` by converting it to a numeric `unit`, applying `map`,
+ * then converting back.
+ *
+ * Lets you operate on a duration in whatever unit is convenient — round it to
+ * whole minutes, halve its seconds, floor its days — without juggling
+ * conversions by hand. The `map` callback receives the duration expressed as a
+ * `number` of `unit`s and returns the new count.
+ *
+ * @example
+ * ```ts
+ * import { Duration, Number, pipe } from "effect"
+ * import { DurationX } from "@nunofyobiz/effect-extras"
+ *
+ * // data-first: halve a 4-second duration
+ * assert.deepStrictEqual(
+ *   DurationX.mapAsUnit(Duration.seconds(4), "second", Number.divideUnsafe(2)),
+ *   Duration.seconds(2),
+ * )
+ *
+ * // data-last (piped)
+ * assert.deepStrictEqual(
+ *   pipe(
+ *     Duration.minutes(10),
+ *     DurationX.mapAsUnit("minute", (minutes) => minutes + 5),
+ *   ),
+ *   Duration.minutes(15),
+ * )
+ * ```
+ *
+ * @category combinators
+ * @since 0.0.0
+ */
 export const mapAsUnit = dual<
   // Data-last typing
   (

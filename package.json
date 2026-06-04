@@ -35,8 +35,9 @@
   "scripts": {
     "build": "tsup",
     "changeset": "changeset",
-    "check-all": "pnpm tc && pnpm lint && pnpm test && pnpm build && pnpm knip",
+    "check-all": "pnpm tc && pnpm lint && pnpm test && pnpm build && pnpm knip && pnpm docgen",
     "clean": "rm -rf dist *.tsbuildinfo",
+    "docgen": "docgen",
     "format": "prettier --write \"**/*.{md,mdx,yml,yaml,json5,css}\"",
     "knip": "knip",
     "lint": "eslint .",
@@ -62,6 +63,7 @@
     "@changesets/cli": "2.29.7",
     "@commitlint/config-conventional": "20.5.3",
     "@commitlint/types": "20.5.0",
+    "@effect/docgen": "0.5.2",
     "@effect/language-service": "0.86.2",
     "@effect/vitest": "4.0.0-beta.74",
     "@eslint-community/eslint-plugin-eslint-comments": "4.7.2",
@@ -85,6 +87,7 @@
     "lint-staged": "17.0.7",
     "prettier": "3.8.3",
     "tsup": "8.5.0",
+    "tsx": "4.22.4",
     "typescript": "6.0.3",
     "typescript-eslint": "8.60.0",
     "vitest": "4.1.7"

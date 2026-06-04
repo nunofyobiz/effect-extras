@@ -108,6 +108,23 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
+  # Type-checks every `@example` block in the JSDoc and regenerates the API docs,
+  # then fails if the committed `docs/` are stale — keeping the hosted GitHub Pages
+  # site in sync with the source on every change.
+  docgen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm docgen
+      - name: Verify generated docs are up to date
+        run: git diff --exit-code docs/
+
   # `pnpm publish --dry-run` against the built package. Catches `files` / `exports`
   # misconfigurations that would otherwise only surface during a real release.
   publish-dry-run:
