@@ -1,1 +1,12 @@
+set -e
+
+# Regenerate API docs when source changes so committed docs/ never drift.
+# docgen is a whole-project run (type-checks every @example via tsx), so only
+# pay the cost when non-test source is staged. CI re-checks drift as a backstop.
+if git diff --cached --name-only --diff-filter=ACMR \
+  | grep -E '^src/.*\.ts$' | grep -qv '\.test\.ts$'; then
+  pnpm docgen
+  git add docs/
+fi
+
 pnpm exec lint-staged

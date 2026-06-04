@@ -54,10 +54,16 @@ Before claiming a task done, run **`pnpm check-all`**. It runs, in order:
 3. `pnpm test` — Vitest (`@effect/vitest`)
 4. `pnpm build` — `tsup` (ESM + bundled `.d.ts`)
 5. `pnpm knip` — unused files / exports / deps
+6. `pnpm docgen` — `@effect/docgen`: type-checks every JSDoc `@example` (via `tsx`) and regenerates
+   the API docs under `docs/` from the source
 
 While iterating, run the individual checks (faster). CI mirrors these as one job per check, plus:
 `commitlint` on PR commits, a `renovate-config-validator --strict` job, and a `publish --dry-run`
-that catches `files` / `exports` misconfigurations before a real release.
+that catches `files` / `exports` misconfigurations before a real release. The `docgen` CI job runs
+read-only (`contents: read`): it regenerates the docs and then fails on `git diff --exit-code docs/`
+if the committed `docs/` drifted — it never writes back or opens PRs. Keeping `docs/` current is the
+author's job locally (the pre-commit hook automates it; see below), so the committed docs that
+GitHub Pages serves always match the source.
 
 ## What belongs here
 
@@ -418,8 +424,12 @@ tests are the spec.** Tests use `@effect/vitest`.
 **Pre-commit hooks (husky + lint-staged).** `pnpm install` runs the `prepare` script (`husky`),
 which wires up two git hooks:
 
-- **pre-commit** runs `lint-staged` — ESLint `--fix` (with the Prettier integration) on staged
-  JS/TS, and `prettier --write` on staged Markdown / YAML / JSON5 / CSS.
+- **pre-commit** first regenerates the API docs when non-test `src/**/*.ts` is staged — it runs
+  `pnpm docgen` and `git add docs/` so every source change commits up-to-date `docs/` (and a broken
+  `@example` blocks the commit, the same gate CI enforces). Then it runs `lint-staged` — ESLint
+  `--fix` (with the Prettier integration) on staged JS/TS, and `prettier --write` on staged
+  Markdown / YAML / JSON5 / CSS. The `src` guard keeps docs-free commits fast (docgen is a
+  whole-project, ~6–7s run).
 - **commit-msg** runs `commitlint` against [commitlint.config.ts](./commitlint.config.ts) to enforce
   Conventional Commits.
 
