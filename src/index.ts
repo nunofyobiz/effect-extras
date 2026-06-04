@@ -17,4 +17,4 @@ export { SchemaX } from "./SchemaX";
 export { SetX } from "./SetX";
 export { StringX } from "./StringX";
 export { StructX } from "./StructX";
-export { These } from "./These";
+export { WarnResult } from "./WarnResult";

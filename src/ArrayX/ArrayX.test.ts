@@ -9,7 +9,7 @@ import {
   pipe,
 } from "effect";
 import { describe, expect, test } from "vitest";
-import { These } from "../These";
+import { WarnResult } from "../WarnResult";
 import {
   categorize,
   chunkBy,
@@ -24,7 +24,7 @@ import {
   slice,
   takeFirstWhere,
   takeLastWhere,
-  zipWithThese,
+  zipWithWarnings,
 } from "./ArrayX";
 
 describe("Array utils", () => {
@@ -61,106 +61,106 @@ describe("Array utils", () => {
     });
   });
 
-  describe("zipWithThese", () => {
+  describe("zipWithWarnings", () => {
     test("same length", () => {
       expect(
-        zipWithThese(
+        zipWithWarnings(
           [1, 2, 3],
           [4, 5, 6],
-          These.match({
-            LeftOnly: ({ left }) => `Left ${left}`,
-            RightOnly: ({ right }) => `Right ${right}`,
-            LeftAndRight: ({ left, right }) =>
-              `Left ${left} and Right ${right}`,
+          WarnResult.match({
+            WarningsOnly: ({ warnings }) => `Warnings ${warnings}`,
+            SuccessOnly: ({ success }) => `Success ${success}`,
+            SuccessWithWarnings: ({ warnings, success }) =>
+              `Warnings ${warnings} and Success ${success}`,
           }),
         ),
       ).toStrictEqual([
-        "Left 1 and Right 4",
-        "Left 2 and Right 5",
-        "Left 3 and Right 6",
+        "Warnings 1 and Success 4",
+        "Warnings 2 and Success 5",
+        "Warnings 3 and Success 6",
       ]);
     });
 
     test("longer first array", () => {
       expect(
-        zipWithThese(
+        zipWithWarnings(
           [1, 2, 3, 4],
           [4, 5, 6],
-          These.match({
-            LeftOnly: ({ left }) => `Left ${left}`,
-            RightOnly: ({ right }) => `Right ${right}`,
-            LeftAndRight: ({ left, right }) =>
-              `Left ${left} and Right ${right}`,
+          WarnResult.match({
+            WarningsOnly: ({ warnings }) => `Warnings ${warnings}`,
+            SuccessOnly: ({ success }) => `Success ${success}`,
+            SuccessWithWarnings: ({ warnings, success }) =>
+              `Warnings ${warnings} and Success ${success}`,
           }),
         ),
       ).toStrictEqual([
-        "Left 1 and Right 4",
-        "Left 2 and Right 5",
-        "Left 3 and Right 6",
-        "Left 4",
+        "Warnings 1 and Success 4",
+        "Warnings 2 and Success 5",
+        "Warnings 3 and Success 6",
+        "Warnings 4",
       ]);
     });
 
     test("longer second array", () => {
       expect(
-        zipWithThese(
+        zipWithWarnings(
           [1, 2, 3],
           [4, 5, 6, 7],
-          These.match({
-            LeftOnly: ({ left }) => `Left ${left}`,
-            RightOnly: ({ right }) => `Right ${right}`,
-            LeftAndRight: ({ left, right }) =>
-              `Left ${left} and Right ${right}`,
+          WarnResult.match({
+            WarningsOnly: ({ warnings }) => `Warnings ${warnings}`,
+            SuccessOnly: ({ success }) => `Success ${success}`,
+            SuccessWithWarnings: ({ warnings, success }) =>
+              `Warnings ${warnings} and Success ${success}`,
           }),
         ),
       ).toStrictEqual([
-        "Left 1 and Right 4",
-        "Left 2 and Right 5",
-        "Left 3 and Right 6",
-        "Right 7",
+        "Warnings 1 and Success 4",
+        "Warnings 2 and Success 5",
+        "Warnings 3 and Success 6",
+        "Success 7",
       ]);
     });
 
     test("empty first array", () => {
       expect(
-        zipWithThese(
+        zipWithWarnings(
           Array.empty<number>(),
           [4, 5, 6],
-          These.match({
-            LeftOnly: ({ left }) => `Left ${left}`,
-            RightOnly: ({ right }) => `Right ${right}`,
-            LeftAndRight: ({ left, right }) =>
-              `Left ${left} and Right ${right}`,
+          WarnResult.match({
+            WarningsOnly: ({ warnings }) => `Warnings ${warnings}`,
+            SuccessOnly: ({ success }) => `Success ${success}`,
+            SuccessWithWarnings: ({ warnings, success }) =>
+              `Warnings ${warnings} and Success ${success}`,
           }),
         ),
-      ).toStrictEqual(["Right 4", "Right 5", "Right 6"]);
+      ).toStrictEqual(["Success 4", "Success 5", "Success 6"]);
     });
 
     test("empty second array", () => {
       expect(
-        zipWithThese(
+        zipWithWarnings(
           [1, 2, 3],
           Array.empty<number>(),
-          These.match({
-            LeftOnly: ({ left }) => `Left ${left}`,
-            RightOnly: ({ right }) => `Right ${right}`,
-            LeftAndRight: ({ left, right }) =>
-              `Left ${left} and Right ${right}`,
+          WarnResult.match({
+            WarningsOnly: ({ warnings }) => `Warnings ${warnings}`,
+            SuccessOnly: ({ success }) => `Success ${success}`,
+            SuccessWithWarnings: ({ warnings, success }) =>
+              `Warnings ${warnings} and Success ${success}`,
           }),
         ),
-      ).toStrictEqual(["Left 1", "Left 2", "Left 3"]);
+      ).toStrictEqual(["Warnings 1", "Warnings 2", "Warnings 3"]);
     });
 
     test("empty both arrays", () => {
       expect(
-        zipWithThese(
+        zipWithWarnings(
           Array.empty<number>(),
           Array.empty<number>(),
-          These.match({
-            LeftOnly: ({ left }) => `Left ${left}`,
-            RightOnly: ({ right }) => `Right ${right}`,
-            LeftAndRight: ({ left, right }) =>
-              `Left ${left} and Right ${right}`,
+          WarnResult.match({
+            WarningsOnly: ({ warnings }) => `Warnings ${warnings}`,
+            SuccessOnly: ({ success }) => `Success ${success}`,
+            SuccessWithWarnings: ({ warnings, success }) =>
+              `Warnings ${warnings} and Success ${success}`,
           }),
         ),
       ).toStrictEqual([]);
