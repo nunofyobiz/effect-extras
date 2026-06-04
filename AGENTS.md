@@ -440,17 +440,28 @@ don't bypass with `--no-verify`. CI re-runs commitlint on PRs as a backstop.
 
 ## Versioning & releasing (Changesets)
 
-Single package, standard semver. Pick the bump per this table — cite the rule when running
-`pnpm changeset`:
+Single package, standard semver. **Cut the changeset in the same PR as the change that earns it** —
+not in a follow-up. The reviewer should see the bump and changelog entry next to the diff, and `main`
+should never carry an unreleased consumer-visible change with no pending changeset. Pick the bump per
+this table — cite the rule when running `pnpm changeset`:
 
-| Change                                                                                   | Bump      |
-| ---------------------------------------------------------------------------------------- | --------- |
-| Breaking change to a public export, or a widened/raised `effect` peer range              | **major** |
-| New public helper, new `*X` module, or other backward-compatible capability              | **minor** |
-| Bug fix, docs, internal refactor, or a dep bump with no consumer-visible behavior change | **patch** |
+| Change                                                                                           | Bump      |
+| ------------------------------------------------------------------------------------------------ | --------- |
+| Breaking change to a public export, or a widened/raised `effect` peer range                      | **major** |
+| New public helper, new `*X` module, or other backward-compatible capability                      | **minor** |
+| Bug fix, shipped docs, internal refactor, or a dep bump with no consumer-visible behavior change | **patch** |
 
-When in doubt, pick the higher one. Flow: `pnpm changeset` → merge to `main` → the **Release**
-workflow opens a "Version Packages" PR → merging it publishes to npm with provenance. Never
+When in doubt, pick the higher one.
+
+**When a changeset doesn't make sense, say so in the PR.** A changeset _is_ a release, so only a
+change that reaches a consumer of the published package warrants one — and the published surface is
+the tarball (`files` = `dist` + `src`, plus the README npm ships). Repo-only changes don't qualify:
+CI / workflow edits, husky hooks, `AGENTS.md` / `CLAUDE.md` and other contributor docs, editor /
+tooling config, and devDep-only lockfile bumps. When you skip a changeset, add a one-line note to the
+PR (e.g. "no changeset: CI-only, nothing ships") so the omission reads as deliberate, not forgotten.
+
+Flow: `pnpm changeset` (in the same PR) → merge to `main` → the **Release** workflow opens a "Version
+Packages" PR → merging it publishes to npm via OIDC trusted publishing, with provenance. Never
 `npm publish` by hand; the workflow carries the audit trail and provenance. Skill:
 [`release-bump`](.claude/skills/release-bump).
 
