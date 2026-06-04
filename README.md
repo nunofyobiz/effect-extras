@@ -1,5 +1,9 @@
 # @nunofyobiz/effect-extras
 
+[![npm version](https://img.shields.io/npm/v/@nunofyobiz/effect-extras)](https://www.npmjs.com/package/@nunofyobiz/effect-extras)
+[![CI](https://github.com/nunofyobiz/effect-extras/actions/workflows/ci.yml/badge.svg)](https://github.com/nunofyobiz/effect-extras/actions/workflows/ci.yml)
+[![License](https://img.shields.io/npm/l/@nunofyobiz/effect-extras)](./LICENSE)
+
 Generic, framework-agnostic extensions of the [Effect](https://effect.website)
 standard library. These are the `*X` utility modules — `ArrayX`, `OptionX`,
 `RecordX`, `StructX`, and friends — that extend Effect's own modules with small,
