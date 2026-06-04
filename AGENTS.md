@@ -527,10 +527,16 @@ CI / workflow edits, husky hooks, `AGENTS.md` / `CLAUDE.md` and other contributo
 tooling config, and devDep-only lockfile bumps. When you skip a changeset, add a one-line note to the
 PR (e.g. "no changeset: CI-only, nothing ships") so the omission reads as deliberate, not forgotten.
 
-Flow: `pnpm changeset` (in the same PR) → merge to `main` → the **Release** workflow opens a "Version
-Packages" PR → merging it publishes to npm via OIDC trusted publishing, with provenance. Never
-`npm publish` by hand; the workflow carries the audit trail and provenance. Skill:
-[`release-bump`](.claude/skills/release-bump).
+Flow: `pnpm changeset` (in the same PR) → merge to `main`. The **Release** workflow
+([release.yml](./.github/workflows/release.yml)) — running under a **GitHub App token**, not
+`GITHUB_TOKEN` — then opens a **"Version Packages"** PR that bumps the version and rolls up the
+changelog. That PR is hands-off: because it's App-authored it triggers CI like any other PR; its
+bump commit is recreated through the **Git Data API** so it lands **Verified** (a bot can't hold an
+SSH key, so it earns the same signed-`main` bar the [Commit signing](#commit-signing) section sets
+for agent commits, via a different mechanism); and it **auto-merges** once CI is green. That merge
+re-triggers the workflow, which now **publishes to npm via OIDC trusted publishing**, with
+provenance and no stored token. So a release needs nothing past the changeset — no manual version PR
+merge, no `npm publish` by hand. Skill: [`release-bump`](.claude/skills/release-bump).
 
 ## Dependency upgrades (Renovate)
 
