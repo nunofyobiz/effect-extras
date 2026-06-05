@@ -2,7 +2,10 @@
 
 [![npm version](https://img.shields.io/npm/v/@nunofyobiz/effect-extras)](https://www.npmjs.com/package/@nunofyobiz/effect-extras)
 [![CI](https://github.com/nunofyobiz/effect-extras/actions/workflows/ci.yml/badge.svg)](https://github.com/nunofyobiz/effect-extras/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-API%20reference-blue)](https://nunofyobiz.github.io/effect-extras/)
 [![License](https://img.shields.io/npm/l/@nunofyobiz/effect-extras)](./LICENSE)
+
+📖 **[API reference & docs →](https://nunofyobiz.github.io/effect-extras/)**
 
 Generic, framework-agnostic extensions of the [Effect](https://effect.website)
 standard library. These are the `*X` utility modules — `ArrayX`, `OptionX`,
