@@ -14,7 +14,6 @@ import {
 } from "effect";
 import { dual, identity } from "effect/Function";
 import * as RecordX from "./RecordX.js";
-import * as WarnResult from "./WarnResult.js";
 import * as ResultX from "./ResultX.js";
 
 /**
@@ -45,96 +44,6 @@ export const slice = dual<
   <A>(array: readonly A[], start: number, end: number) => A[]
 >(3, <A>(array: readonly A[], start: number, end: number): A[] =>
   array.slice(start, end),
-);
-
-/**
- * Zips two arrays into one, calling `f` with a `WarnResult` for each index so
- * that length mismatches are handled explicitly rather than truncated.
- *
- * Unlike `Array.zipWith` (which stops at the shorter array), this walks to the
- * length of the *longer* array. The first array's element fills the `warnings`
- * side and the second array's element fills the `success` side, so at each index
- * `f` receives a `WarnResult.WarnResult<A, B>`: `SuccessWithWarnings` when both
- * arrays have an element, `WarningsOnly` when only the first does, and
- * `SuccessOnly` when only the second does. Use it when the "extra" tail of either
- * array still carries meaning.
- *
- * @example
- * ```ts
- * import { ArrayX, WarnResult } from "@nunofyobiz/effect-extras"
- *
- * const describe = WarnResult.match({
- *   WarningsOnly: ({ warnings }) => `warnings ${warnings}`,
- *   SuccessOnly: ({ success }) => `success ${success}`,
- *   SuccessWithWarnings: ({ warnings, success }) => `both ${warnings}/${success}`,
- * })
- *
- * assert.deepStrictEqual(ArrayX.zipWithWarnings([1, 2, 3], [10, 20], describe), [
- *   "both 1/10",
- *   "both 2/20",
- *   "warnings 3",
- * ])
- * ```
- *
- * @category combinators
- * @since 0.0.0
- */
-export const zipWithWarnings = dual<
-  <A, B, C>(
-    f: (ab: WarnResult.WarnResult<A, B>) => C,
-  ) => (array1: readonly A[], array2: readonly B[]) => C[],
-  <A, B, C>(
-    array1: readonly A[],
-    array2: readonly B[],
-    f: (ab: WarnResult.WarnResult<A, B>) => C,
-  ) => C[]
->(
-  3,
-  <A, B, C>(
-    array1: readonly A[],
-    array2: readonly B[],
-    f: (ab: WarnResult.WarnResult<A, B>) => C,
-  ): C[] => {
-    const newLength = Math.max(array1.length, array2.length);
-
-    if (newLength === 0) {
-      return [];
-    }
-
-    return Array.makeBy(newLength, (index) => {
-      if (index < array1.length && index < array2.length) {
-        return f(
-          WarnResult.SuccessWithWarnings({
-            warnings: array1[index],
-            success: array2[index],
-          }),
-        );
-      }
-
-      if (index < array1.length) {
-        return f(
-          WarnResult.WarningsOnly({
-            warnings: array1[index],
-          }),
-        );
-      }
-
-      // `index` ranges over `[0, max(len1, len2))`, so once the two checks
-      // above have failed `index < array2.length` is always true — its false
-      // branch (and the defensive throw below) is unreachable.
-      /* v8 ignore next */
-      if (index < array2.length) {
-        return f(
-          WarnResult.SuccessOnly({
-            success: array2[index],
-          }),
-        );
-      }
-
-      /* v8 ignore next */
-      throw new Error(`Index ${index} is out of bounds for array1 and array2`);
-    });
-  },
 );
 
 /**

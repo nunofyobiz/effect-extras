@@ -1272,3 +1272,41 @@ export const flatMapSuccessEffect =
       ),
       Effect.map((io) => fromInclusiveOr(io)),
     );
+
+/**
+ * Zips two arrays into one, calling `f` with a `WarnResult` for each index so
+ * that length mismatches are handled explicitly rather than truncated.
+ *
+ * Unlike `Array.zipWith` (which stops at the shorter array), this walks to the
+ * length of the *longer* array. The first array's element fills the `warnings`
+ * side and the second array's element fills the `success` side, so at each index
+ * `f` receives a `WarnResult.WarnResult<A, B>`: `SuccessWithWarnings` when both
+ * arrays have an element, `WarningsOnly` when only the first does, and
+ * `SuccessOnly` when only the second does. Use it when the "extra" tail of either
+ * array still carries meaning.
+ *
+ * @example
+ * ```ts
+ * import { WarnResult } from "@nunofyobiz/effect-extras"
+ *
+ * const describe = WarnResult.match({
+ *   WarningsOnly: ({ warnings }) => `warnings ${warnings}`,
+ *   SuccessOnly: ({ success }) => `success ${success}`,
+ *   SuccessWithWarnings: ({ warnings, success }) => `both ${warnings}/${success}`
+ * })
+ *
+ * assert.deepStrictEqual(WarnResult.zip([1, 2, 3], [10, 20], describe), [
+ *   "both 1/10",
+ *   "both 2/20",
+ *   "warnings 3"
+ * ])
+ * ```
+ *
+ * @category combinators
+ * @since 0.0.0
+ */
+export const zip = <A, B, C>(
+  array1: readonly A[],
+  array2: readonly B[],
+  f: (warnResult: WarnResult<A, B>) => C,
+): C[] => InclusiveOr.zip(array1, array2, (io) => f(fromInclusiveOr(io)));

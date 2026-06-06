@@ -129,7 +129,7 @@ matching subpath (`@nunofyobiz/effect-extras/ArrayX`); see
 
 | Module         | Extends / purpose                                                          |
 | -------------- | -------------------------------------------------------------------------- |
-| `ArrayX`       | Array helpers (grouping, ordered insertion, `WarnResult`-zip)              |
+| `ArrayX`       | Array helpers (grouping, ordered insertion)                                |
 | `BigIntX`      | BigInt helpers (`toNumberOrThrow`)                                         |
 | `BooleanX`     | Boolean helpers                                                            |
 | `DurationX`    | Duration / DateTime diff helpers                                           |

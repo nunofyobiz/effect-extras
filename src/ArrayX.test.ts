@@ -1,5 +1,4 @@
 import {
-  Array,
   Equal,
   Equivalence,
   Match,
@@ -9,7 +8,6 @@ import {
   pipe,
 } from "effect";
 import { describe, expect, test } from "vitest";
-import * as WarnResult from "./WarnResult.js";
 import {
   categorize,
   chunkBy,
@@ -24,7 +22,6 @@ import {
   slice,
   takeFirstWhere,
   takeLastWhere,
-  zipWithWarnings,
 } from "./ArrayX.js";
 
 describe("Array utils", () => {
@@ -58,112 +55,6 @@ describe("Array utils", () => {
 
     test("data-last form composes with pipe", () => {
       expect(pipe([1, 2, 3, 4, 5], slice(1, 4))).toStrictEqual([2, 3, 4]);
-    });
-  });
-
-  describe("zipWithWarnings", () => {
-    test("same length", () => {
-      expect(
-        zipWithWarnings(
-          [1, 2, 3],
-          [4, 5, 6],
-          WarnResult.match({
-            WarningsOnly: ({ warnings }) => `Warnings ${warnings}`,
-            SuccessOnly: ({ success }) => `Success ${success}`,
-            SuccessWithWarnings: ({ warnings, success }) =>
-              `Warnings ${warnings} and Success ${success}`,
-          }),
-        ),
-      ).toStrictEqual([
-        "Warnings 1 and Success 4",
-        "Warnings 2 and Success 5",
-        "Warnings 3 and Success 6",
-      ]);
-    });
-
-    test("longer first array", () => {
-      expect(
-        zipWithWarnings(
-          [1, 2, 3, 4],
-          [4, 5, 6],
-          WarnResult.match({
-            WarningsOnly: ({ warnings }) => `Warnings ${warnings}`,
-            SuccessOnly: ({ success }) => `Success ${success}`,
-            SuccessWithWarnings: ({ warnings, success }) =>
-              `Warnings ${warnings} and Success ${success}`,
-          }),
-        ),
-      ).toStrictEqual([
-        "Warnings 1 and Success 4",
-        "Warnings 2 and Success 5",
-        "Warnings 3 and Success 6",
-        "Warnings 4",
-      ]);
-    });
-
-    test("longer second array", () => {
-      expect(
-        zipWithWarnings(
-          [1, 2, 3],
-          [4, 5, 6, 7],
-          WarnResult.match({
-            WarningsOnly: ({ warnings }) => `Warnings ${warnings}`,
-            SuccessOnly: ({ success }) => `Success ${success}`,
-            SuccessWithWarnings: ({ warnings, success }) =>
-              `Warnings ${warnings} and Success ${success}`,
-          }),
-        ),
-      ).toStrictEqual([
-        "Warnings 1 and Success 4",
-        "Warnings 2 and Success 5",
-        "Warnings 3 and Success 6",
-        "Success 7",
-      ]);
-    });
-
-    test("empty first array", () => {
-      expect(
-        zipWithWarnings(
-          Array.empty<number>(),
-          [4, 5, 6],
-          WarnResult.match({
-            WarningsOnly: ({ warnings }) => `Warnings ${warnings}`,
-            SuccessOnly: ({ success }) => `Success ${success}`,
-            SuccessWithWarnings: ({ warnings, success }) =>
-              `Warnings ${warnings} and Success ${success}`,
-          }),
-        ),
-      ).toStrictEqual(["Success 4", "Success 5", "Success 6"]);
-    });
-
-    test("empty second array", () => {
-      expect(
-        zipWithWarnings(
-          [1, 2, 3],
-          Array.empty<number>(),
-          WarnResult.match({
-            WarningsOnly: ({ warnings }) => `Warnings ${warnings}`,
-            SuccessOnly: ({ success }) => `Success ${success}`,
-            SuccessWithWarnings: ({ warnings, success }) =>
-              `Warnings ${warnings} and Success ${success}`,
-          }),
-        ),
-      ).toStrictEqual(["Warnings 1", "Warnings 2", "Warnings 3"]);
-    });
-
-    test("empty both arrays", () => {
-      expect(
-        zipWithWarnings(
-          Array.empty<number>(),
-          Array.empty<number>(),
-          WarnResult.match({
-            WarningsOnly: ({ warnings }) => `Warnings ${warnings}`,
-            SuccessOnly: ({ success }) => `Success ${success}`,
-            SuccessWithWarnings: ({ warnings, success }) =>
-              `Warnings ${warnings} and Success ${success}`,
-          }),
-        ),
-      ).toStrictEqual([]);
     });
   });
 

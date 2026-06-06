@@ -15,6 +15,8 @@ Added in v0.0.0
 
 <h2 class="text-delta">Table of contents</h2>
 
+- [combinators](#combinators)
+  - [zip](#zip)
 - [constructors](#constructors)
   - [SuccessOnly](#successonly)
   - [SuccessWithWarnings](#successwithwarnings)
@@ -59,6 +61,47 @@ Added in v0.0.0
   - [mapWarningsEffect](#mapwarningseffect)
 
 ---
+
+# combinators
+
+## zip
+
+Zips two arrays into one, calling `f` with a `WarnResult` for each index so
+that length mismatches are handled explicitly rather than truncated.
+
+Unlike `Array.zipWith` (which stops at the shorter array), this walks to the
+length of the _longer_ array. The first array's element fills the `warnings`
+side and the second array's element fills the `success` side, so at each index
+`f` receives a `WarnResult.WarnResult<A, B>`: `SuccessWithWarnings` when both
+arrays have an element, `WarningsOnly` when only the first does, and
+`SuccessOnly` when only the second does. Use it when the "extra" tail of either
+array still carries meaning.
+
+**Signature**
+
+```ts
+export declare const zip: <A, B, C>(
+  array1: readonly A[],
+  array2: readonly B[],
+  f: (warnResult: WarnResult<A, B>) => C
+) => C[]
+```
+
+**Example**
+
+```ts
+import { WarnResult } from "@nunofyobiz/effect-extras"
+
+const describe = WarnResult.match({
+  WarningsOnly: ({ warnings }) => `warnings ${warnings}`,
+  SuccessOnly: ({ success }) => `success ${success}`,
+  SuccessWithWarnings: ({ warnings, success }) => `both ${warnings}/${success}`
+})
+
+assert.deepStrictEqual(WarnResult.zip([1, 2, 3], [10, 20], describe), ["both 1/10", "both 2/20", "warnings 3"])
+```
+
+Added in v0.0.0
 
 # constructors
 

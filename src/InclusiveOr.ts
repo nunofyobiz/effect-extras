@@ -3,7 +3,7 @@
  *
  * @since 0.0.0
  */
-import { Data, Effect, Option, Predicate, Struct, pipe } from "effect";
+import { Array, Data, Effect, Option, Predicate, Struct, pipe } from "effect";
 import { constUndefined, identity } from "effect/Function";
 
 /**
@@ -1171,3 +1171,63 @@ export const flatMapRightEffect = <L2, R1, R2, ER, RR>(
     RightOnly: ({ right }) => mapRight(right),
     LeftAndRight: ({ right }) => mapRight(right),
   });
+
+/**
+ * Zips two arrays into one, calling `f` with an `InclusiveOr` for each index so
+ * that length mismatches are handled explicitly rather than truncated.
+ *
+ * Unlike `Array.zipWith` (which stops at the shorter array), this walks to the
+ * length of the *longer* array. The first array's element fills the `left` side
+ * and the second array's element fills the `right` side, so at each index `f`
+ * receives an `InclusiveOr<A, B>`: `LeftAndRight` when both arrays have an
+ * element, `LeftOnly` when only the first does, and `RightOnly` when only the
+ * second does. Use it when the "extra" tail of either array still carries
+ * meaning.
+ *
+ * @example
+ * ```ts
+ * import { InclusiveOr } from "@nunofyobiz/effect-extras"
+ *
+ * const describe = InclusiveOr.match({
+ *   LeftOnly: ({ left }) => `left ${left}`,
+ *   RightOnly: ({ right }) => `right ${right}`,
+ *   LeftAndRight: ({ left, right }) => `both ${left}/${right}`
+ * })
+ *
+ * assert.deepStrictEqual(InclusiveOr.zip([1, 2, 3], [10, 20], describe), [
+ *   "both 1/10",
+ *   "both 2/20",
+ *   "left 3"
+ * ])
+ * ```
+ *
+ * @category combinators
+ * @since 0.0.0
+ */
+export const zip = <A, B, C>(
+  array1: readonly A[],
+  array2: readonly B[],
+  f: (inclusiveOr: InclusiveOr<A, B>) => C,
+): C[] => {
+  const newLength = Math.max(array1.length, array2.length);
+
+  if (newLength === 0) {
+    return [];
+  }
+
+  return Array.makeBy(newLength, (index) => {
+    if (index < array1.length && index < array2.length) {
+      return f(LeftAndRight({ left: array1[index], right: array2[index] }));
+    }
+
+    if (index < array1.length) {
+      return f(LeftOnly({ left: array1[index] }));
+    }
+
+    if (index < array2.length) {
+      return f(RightOnly({ right: array2[index] }));
+    }
+
+    throw new Error(`Index ${index} is out of bounds for array1 and array2`);
+  });
+};

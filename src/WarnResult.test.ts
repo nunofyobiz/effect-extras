@@ -1,4 +1,4 @@
-import { Effect, Option, Result } from "effect";
+import { Array, Effect, Option, Result } from "effect";
 import { describe, expect, test, vi } from "vitest";
 import { it } from "@effect/vitest";
 import {
@@ -31,6 +31,7 @@ import {
   warningsOption,
   warningsOrElse,
   warningsOrUndefined,
+  zip,
 } from "./WarnResult.js";
 import type { WarnResult } from "./WarnResult.js";
 
@@ -816,5 +817,61 @@ describe("WarnResult", () => {
         expect(result).toStrictEqual(Result.fail("boom"));
       }),
     );
+  });
+
+  describe("zip", () => {
+    const describeWarnResult = (
+      warnResult: WarnResult<number, number>,
+    ): string =>
+      match(warnResult, {
+        WarningsOnly: ({ warnings }) => `Warnings ${warnings}`,
+        SuccessOnly: ({ success }) => `Success ${success}`,
+        SuccessWithWarnings: ({ warnings, success }) =>
+          `Warnings ${warnings} and Success ${success}`,
+      });
+
+    test("same length", () => {
+      expect(zip([1, 2, 3], [4, 5, 6], describeWarnResult)).toStrictEqual([
+        "Warnings 1 and Success 4",
+        "Warnings 2 and Success 5",
+        "Warnings 3 and Success 6",
+      ]);
+    });
+
+    test("longer first array", () => {
+      expect(zip([1, 2, 3, 4], [4, 5, 6], describeWarnResult)).toStrictEqual([
+        "Warnings 1 and Success 4",
+        "Warnings 2 and Success 5",
+        "Warnings 3 and Success 6",
+        "Warnings 4",
+      ]);
+    });
+
+    test("longer second array", () => {
+      expect(zip([1, 2, 3], [4, 5, 6, 7], describeWarnResult)).toStrictEqual([
+        "Warnings 1 and Success 4",
+        "Warnings 2 and Success 5",
+        "Warnings 3 and Success 6",
+        "Success 7",
+      ]);
+    });
+
+    test("empty first array", () => {
+      expect(
+        zip(Array.empty<number>(), [4, 5, 6], describeWarnResult),
+      ).toStrictEqual(["Success 4", "Success 5", "Success 6"]);
+    });
+
+    test("empty second array", () => {
+      expect(
+        zip([1, 2, 3], Array.empty<number>(), describeWarnResult),
+      ).toStrictEqual(["Warnings 1", "Warnings 2", "Warnings 3"]);
+    });
+
+    test("empty both arrays", () => {
+      expect(
+        zip(Array.empty<number>(), Array.empty<number>(), describeWarnResult),
+      ).toStrictEqual([]);
+    });
   });
 });

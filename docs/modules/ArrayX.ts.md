@@ -16,7 +16,6 @@ Added in v0.0.0
 
 - [combinators](#combinators)
   - [insertUniq](#insertuniq)
-  - [zipWithWarnings](#zipwithwarnings)
 - [filtering](#filtering)
   - [compactNullable](#compactnullable)
   - [filterHead](#filterhead)
@@ -81,44 +80,6 @@ assert.deepStrictEqual(ArrayX.insertUniq(["a", "b", "c", "d"], { item: "a", inse
 
 // Insert a brand-new item; unknown destination falls through to the end
 assert.deepStrictEqual(ArrayX.insertUniq(["a", "b"], { item: "new", insertToBeLeftOf: null }), ["a", "b", "new"])
-```
-
-Added in v0.0.0
-
-## zipWithWarnings
-
-Zips two arrays into one, calling `f` with a `WarnResult` for each index so
-that length mismatches are handled explicitly rather than truncated.
-
-Unlike `Array.zipWith` (which stops at the shorter array), this walks to the
-length of the _longer_ array. The first array's element fills the `warnings`
-side and the second array's element fills the `success` side, so at each index
-`f` receives a `WarnResult.WarnResult<A, B>`: `SuccessWithWarnings` when both
-arrays have an element, `WarningsOnly` when only the first does, and
-`SuccessOnly` when only the second does. Use it when the "extra" tail of either
-array still carries meaning.
-
-**Signature**
-
-```ts
-export declare const zipWithWarnings: (<A, B, C>(
-  f: (ab: WarnResult.WarnResult<A, B>) => C
-) => (array1: readonly A[], array2: readonly B[]) => C[]) &
-  (<A, B, C>(array1: readonly A[], array2: readonly B[], f: (ab: WarnResult.WarnResult<A, B>) => C) => C[])
-```
-
-**Example**
-
-```ts
-import { ArrayX, WarnResult } from "@nunofyobiz/effect-extras"
-
-const describe = WarnResult.match({
-  WarningsOnly: ({ warnings }) => `warnings ${warnings}`,
-  SuccessOnly: ({ success }) => `success ${success}`,
-  SuccessWithWarnings: ({ warnings, success }) => `both ${warnings}/${success}`
-})
-
-assert.deepStrictEqual(ArrayX.zipWithWarnings([1, 2, 3], [10, 20], describe), ["both 1/10", "both 2/20", "warnings 3"])
 ```
 
 Added in v0.0.0

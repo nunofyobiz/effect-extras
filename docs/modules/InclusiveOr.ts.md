@@ -14,6 +14,8 @@ Added in v0.0.0
 
 <h2 class="text-delta">Table of contents</h2>
 
+- [combinators](#combinators)
+  - [zip](#zip)
 - [constructors](#constructors)
   - [LeftAndRight](#leftandright)
   - [LeftOnly](#leftonly)
@@ -58,6 +60,47 @@ Added in v0.0.0
   - [mapRightEffect](#maprighteffect)
 
 ---
+
+# combinators
+
+## zip
+
+Zips two arrays into one, calling `f` with an `InclusiveOr` for each index so
+that length mismatches are handled explicitly rather than truncated.
+
+Unlike `Array.zipWith` (which stops at the shorter array), this walks to the
+length of the _longer_ array. The first array's element fills the `left` side
+and the second array's element fills the `right` side, so at each index `f`
+receives an `InclusiveOr<A, B>`: `LeftAndRight` when both arrays have an
+element, `LeftOnly` when only the first does, and `RightOnly` when only the
+second does. Use it when the "extra" tail of either array still carries
+meaning.
+
+**Signature**
+
+```ts
+export declare const zip: <A, B, C>(
+  array1: readonly A[],
+  array2: readonly B[],
+  f: (inclusiveOr: InclusiveOr<A, B>) => C
+) => C[]
+```
+
+**Example**
+
+```ts
+import { InclusiveOr } from "@nunofyobiz/effect-extras"
+
+const describe = InclusiveOr.match({
+  LeftOnly: ({ left }) => `left ${left}`,
+  RightOnly: ({ right }) => `right ${right}`,
+  LeftAndRight: ({ left, right }) => `both ${left}/${right}`
+})
+
+assert.deepStrictEqual(InclusiveOr.zip([1, 2, 3], [10, 20], describe), ["both 1/10", "both 2/20", "left 3"])
+```
+
+Added in v0.0.0
 
 # constructors
 

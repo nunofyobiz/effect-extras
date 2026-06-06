@@ -1,4 +1,6 @@
-import { describe, test } from "vitest";
+import { Array } from "effect";
+import { describe, expect, test } from "vitest";
+import * as InclusiveOr from "./InclusiveOr.js";
 
 describe("InclusiveOr", () => {
   describe("LeftOnly", () => {
@@ -115,5 +117,70 @@ describe("InclusiveOr", () => {
 
   describe("flatMapRightEffect", () => {
     test.todo("this function");
+  });
+
+  describe("zip", () => {
+    const describeInclusiveOr = (
+      inclusiveOr: InclusiveOr.InclusiveOr<number, number>,
+    ): string =>
+      InclusiveOr.match(inclusiveOr, {
+        LeftOnly: ({ left }) => `Left ${left}`,
+        RightOnly: ({ right }) => `Right ${right}`,
+        LeftAndRight: ({ left, right }) => `Left ${left} and Right ${right}`,
+      });
+
+    test("same length", () => {
+      expect(
+        InclusiveOr.zip([1, 2, 3], [4, 5, 6], describeInclusiveOr),
+      ).toStrictEqual([
+        "Left 1 and Right 4",
+        "Left 2 and Right 5",
+        "Left 3 and Right 6",
+      ]);
+    });
+
+    test("longer first array", () => {
+      expect(
+        InclusiveOr.zip([1, 2, 3, 4], [4, 5, 6], describeInclusiveOr),
+      ).toStrictEqual([
+        "Left 1 and Right 4",
+        "Left 2 and Right 5",
+        "Left 3 and Right 6",
+        "Left 4",
+      ]);
+    });
+
+    test("longer second array", () => {
+      expect(
+        InclusiveOr.zip([1, 2, 3], [4, 5, 6, 7], describeInclusiveOr),
+      ).toStrictEqual([
+        "Left 1 and Right 4",
+        "Left 2 and Right 5",
+        "Left 3 and Right 6",
+        "Right 7",
+      ]);
+    });
+
+    test("empty first array", () => {
+      expect(
+        InclusiveOr.zip(Array.empty<number>(), [4, 5, 6], describeInclusiveOr),
+      ).toStrictEqual(["Right 4", "Right 5", "Right 6"]);
+    });
+
+    test("empty second array", () => {
+      expect(
+        InclusiveOr.zip([1, 2, 3], Array.empty<number>(), describeInclusiveOr),
+      ).toStrictEqual(["Left 1", "Left 2", "Left 3"]);
+    });
+
+    test("empty both arrays", () => {
+      expect(
+        InclusiveOr.zip(
+          Array.empty<number>(),
+          Array.empty<number>(),
+          describeInclusiveOr,
+        ),
+      ).toStrictEqual([]);
+    });
   });
 });
