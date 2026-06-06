@@ -3,6 +3,7 @@
  *
  * @since 0.0.0
  */
+import { Array } from "effect";
 import { dual } from "effect/Function";
 
 /**
@@ -95,3 +96,115 @@ export const ensurePrepend = dual<
 
   return `${start}${string_}`;
 });
+
+/**
+ * Replaces the inclusive line range `[startLine, endLine]` of `content` with
+ * `replacement` lines, returning the rejoined string.
+ *
+ * `content` is split on `\n`; the zero-based lines `startLine` through `endLine`
+ * (both inclusive) are dropped and `replacement` is spliced into their place.
+ * Pass an empty `replacement` to delete the range. Indices clamp naturally via
+ * `Array.take`/`Array.drop`, so out-of-range values don't throw.
+ *
+ * @example
+ * ```ts
+ * import { pipe } from "effect"
+ * import { StringX } from "@nunofyobiz/effect-extras"
+ *
+ * // data-first — replace lines 1..2 with a single line
+ * assert.deepStrictEqual(
+ *   StringX.replaceLineRange("a\nb\nc\nd", 1, 2, ["X"]),
+ *   "a\nX\nd",
+ * )
+ *
+ * // an empty replacement deletes the range
+ * assert.deepStrictEqual(StringX.replaceLineRange("a\nb\nc\nd", 1, 2, []), "a\nd")
+ *
+ * // data-last (piped)
+ * assert.deepStrictEqual(
+ *   pipe("a\nb\nc", StringX.replaceLineRange(1, 1, ["X", "Y"])),
+ *   "a\nX\nY\nc",
+ * )
+ * ```
+ *
+ * @category combinators
+ * @since 0.0.0
+ */
+export const replaceLineRange = dual<
+  (
+    startLine: number,
+    endLine: number,
+    replacement: readonly string[],
+  ) => (content: string) => string,
+  (
+    content: string,
+    startLine: number,
+    endLine: number,
+    replacement: readonly string[],
+  ) => string
+>(
+  4,
+  (
+    content: string,
+    startLine: number,
+    endLine: number,
+    replacement: readonly string[],
+  ): string => {
+    const lines = content.split("\n");
+    return Array.join(
+      [
+        ...Array.take(lines, startLine),
+        ...replacement,
+        ...Array.drop(lines, endLine + 1),
+      ],
+      "\n",
+    );
+  },
+);
+
+/**
+ * Inserts `lines` immediately before the line at `anchorIndex`, preserving the
+ * anchor line and everything after it; returns the rejoined string.
+ *
+ * `content` is split on `\n` and `lines` are spliced in just before the
+ * zero-based `anchorIndex`. An `anchorIndex` of `0` prepends, and one at or past
+ * the end appends.
+ *
+ * @example
+ * ```ts
+ * import { pipe } from "effect"
+ * import { StringX } from "@nunofyobiz/effect-extras"
+ *
+ * // data-first — insert before line 1, keeping the anchor and the rest
+ * assert.deepStrictEqual(StringX.insertBeforeLine("a\nb\nc", 1, ["X"]), "a\nX\nb\nc")
+ *
+ * // an anchor at the end appends
+ * assert.deepStrictEqual(StringX.insertBeforeLine("a\nb", 2, ["X"]), "a\nb\nX")
+ *
+ * // data-last (piped)
+ * assert.deepStrictEqual(pipe("a\nb", StringX.insertBeforeLine(0, ["X"])), "X\na\nb")
+ * ```
+ *
+ * @category combinators
+ * @since 0.0.0
+ */
+export const insertBeforeLine = dual<
+  (
+    anchorIndex: number,
+    lines: readonly string[],
+  ) => (content: string) => string,
+  (content: string, anchorIndex: number, lines: readonly string[]) => string
+>(
+  3,
+  (content: string, anchorIndex: number, lines: readonly string[]): string => {
+    const split = content.split("\n");
+    return Array.join(
+      [
+        ...Array.take(split, anchorIndex),
+        ...lines,
+        ...Array.drop(split, anchorIndex),
+      ],
+      "\n",
+    );
+  },
+);

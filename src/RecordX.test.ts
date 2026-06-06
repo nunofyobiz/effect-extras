@@ -1,7 +1,11 @@
 import { Option, Order, pipe } from "effect";
 import { describe, expect, test } from "vitest";
 import {
+  canonicalize,
   collectBy,
+  deepMerge,
+  deepMergeReducer,
+  deleteByPath,
   getOrThrow,
   getOrThrowWith,
   isNonEmptyRecord,
@@ -313,6 +317,125 @@ describe("Record utils", () => {
       // Identical value and reference — purely a type-level reinterpretation.
       expect(branded).toStrictEqual({ u1: 10, u2: 20 });
       expect(branded).toBe(byId);
+    });
+  });
+
+  describe("deepMerge", () => {
+    test("merges plain objects recursively", () => {
+      expect(
+        deepMerge({ a: { x: 1 }, b: 2 }, { a: { y: 3 }, c: 4 }),
+      ).toStrictEqual({ a: { x: 1, y: 3 }, b: 2, c: 4 });
+    });
+
+    test("b wins on leaf conflicts", () => {
+      expect(deepMerge({ a: 1 }, { a: 2 })).toStrictEqual({ a: 2 });
+    });
+
+    test("replaces arrays and primitives wholesale with b", () => {
+      expect(deepMerge({ a: [1, 2] }, { a: [3] })).toStrictEqual({ a: [3] });
+      expect(deepMerge(1, 2)).toBe(2);
+      expect(deepMerge({ a: 1 }, "x")).toBe("x");
+    });
+
+    test("returns b when either side isn't a plain object", () => {
+      const map = new Map();
+      expect(deepMerge(map, { a: 1 })).toStrictEqual({ a: 1 });
+      expect(deepMerge({ a: 1 }, map)).toBe(map);
+    });
+
+    test("does not mutate either input", () => {
+      const a = { nested: { x: 1 } };
+      const b = { nested: { y: 2 } };
+      deepMerge(a, b);
+      expect(a).toStrictEqual({ nested: { x: 1 } });
+      expect(b).toStrictEqual({ nested: { y: 2 } });
+    });
+
+    test("data-last (pipeable) merges the override onto the piped base", () => {
+      expect(pipe({ a: 1 }, deepMerge({ b: 2 }))).toStrictEqual({ a: 1, b: 2 });
+    });
+  });
+
+  describe("deepMergeReducer", () => {
+    test("folds object layers left-to-right (later wins on leaf conflicts)", () => {
+      expect(
+        deepMergeReducer.combineAll([
+          { a: { x: 1 } },
+          { a: { y: 2 }, b: 3 },
+          { b: 4 },
+        ]),
+      ).toStrictEqual({ a: { x: 1, y: 2 }, b: 4 });
+    });
+
+    test("returns the identity {} for an empty list", () => {
+      expect(deepMergeReducer.combineAll([])).toStrictEqual({});
+    });
+
+    test("returns the single layer unchanged for a one-element list", () => {
+      expect(deepMergeReducer.combineAll([{ a: 1 }])).toStrictEqual({ a: 1 });
+    });
+  });
+
+  describe("canonicalize", () => {
+    test("recursively sorts object keys", () => {
+      expect(JSON.stringify(canonicalize({ b: 1, a: { d: 1, c: 2 } }))).toBe(
+        JSON.stringify({ a: { c: 2, d: 1 }, b: 1 }),
+      );
+    });
+
+    test("preserves array order and canonicalizes elements", () => {
+      expect(canonicalize([3, 1, 2])).toStrictEqual([3, 1, 2]);
+      expect(canonicalize([{ b: 1, a: 2 }])).toStrictEqual([{ a: 2, b: 1 }]);
+    });
+
+    test("passes primitives through", () => {
+      expect(canonicalize("x")).toBe("x");
+      expect(canonicalize(5)).toBe(5);
+      expect(canonicalize(null)).toBe(null);
+    });
+
+    test("passes non-record objects (e.g. Map) through unchanged", () => {
+      const map = new Map();
+      expect(canonicalize(map)).toBe(map);
+    });
+  });
+
+  describe("deleteByPath", () => {
+    test("deletes a nested key and prunes parents that become empty", () => {
+      const result = deleteByPath({ a: { b: 1 } }, ["a", "b"]);
+      expect(Option.isSome(result)).toBe(true);
+      expect(Option.getOrThrow(result)).toStrictEqual({});
+    });
+
+    test("keeps parents that still have other keys", () => {
+      const result = deleteByPath({ a: { b: 1, c: 2 } }, ["a", "b"]);
+      expect(Option.getOrThrow(result)).toStrictEqual({ a: { c: 2 } });
+    });
+
+    test("deletes a top-level key", () => {
+      const result = deleteByPath({ a: 1, b: 2 }, ["a"]);
+      expect(Option.getOrThrow(result)).toStrictEqual({ b: 2 });
+    });
+
+    test("returns None when the path is absent", () => {
+      expect(Option.isNone(deleteByPath({ a: 1 }, ["b"]))).toBe(true);
+      expect(Option.isNone(deleteByPath({ a: 1 }, ["a", "b"]))).toBe(true);
+    });
+
+    test("returns None for an empty path or a non-record input", () => {
+      expect(Option.isNone(deleteByPath({ a: 1 }, []))).toBe(true);
+      expect(Option.isNone(deleteByPath(42, ["a"]))).toBe(true);
+    });
+
+    test("does not mutate the input", () => {
+      const input = { a: { b: 1, c: 2 } };
+      deleteByPath(input, ["a", "b"]);
+      expect(input).toStrictEqual({ a: { b: 1, c: 2 } });
+    });
+
+    test("data-last (pipeable) form", () => {
+      const result = pipe({ a: { b: 1 } }, deleteByPath(["a", "b"]));
+      expect(Option.getOrThrow(result)).toStrictEqual({});
     });
   });
 });

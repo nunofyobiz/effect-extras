@@ -96,3 +96,44 @@ export function isNonEmptyString(value: unknown): value is string {
     String.isNonEmpty(value)
   );
 }
+
+/**
+ * Refines an `unknown` value to a plain `Record<string, unknown>` — `true` only
+ * for a non-null, non-array object whose prototype is `Object.prototype` (an
+ * object literal) or `null` (an `Object.create(null)` map).
+ *
+ * Effect ships no `Predicate.isRecord`. `Predicate.isObject` is the closest, but
+ * it also accepts `Map`, `Set`, `Date`, `RegExp`, and class instances. This guard
+ * adds a prototype check to rule those out, narrowing to `Record<string, unknown>`
+ * so the JSON-tree helpers (`RecordX.deepMerge`, `RecordX.canonicalize`,
+ * `RecordX.deleteByPath`) can compose without an `as` cast.
+ *
+ * It is named **`unsafe`** because the narrowing comes purely from the value's
+ * runtime shape — it does *not* validate the key or value types. A symbol-keyed
+ * entry still passes despite the `string` key claim, and values are asserted
+ * `unknown` without any check. Treat it as a structural convenience, not a
+ * `Schema` validation: reach for `Schema` when you need real key/value guarantees.
+ *
+ * @example
+ * ```ts
+ * import { PredicateX } from "@nunofyobiz/effect-extras"
+ *
+ * assert.deepStrictEqual(PredicateX.unsafeIsRecord({ a: 1 }), true)
+ * assert.deepStrictEqual(PredicateX.unsafeIsRecord(Object.create(null)), true)
+ * assert.deepStrictEqual(PredicateX.unsafeIsRecord([1, 2]), false)
+ * assert.deepStrictEqual(PredicateX.unsafeIsRecord(new Map()), false)
+ * assert.deepStrictEqual(PredicateX.unsafeIsRecord(null), false)
+ * ```
+ *
+ * @category refinements
+ * @since 0.0.0
+ */
+export function unsafeIsRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  if (!Predicate.isObject(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
