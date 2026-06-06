@@ -13,6 +13,8 @@ Replace it with the new `zip` on whichever inclusive-or module you want:
 
 Both walk to the length of the longer array, passing `f` a `SuccessWithWarnings`/`LeftAndRight` where both arrays have an element, a `WarningsOnly`/`LeftOnly` where only the first does, and a `SuccessOnly`/`RightOnly` where only the second does.
 
+Both are `dual`, so they also work data-last in a `pipe`: `pipe(array1, WarnResult.zip(array2, f))`.
+
 ```diff
 -import { ArrayX, WarnResult } from "@nunofyobiz/effect-extras"
 -ArrayX.zipWithWarnings(array1, array2, f)

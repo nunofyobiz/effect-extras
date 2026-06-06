@@ -79,17 +79,17 @@ meaning.
 **Signature**
 
 ```ts
-export declare const zip: <A, B, C>(
-  array1: readonly A[],
-  array2: readonly B[],
-  f: (inclusiveOr: InclusiveOr<A, B>) => C
-) => C[]
+export declare const zip: {
+  <A, B, C>(array2: readonly B[], f: (inclusiveOr: InclusiveOr<A, B>) => C): (array1: readonly A[]) => C[]
+  <A, B, C>(array1: readonly A[], array2: readonly B[], f: (inclusiveOr: InclusiveOr<A, B>) => C): C[]
+}
 ```
 
 **Example**
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
 const describe = InclusiveOr.match({
   LeftOnly: ({ left }) => `left ${left}`,
@@ -97,7 +97,11 @@ const describe = InclusiveOr.match({
   LeftAndRight: ({ left, right }) => `both ${left}/${right}`
 })
 
+// data-first
 assert.deepStrictEqual(InclusiveOr.zip([1, 2, 3], [10, 20], describe), ["both 1/10", "both 2/20", "left 3"])
+
+// data-last (pipeable)
+assert.deepStrictEqual(pipe([1, 2, 3], InclusiveOr.zip([10, 20], describe)), ["both 1/10", "both 2/20", "left 3"])
 ```
 
 Added in v0.0.0

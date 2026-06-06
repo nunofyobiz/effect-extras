@@ -5,6 +5,7 @@
  * @since 0.0.0
  */
 import { Data, Effect, Option, pipe } from "effect";
+import { dual } from "effect/Function";
 import * as InclusiveOr from "./InclusiveOr.js";
 
 /**
@@ -1288,6 +1289,7 @@ export const flatMapSuccessEffect =
  * @example
  * ```ts
  * import { WarnResult } from "@nunofyobiz/effect-extras"
+ * import { pipe } from "effect"
  *
  * const describe = WarnResult.match({
  *   WarningsOnly: ({ warnings }) => `warnings ${warnings}`,
@@ -1295,7 +1297,15 @@ export const flatMapSuccessEffect =
  *   SuccessWithWarnings: ({ warnings, success }) => `both ${warnings}/${success}`
  * })
  *
+ * // data-first
  * assert.deepStrictEqual(WarnResult.zip([1, 2, 3], [10, 20], describe), [
+ *   "both 1/10",
+ *   "both 2/20",
+ *   "warnings 3"
+ * ])
+ *
+ * // data-last (pipeable)
+ * assert.deepStrictEqual(pipe([1, 2, 3], WarnResult.zip([10, 20], describe)), [
  *   "both 1/10",
  *   "both 2/20",
  *   "warnings 3"
@@ -1305,8 +1315,21 @@ export const flatMapSuccessEffect =
  * @category combinators
  * @since 0.0.0
  */
-export const zip = <A, B, C>(
-  array1: readonly A[],
-  array2: readonly B[],
-  f: (warnResult: WarnResult<A, B>) => C,
-): C[] => InclusiveOr.zip(array1, array2, (io) => f(fromInclusiveOr(io)));
+export const zip: {
+  <A, B, C>(
+    array2: readonly B[],
+    f: (warnResult: WarnResult<A, B>) => C,
+  ): (array1: readonly A[]) => C[];
+  <A, B, C>(
+    array1: readonly A[],
+    array2: readonly B[],
+    f: (warnResult: WarnResult<A, B>) => C,
+  ): C[];
+} = dual(
+  3,
+  <A, B, C>(
+    array1: readonly A[],
+    array2: readonly B[],
+    f: (warnResult: WarnResult<A, B>) => C,
+  ): C[] => InclusiveOr.zip(array1, array2, (io) => f(fromInclusiveOr(io))),
+);

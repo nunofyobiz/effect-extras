@@ -1,4 +1,4 @@
-import { Array } from "effect";
+import { Array, pipe } from "effect";
 import { describe, expect, test } from "vitest";
 import * as InclusiveOr from "./InclusiveOr.js";
 
@@ -181,6 +181,17 @@ describe("InclusiveOr", () => {
           describeInclusiveOr,
         ),
       ).toStrictEqual([]);
+    });
+
+    test("data-last (pipeable)", () => {
+      expect(
+        pipe([1, 2, 3, 4], InclusiveOr.zip([4, 5, 6], describeInclusiveOr)),
+      ).toStrictEqual([
+        "Left 1 and Right 4",
+        "Left 2 and Right 5",
+        "Left 3 and Right 6",
+        "Left 4",
+      ]);
     });
   });
 });

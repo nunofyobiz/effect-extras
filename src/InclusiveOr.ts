@@ -4,7 +4,7 @@
  * @since 0.0.0
  */
 import { Array, Data, Effect, Option, Predicate, Struct, pipe } from "effect";
-import { constUndefined, identity } from "effect/Function";
+import { constUndefined, dual, identity } from "effect/Function";
 
 /**
  * A value carrying a left `L`, a right `R`, or both at once — the data type for
@@ -1187,6 +1187,7 @@ export const flatMapRightEffect = <L2, R1, R2, ER, RR>(
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras"
+ * import { pipe } from "effect"
  *
  * const describe = InclusiveOr.match({
  *   LeftOnly: ({ left }) => `left ${left}`,
@@ -1194,7 +1195,15 @@ export const flatMapRightEffect = <L2, R1, R2, ER, RR>(
  *   LeftAndRight: ({ left, right }) => `both ${left}/${right}`
  * })
  *
+ * // data-first
  * assert.deepStrictEqual(InclusiveOr.zip([1, 2, 3], [10, 20], describe), [
+ *   "both 1/10",
+ *   "both 2/20",
+ *   "left 3"
+ * ])
+ *
+ * // data-last (pipeable)
+ * assert.deepStrictEqual(pipe([1, 2, 3], InclusiveOr.zip([10, 20], describe)), [
  *   "both 1/10",
  *   "both 2/20",
  *   "left 3"
@@ -1204,30 +1213,43 @@ export const flatMapRightEffect = <L2, R1, R2, ER, RR>(
  * @category combinators
  * @since 0.0.0
  */
-export const zip = <A, B, C>(
-  array1: readonly A[],
-  array2: readonly B[],
-  f: (inclusiveOr: InclusiveOr<A, B>) => C,
-): C[] => {
-  const newLength = Math.max(array1.length, array2.length);
+export const zip: {
+  <A, B, C>(
+    array2: readonly B[],
+    f: (inclusiveOr: InclusiveOr<A, B>) => C,
+  ): (array1: readonly A[]) => C[];
+  <A, B, C>(
+    array1: readonly A[],
+    array2: readonly B[],
+    f: (inclusiveOr: InclusiveOr<A, B>) => C,
+  ): C[];
+} = dual(
+  3,
+  <A, B, C>(
+    array1: readonly A[],
+    array2: readonly B[],
+    f: (inclusiveOr: InclusiveOr<A, B>) => C,
+  ): C[] => {
+    const newLength = Math.max(array1.length, array2.length);
 
-  if (newLength === 0) {
-    return [];
-  }
-
-  return Array.makeBy(newLength, (index) => {
-    if (index < array1.length && index < array2.length) {
-      return f(LeftAndRight({ left: array1[index], right: array2[index] }));
+    if (newLength === 0) {
+      return [];
     }
 
-    if (index < array1.length) {
-      return f(LeftOnly({ left: array1[index] }));
-    }
+    return Array.makeBy(newLength, (index) => {
+      if (index < array1.length && index < array2.length) {
+        return f(LeftAndRight({ left: array1[index], right: array2[index] }));
+      }
 
-    if (index < array2.length) {
-      return f(RightOnly({ right: array2[index] }));
-    }
+      if (index < array1.length) {
+        return f(LeftOnly({ left: array1[index] }));
+      }
 
-    throw new Error(`Index ${index} is out of bounds for array1 and array2`);
-  });
-};
+      if (index < array2.length) {
+        return f(RightOnly({ right: array2[index] }));
+      }
+
+      throw new Error(`Index ${index} is out of bounds for array1 and array2`);
+    });
+  },
+);

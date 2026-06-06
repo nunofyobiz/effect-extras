@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Result } from "effect";
+import { Array, Effect, Option, Result, pipe } from "effect";
 import { describe, expect, test, vi } from "vitest";
 import { it } from "@effect/vitest";
 import {
@@ -872,6 +872,17 @@ describe("WarnResult", () => {
       expect(
         zip(Array.empty<number>(), Array.empty<number>(), describeWarnResult),
       ).toStrictEqual([]);
+    });
+
+    test("data-last (pipeable)", () => {
+      expect(
+        pipe([1, 2, 3, 4], zip([4, 5, 6], describeWarnResult)),
+      ).toStrictEqual([
+        "Warnings 1 and Success 4",
+        "Warnings 2 and Success 5",
+        "Warnings 3 and Success 6",
+        "Warnings 4",
+      ]);
     });
   });
 });

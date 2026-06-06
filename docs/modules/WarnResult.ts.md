@@ -80,17 +80,17 @@ array still carries meaning.
 **Signature**
 
 ```ts
-export declare const zip: <A, B, C>(
-  array1: readonly A[],
-  array2: readonly B[],
-  f: (warnResult: WarnResult<A, B>) => C
-) => C[]
+export declare const zip: {
+  <A, B, C>(array2: readonly B[], f: (warnResult: WarnResult<A, B>) => C): (array1: readonly A[]) => C[]
+  <A, B, C>(array1: readonly A[], array2: readonly B[], f: (warnResult: WarnResult<A, B>) => C): C[]
+}
 ```
 
 **Example**
 
 ```ts
 import { WarnResult } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
 const describe = WarnResult.match({
   WarningsOnly: ({ warnings }) => `warnings ${warnings}`,
@@ -98,7 +98,11 @@ const describe = WarnResult.match({
   SuccessWithWarnings: ({ warnings, success }) => `both ${warnings}/${success}`
 })
 
+// data-first
 assert.deepStrictEqual(WarnResult.zip([1, 2, 3], [10, 20], describe), ["both 1/10", "both 2/20", "warnings 3"])
+
+// data-last (pipeable)
+assert.deepStrictEqual(pipe([1, 2, 3], WarnResult.zip([10, 20], describe)), ["both 1/10", "both 2/20", "warnings 3"])
 ```
 
 Added in v0.0.0
