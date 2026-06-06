@@ -3,7 +3,7 @@
   "enforceDescriptions": true,
   "enforceExamples": true,
   "enforceVersion": true,
-  "exclude": ["src/**/*.test.ts", "src/**/index.ts", "src/index.ts"],
+  "exclude": ["src/**/*.test.ts", "src/index.ts"],
   "examplesCompilerOptions": {
     "noEmit": true,
     "strict": true,

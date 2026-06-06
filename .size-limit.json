@@ -1,0 +1,28 @@
+[
+  {
+    "name": "subpath, single function — import { tupleOf } from '…/OptionX' (per-function tree-shaken)",
+    "path": "dist/OptionX.js",
+    "import": "{ tupleOf }",
+    "ignore": ["effect", "effect/*"],
+    "limit": "200 B"
+  },
+  {
+    "name": "subpath, whole module — import * as ArrayX from '…/ArrayX'",
+    "path": "dist/ArrayX.js",
+    "ignore": ["effect", "effect/*"],
+    "limit": "1.5 kB"
+  },
+  {
+    "name": "barrel, single module — import { ArrayX } from '…' (other modules shaken away)",
+    "path": "dist/index.js",
+    "import": "{ ArrayX }",
+    "ignore": ["effect", "effect/*"],
+    "limit": "1.5 kB"
+  },
+  {
+    "name": "whole library surface (every module)",
+    "path": "dist/index.js",
+    "ignore": ["effect", "effect/*"],
+    "limit": "5 kB"
+  }
+]
