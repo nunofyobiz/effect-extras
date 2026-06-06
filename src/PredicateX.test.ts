@@ -1,4 +1,4 @@
-import { Predicate } from "effect";
+import { Predicate, pipe } from "effect";
 import { describe, expect, test } from "vitest";
 import { isNonEmptyString, matchRefine } from "./PredicateX.js";
 
@@ -17,6 +17,28 @@ describe("PredicateX", () => {
         whenTrue: (value) => `String: ${value}`,
         whenFalse: () => "Not a string",
       });
+      expect(result).toBe("Not a string");
+    });
+
+    test("data-last (piped) matching value", () => {
+      const result = pipe(
+        "hello",
+        matchRefine(Predicate.isString, {
+          whenTrue: (value) => `String: ${value}`,
+          whenFalse: () => "Not a string",
+        }),
+      );
+      expect(result).toBe("String: hello");
+    });
+
+    test("data-last (piped) non-matching value", () => {
+      const result = pipe(
+        42,
+        matchRefine(Predicate.isString, {
+          whenTrue: (value) => `String: ${value}`,
+          whenFalse: () => "Not a string",
+        }),
+      );
       expect(result).toBe("Not a string");
     });
   });

@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Schema, pipe } from "effect";
 import { describe, expect, test } from "vitest";
 import * as FormDataX from "./FormDataX.js";
 
@@ -30,6 +30,62 @@ describe("FormDataX", () => {
         age: 30,
         parentNames: ["John", "Jane"],
       });
+    });
+
+    test("empty FormData against an empty struct", () => {
+      const formData = new FormData();
+
+      const result = FormDataX.decodeSync(formData, Schema.Struct({}));
+
+      expect(result).toStrictEqual({});
+    });
+
+    test("single field", () => {
+      const formData = new FormData();
+      formData.append("name", "John");
+
+      const result = FormDataX.decodeSync(
+        formData,
+        Schema.Struct({ name: Schema.String }),
+      );
+
+      expect(result).toStrictEqual({ name: "John" });
+    });
+
+    test("duplicate field names decode into an array", () => {
+      const formData = new FormData();
+      formData.append("tags", "a");
+      formData.append("tags", "b");
+      formData.append("tags", "c");
+
+      const result = FormDataX.decodeSync(
+        formData,
+        Schema.Struct({
+          tags: Schema.mutable(Schema.Array(Schema.String)),
+        }),
+      );
+
+      expect(result).toStrictEqual({ tags: ["a", "b", "c"] });
+    });
+
+    test("data-last (piped)", () => {
+      const formData = new FormData();
+      formData.append("name", "John");
+
+      const result = pipe(
+        formData,
+        FormDataX.decodeSync(Schema.Struct({ name: Schema.String })),
+      );
+
+      expect(result).toStrictEqual({ name: "John" });
+    });
+
+    test("throws on a validation failure (missing required field)", () => {
+      const formData = new FormData();
+
+      expect(() =>
+        FormDataX.decodeSync(formData, Schema.Struct({ name: Schema.String })),
+      ).toThrow();
     });
   });
 });

@@ -151,6 +151,9 @@ const config = defineConfig([
         "always",
         {
           ignoreConsecutiveComments: true,
+          // `/* v8 ignore … */` coverage directives are case-sensitive and must
+          // stay lowercase — exempt them from the capitalization fixer.
+          ignorePattern: String.raw`v8\b`,
         },
       ],
       camelcase: ["error", { properties: "never" }],

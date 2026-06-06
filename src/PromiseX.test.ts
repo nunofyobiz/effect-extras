@@ -11,6 +11,22 @@ describe("promise", () => {
       await expect(voidedPromise).resolves.toBe(undefined);
     });
 
+    test("discards a falsy resolved value", async () => {
+      expect.assertions(1);
+
+      const voidedPromise = asVoid(Promise.resolve(0));
+
+      await expect(voidedPromise).resolves.toBe(undefined);
+    });
+
+    test("discards a resolved object", async () => {
+      expect.assertions(1);
+
+      const voidedPromise = asVoid(Promise.resolve({ id: 1 }));
+
+      await expect(voidedPromise).resolves.toBe(undefined);
+    });
+
     test("successful void", async () => {
       expect.assertions(1);
 
