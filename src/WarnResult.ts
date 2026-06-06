@@ -4,8 +4,8 @@
  *
  * @since 0.0.0
  */
-import { Data, Effect, Option, Predicate, Struct, pipe } from "effect";
-import { constUndefined, identity } from "effect/Function";
+import { Data, Effect, Option, pipe } from "effect";
+import * as InclusiveOr from "./InclusiveOr.js";
 
 /**
  * A result that may come with a success value and may come with warnings — both
@@ -278,6 +278,60 @@ export const is = taggedEnum.$is;
 export const match = taggedEnum.$match;
 
 /**
+ * Relabels a `WarnResult` as the equivalent terminology-free `InclusiveOr`,
+ * mapping `warnings` to `left` and `success` to `right`. The inverse of
+ * `fromInclusiveOr`.
+ *
+ * `WarnResult` is the use-case-driven (`warnings`/`success`) face of the generic
+ * `InclusiveOr` (`left`/`right`); every derived `WarnResult` operation is just this
+ * relabeling around the corresponding `InclusiveOr` operation, so all the logic
+ * lives in `InclusiveOr` and is never duplicated here.
+ */
+const toInclusiveOr = <W, A>(
+  warnResult: WarnResult<W, A>,
+): InclusiveOr.InclusiveOr<W, A> =>
+  match(warnResult, {
+    WarningsOnly: ({ warnings }) => InclusiveOr.LeftOnly({ left: warnings }),
+    SuccessOnly: ({ success }) => InclusiveOr.RightOnly({ right: success }),
+    SuccessWithWarnings: ({ warnings, success }) =>
+      InclusiveOr.LeftAndRight({ left: warnings, right: success }),
+  });
+
+/**
+ * Relabels an `InclusiveOr` as the equivalent `WarnResult`, mapping `left` to
+ * `warnings` and `right` to `success`. The inverse of `toInclusiveOr`.
+ *
+ * Overloaded so the precise member subtype survives the round trip — e.g. an
+ * `InclusiveOr.LeftAndRight` becomes a `SuccessWithWarnings` rather than a widened
+ * `WarnResult` — which keeps the delegating helpers' return types as exact as the
+ * hand-written ones were.
+ */
+function fromInclusiveOr<W>(io: InclusiveOr.LeftOnly<W>): WarningsOnly<W>;
+function fromInclusiveOr<A>(io: InclusiveOr.RightOnly<A>): SuccessOnly<A>;
+function fromInclusiveOr<W, A>(
+  io: InclusiveOr.LeftAndRight<W, A>,
+): SuccessWithWarnings<W, A>;
+function fromInclusiveOr<W, A>(
+  io: InclusiveOr.WithLeft<W, A>,
+): WithWarnings<W, A>;
+function fromInclusiveOr<W, A>(
+  io: InclusiveOr.WithRight<W, A>,
+): WithSuccess<W, A>;
+function fromInclusiveOr<W, A>(
+  io: InclusiveOr.InclusiveOr<W, A>,
+): WarnResult<W, A>;
+function fromInclusiveOr<W, A>(
+  io: InclusiveOr.InclusiveOr<W, A>,
+): WarnResult<W, A> {
+  return InclusiveOr.match(io, {
+    LeftOnly: ({ left }) => WarningsOnly({ warnings: left }),
+    RightOnly: ({ right }) => SuccessOnly({ success: right }),
+    LeftAndRight: ({ left, right }) =>
+      SuccessWithWarnings({ warnings: left, success: right }),
+  });
+}
+
+/**
  * Builds a `WarnResult` known to carry `warnings`, choosing `SuccessWithWarnings`
  * when a `success` value is present and `WarningsOnly` otherwise.
  *
@@ -311,9 +365,7 @@ export const WithWarnings = <W, A>({
   warnings: W;
   success?: A | undefined;
 }): WithWarnings<W, A> =>
-  Predicate.isNotNullish(success)
-    ? SuccessWithWarnings({ warnings, success })
-    : WarningsOnly({ warnings });
+  fromInclusiveOr(InclusiveOr.WithLeft({ left: warnings, right: success }));
 
 /**
  * Builds a `WarnResult` known to carry a `success` value, choosing
@@ -350,9 +402,7 @@ export const WithSuccess = <W, A>({
   warnings?: W | undefined;
   success: A;
 }): WithSuccess<W, A> =>
-  Predicate.isNotNullish(warnings)
-    ? SuccessWithWarnings({ warnings, success })
-    : SuccessOnly({ success });
+  fromInclusiveOr(InclusiveOr.WithRight({ left: warnings, right: success }));
 
 /**
  * Builds a `WarnResult` from a pair of possibly-nullish inputs, wrapping the
@@ -394,18 +444,11 @@ export const optionFromNullables = <W, A>({
 }: {
   warnings?: W | null | undefined;
   success?: A | null | undefined;
-}): Option.Option<WarnResult<W, A>> => {
-  if (Predicate.isNotNullish(warnings) && Predicate.isNotNullish(success)) {
-    return Option.some(SuccessWithWarnings({ warnings, success }));
-  }
-  if (Predicate.isNotNullish(warnings)) {
-    return Option.some(WarningsOnly({ warnings }));
-  }
-  if (Predicate.isNotNullish(success)) {
-    return Option.some(SuccessOnly({ success }));
-  }
-  return Option.none();
-};
+}): Option.Option<WarnResult<W, A>> =>
+  Option.map(
+    InclusiveOr.optionFromNullables({ left: warnings, right: success }),
+    (io) => fromInclusiveOr(io),
+  );
 
 /**
  * Builds a `WarnResult` from a pair of possibly-nullish inputs, falling back to
@@ -496,17 +539,8 @@ export const matchWarnings =
     SuccessOnly: (success: A) => Z;
   }) =>
   (warnResult: WarnResult<W, A>): Z =>
-    pipe(
-      warnResult,
-
-      match({
-        WarningsOnly: ({ warnings }) => Warnings(warnings),
-        SuccessOnly: ({ success }) => SuccessOnly(success),
-        SuccessWithWarnings: ({ warnings }) => Warnings(warnings),
-      }),
-
-      // Make Typescript happy
-      (a) => a as Z,
+    InclusiveOr.matchLeft({ Left: Warnings, RightOnly: SuccessOnly })(
+      toInclusiveOr(warnResult),
     );
 
 /**
@@ -554,17 +588,8 @@ export const matchSuccess =
     Success: (success: A) => Z;
   }) =>
   (warnResult: WarnResult<W, A>): Z =>
-    pipe(
-      warnResult,
-
-      match({
-        WarningsOnly: ({ warnings }) => WarningsOnly(warnings),
-        SuccessOnly: ({ success }) => Success(success),
-        SuccessWithWarnings: ({ success }) => Success(success),
-      }),
-
-      // Make Typescript happy
-      (a) => a as Z,
+    InclusiveOr.matchRight({ LeftOnly: WarningsOnly, Right: Success })(
+      toInclusiveOr(warnResult),
     );
 
 /**
@@ -598,23 +623,23 @@ export const matchSuccess =
  * @category getters
  * @since 0.0.0
  */
-export const orElse = <W2, A2>({
-  orElseWarnings,
-  orElseSuccess,
-}: {
-  orElseWarnings: () => W2;
-  orElseSuccess: () => A2;
-}): (<W, A>(
-  warnResult: WarnResult<W, A>,
-) => SuccessWithWarnings<W | W2, A | A2>) =>
-  match({
-    WarningsOnly: ({ warnings }) =>
-      SuccessWithWarnings({ warnings, success: orElseSuccess() }),
-    SuccessOnly: ({ success }) =>
-      SuccessWithWarnings({ warnings: orElseWarnings(), success }),
-    SuccessWithWarnings: ({ warnings, success }) =>
-      SuccessWithWarnings({ warnings, success }),
-  });
+export const orElse =
+  <W2, A2>({
+    orElseWarnings,
+    orElseSuccess,
+  }: {
+    orElseWarnings: () => W2;
+    orElseSuccess: () => A2;
+  }): (<W, A>(
+    warnResult: WarnResult<W, A>,
+  ) => SuccessWithWarnings<W | W2, A | A2>) =>
+  <W, A>(warnResult: WarnResult<W, A>): SuccessWithWarnings<W | W2, A | A2> =>
+    fromInclusiveOr(
+      InclusiveOr.orElse({
+        orElseLeft: orElseWarnings,
+        orElseRight: orElseSuccess,
+      })(toInclusiveOr(warnResult)),
+    );
 
 /**
  * Completes a `WarnResult` into a `SuccessWithWarnings` whose missing side is
@@ -681,14 +706,7 @@ export const orUndefined = orElse({
 export const warningsOrElse =
   <Z>(orElseReturn: () => Z) =>
   <W, A>(warnResult: WarnResult<W, A>): W | Z =>
-    pipe(
-      warnResult,
-      orElse({
-        orElseWarnings: orElseReturn,
-        orElseSuccess: constUndefined,
-      }),
-      Struct.get("warnings"),
-    );
+    InclusiveOr.leftOrElse(orElseReturn)(toInclusiveOr(warnResult));
 
 /**
  * Extracts the `warnings` of a `WarnResult`, returning `undefined` when no
@@ -746,14 +764,7 @@ export const warningsOrUndefined = warningsOrElse(() => undefined);
 export const successOrElse =
   <Z>(orElseReturn: () => Z) =>
   <W, A>(warnResult: WarnResult<W, A>): A | Z =>
-    pipe(
-      warnResult,
-      orElse({
-        orElseWarnings: constUndefined,
-        orElseSuccess: orElseReturn,
-      }),
-      Struct.get("success"),
-    );
+    InclusiveOr.rightOrElse(orElseReturn)(toInclusiveOr(warnResult));
 
 /**
  * Extracts the `success` value of a `WarnResult`, returning `undefined` when no
@@ -809,14 +820,7 @@ export const successOrUndefined = successOrElse(() => undefined);
  */
 export const successOption = <W, A>(
   warnResult: WarnResult<W, A>,
-): Option.Option<A> =>
-  pipe(
-    warnResult,
-    matchSuccess({
-      WarningsOnly: () => Option.none(),
-      Success: Option.some,
-    }),
-  );
+): Option.Option<A> => InclusiveOr.rightOption(toInclusiveOr(warnResult));
 
 /**
  * Extracts the `warnings` of a `WarnResult` as an `Option`.
@@ -844,14 +848,7 @@ export const successOption = <W, A>(
  */
 export const warningsOption = <W, A>(
   warnResult: WarnResult<W, A>,
-): Option.Option<W> =>
-  pipe(
-    warnResult,
-    matchWarnings({
-      Warnings: Option.some,
-      SuccessOnly: () => Option.none(),
-    }),
-  );
+): Option.Option<W> => InclusiveOr.leftOption(toInclusiveOr(warnResult));
 
 /**
  * Transforms both sides of a `WarnResult`, applying `mapWarnings` to any
@@ -884,23 +881,20 @@ export const warningsOption = <W, A>(
  * @category mapping
  * @since 0.0.0
  */
-export const mapBoth = <W1, A1, W2, A2>({
-  mapWarnings,
-  mapSuccess,
-}: {
-  mapWarnings: (warnings: W1) => W2;
-  mapSuccess: (success: A1) => A2;
-}): ((warnResult: WarnResult<W1, A1>) => WarnResult<W2, A2>) =>
-  match({
-    WarningsOnly: ({ warnings }) =>
-      WarningsOnly({ warnings: mapWarnings(warnings) }),
-    SuccessOnly: ({ success }) => SuccessOnly({ success: mapSuccess(success) }),
-    SuccessWithWarnings: ({ warnings, success }) =>
-      SuccessWithWarnings({
-        warnings: mapWarnings(warnings),
-        success: mapSuccess(success),
-      }),
-  });
+export const mapBoth =
+  <W1, A1, W2, A2>({
+    mapWarnings,
+    mapSuccess,
+  }: {
+    mapWarnings: (warnings: W1) => W2;
+    mapSuccess: (success: A1) => A2;
+  }): ((warnResult: WarnResult<W1, A1>) => WarnResult<W2, A2>) =>
+  (warnResult) =>
+    fromInclusiveOr(
+      InclusiveOr.mapBoth({ mapLeft: mapWarnings, mapRight: mapSuccess })(
+        toInclusiveOr(warnResult),
+      ),
+    );
 
 /**
  * Effectful `mapBoth`: transforms each present side through an `Effect`,
@@ -932,39 +926,22 @@ export const mapBoth = <W1, A1, W2, A2>({
  * @category sequencing
  * @since 0.0.0
  */
-export const mapBothEffect = <W1, A1, W2, A2, EW, EA, RW, RA>({
-  mapWarnings,
-  mapSuccess,
-}: {
-  mapWarnings: (warnings: W1) => Effect.Effect<W2, EW, RW>;
-  mapSuccess: (success: A1) => Effect.Effect<A2, EA, RA>;
-}): ((
-  warnResult: WarnResult<W1, A1>,
-) => Effect.Effect<WarnResult<W2, A2>, EW | EA, RW | RA>) =>
-  match({
-    WarningsOnly: ({ warnings }) =>
-      pipe(
-        mapWarnings(warnings),
-        Effect.map((warnings2) => WarningsOnly({ warnings: warnings2 })),
-      ),
-
-    SuccessOnly: ({ success }) =>
-      pipe(
-        mapSuccess(success),
-        Effect.map((success2) => SuccessOnly({ success: success2 })),
-      ),
-
-    SuccessWithWarnings: ({ warnings, success }) =>
-      pipe(
-        Effect.all({
-          warnings: mapWarnings(warnings),
-          success: mapSuccess(success),
-        }),
-        Effect.map(({ warnings: warnings2, success: success2 }) =>
-          SuccessWithWarnings({ warnings: warnings2, success: success2 }),
-        ),
-      ),
-  });
+export const mapBothEffect =
+  <W1, A1, W2, A2, EW, EA, RW, RA>({
+    mapWarnings,
+    mapSuccess,
+  }: {
+    mapWarnings: (warnings: W1) => Effect.Effect<W2, EW, RW>;
+    mapSuccess: (success: A1) => Effect.Effect<A2, EA, RA>;
+  }): ((
+    warnResult: WarnResult<W1, A1>,
+  ) => Effect.Effect<WarnResult<W2, A2>, EW | EA, RW | RA>) =>
+  (warnResult) =>
+    pipe(
+      toInclusiveOr(warnResult),
+      InclusiveOr.mapBothEffect({ mapLeft: mapWarnings, mapRight: mapSuccess }),
+      Effect.map((io) => fromInclusiveOr(io)),
+    );
 
 /**
  * Transforms the `warnings` of a `WarnResult`, leaving any `success` value
@@ -995,10 +972,14 @@ export const mapBothEffect = <W1, A1, W2, A2, EW, EA, RW, RA>({
  * @category mapping
  * @since 0.0.0
  */
-export const mapWarnings = <W1, W2>(
-  mapWarnings: (warnings: W1) => W2,
-): (<A>(warnResult: WarnResult<W1, A>) => WarnResult<W2, A>) =>
-  mapBoth({ mapWarnings, mapSuccess: identity });
+export const mapWarnings =
+  <W1, W2>(
+    mapWarnings: (warnings: W1) => W2,
+  ): (<A>(warnResult: WarnResult<W1, A>) => WarnResult<W2, A>) =>
+  (warnResult) =>
+    fromInclusiveOr(
+      InclusiveOr.mapLeft(mapWarnings)(toInclusiveOr(warnResult)),
+    );
 
 /**
  * Chains the `warnings` of a `WarnResult` into a new `WarnResult`, flattening the
@@ -1032,14 +1013,16 @@ export const mapWarnings = <W1, W2>(
  * @category sequencing
  * @since 0.0.0
  */
-export const flatMapWarnings = <W1, W2, A2>(
-  mapWarnings: (warnings: W1) => WarnResult<W2, A2>,
-): (<A1>(warnResult: WarnResult<W1, A1>) => WarnResult<W2, A1 | A2>) =>
-  match({
-    WarningsOnly: ({ warnings }) => mapWarnings(warnings),
-    SuccessOnly: ({ success }) => SuccessOnly({ success }),
-    SuccessWithWarnings: ({ warnings }) => mapWarnings(warnings),
-  });
+export const flatMapWarnings =
+  <W1, W2, A2>(
+    mapWarnings: (warnings: W1) => WarnResult<W2, A2>,
+  ): (<A1>(warnResult: WarnResult<W1, A1>) => WarnResult<W2, A1 | A2>) =>
+  (warnResult) =>
+    fromInclusiveOr(
+      InclusiveOr.flatMapLeft((warnings: W1) =>
+        toInclusiveOr(mapWarnings(warnings)),
+      )(toInclusiveOr(warnResult)),
+    );
 
 /**
  * Effectful `mapWarnings`: transforms the `warnings` of a `WarnResult` through an
@@ -1069,12 +1052,18 @@ export const flatMapWarnings = <W1, W2, A2>(
  * @category sequencing
  * @since 0.0.0
  */
-export const mapWarningsEffect = <W1, W2, EW, RW>(
-  mapWarnings: (warnings: W1) => Effect.Effect<W2, EW, RW>,
-): (<A>(
-  warnResult: WarnResult<W1, A>,
-) => Effect.Effect<WarnResult<W2, A>, EW, RW>) =>
-  mapBothEffect({ mapWarnings, mapSuccess: Effect.succeed });
+export const mapWarningsEffect =
+  <W1, W2, EW, RW>(
+    mapWarnings: (warnings: W1) => Effect.Effect<W2, EW, RW>,
+  ): (<A>(
+    warnResult: WarnResult<W1, A>,
+  ) => Effect.Effect<WarnResult<W2, A>, EW, RW>) =>
+  (warnResult) =>
+    pipe(
+      toInclusiveOr(warnResult),
+      InclusiveOr.mapLeftEffect(mapWarnings),
+      Effect.map((io) => fromInclusiveOr(io)),
+    );
 
 /**
  * Effectful `flatMapWarnings`: chains the `warnings` of a `WarnResult` into an
@@ -1107,16 +1096,20 @@ export const mapWarningsEffect = <W1, W2, EW, RW>(
  * @category sequencing
  * @since 0.0.0
  */
-export const flatMapWarningsEffect = <W1, W2, A2, EW, RW>(
-  mapWarnings: (warnings: W1) => Effect.Effect<WarnResult<W2, A2>, EW, RW>,
-): (<A1>(
-  warnResult: WarnResult<W1, A1>,
-) => Effect.Effect<WarnResult<W2, A1 | A2>, EW, RW>) =>
-  match({
-    WarningsOnly: ({ warnings }) => mapWarnings(warnings),
-    SuccessOnly: ({ success }) => Effect.succeed(SuccessOnly({ success })),
-    SuccessWithWarnings: ({ warnings }) => mapWarnings(warnings),
-  });
+export const flatMapWarningsEffect =
+  <W1, W2, A2, EW, RW>(
+    mapWarnings: (warnings: W1) => Effect.Effect<WarnResult<W2, A2>, EW, RW>,
+  ): (<A1>(
+    warnResult: WarnResult<W1, A1>,
+  ) => Effect.Effect<WarnResult<W2, A1 | A2>, EW, RW>) =>
+  (warnResult) =>
+    pipe(
+      toInclusiveOr(warnResult),
+      InclusiveOr.flatMapLeftEffect((warnings: W1) =>
+        Effect.map(mapWarnings(warnings), toInclusiveOr),
+      ),
+      Effect.map((io) => fromInclusiveOr(io)),
+    );
 
 /**
  * Transforms the `success` value of a `WarnResult`, leaving any `warnings`
@@ -1144,10 +1137,14 @@ export const flatMapWarningsEffect = <W1, W2, A2, EW, RW>(
  * @category mapping
  * @since 0.0.0
  */
-export const mapSuccess = <A1, A2>(
-  mapSuccess: (success: A1) => A2,
-): (<W>(warnResult: WarnResult<W, A1>) => WarnResult<W, A2>) =>
-  mapBoth({ mapWarnings: identity, mapSuccess });
+export const mapSuccess =
+  <A1, A2>(
+    mapSuccess: (success: A1) => A2,
+  ): (<W>(warnResult: WarnResult<W, A1>) => WarnResult<W, A2>) =>
+  (warnResult) =>
+    fromInclusiveOr(
+      InclusiveOr.mapRight(mapSuccess)(toInclusiveOr(warnResult)),
+    );
 
 /**
  * Chains the `success` value of a `WarnResult` into a new `WarnResult`, flattening
@@ -1179,14 +1176,16 @@ export const mapSuccess = <A1, A2>(
  * @category sequencing
  * @since 0.0.0
  */
-export const flatMapSuccess = <W2, A1, A2>(
-  mapSuccess: (success: A1) => WarnResult<W2, A2>,
-): (<W1>(warnResult: WarnResult<W1, A1>) => WarnResult<W1 | W2, A2>) =>
-  match({
-    WarningsOnly: ({ warnings }) => WarningsOnly({ warnings }),
-    SuccessOnly: ({ success }) => mapSuccess(success),
-    SuccessWithWarnings: ({ success }) => mapSuccess(success),
-  });
+export const flatMapSuccess =
+  <W2, A1, A2>(
+    mapSuccess: (success: A1) => WarnResult<W2, A2>,
+  ): (<W1>(warnResult: WarnResult<W1, A1>) => WarnResult<W1 | W2, A2>) =>
+  (warnResult) =>
+    fromInclusiveOr(
+      InclusiveOr.flatMapRight((success: A1) =>
+        toInclusiveOr(mapSuccess(success)),
+      )(toInclusiveOr(warnResult)),
+    );
 
 /**
  * Effectful `mapSuccess`: transforms the `success` value of a `WarnResult` through
@@ -1216,12 +1215,18 @@ export const flatMapSuccess = <W2, A1, A2>(
  * @category sequencing
  * @since 0.0.0
  */
-export const mapSuccessEffect = <A1, A2, EA, RA>(
-  mapSuccess: (success: A1) => Effect.Effect<A2, EA, RA>,
-): (<W>(
-  warnResult: WarnResult<W, A1>,
-) => Effect.Effect<WarnResult<W, A2>, EA, RA>) =>
-  mapBothEffect({ mapWarnings: Effect.succeed, mapSuccess });
+export const mapSuccessEffect =
+  <A1, A2, EA, RA>(
+    mapSuccess: (success: A1) => Effect.Effect<A2, EA, RA>,
+  ): (<W>(
+    warnResult: WarnResult<W, A1>,
+  ) => Effect.Effect<WarnResult<W, A2>, EA, RA>) =>
+  (warnResult) =>
+    pipe(
+      toInclusiveOr(warnResult),
+      InclusiveOr.mapRightEffect(mapSuccess),
+      Effect.map((io) => fromInclusiveOr(io)),
+    );
 
 /**
  * Effectful `flatMapSuccess`: chains the `success` value of a `WarnResult` into an
@@ -1253,13 +1258,17 @@ export const mapSuccessEffect = <A1, A2, EA, RA>(
  * @category sequencing
  * @since 0.0.0
  */
-export const flatMapSuccessEffect = <W2, A1, A2, EA, RA>(
-  mapSuccess: (success: A1) => Effect.Effect<WarnResult<W2, A2>, EA, RA>,
-): (<W1>(
-  warnResult: WarnResult<W1, A1>,
-) => Effect.Effect<WarnResult<W1 | W2, A2>, EA, RA>) =>
-  match({
-    WarningsOnly: ({ warnings }) => Effect.succeed(WarningsOnly({ warnings })),
-    SuccessOnly: ({ success }) => mapSuccess(success),
-    SuccessWithWarnings: ({ success }) => mapSuccess(success),
-  });
+export const flatMapSuccessEffect =
+  <W2, A1, A2, EA, RA>(
+    mapSuccess: (success: A1) => Effect.Effect<WarnResult<W2, A2>, EA, RA>,
+  ): (<W1>(
+    warnResult: WarnResult<W1, A1>,
+  ) => Effect.Effect<WarnResult<W1 | W2, A2>, EA, RA>) =>
+  (warnResult) =>
+    pipe(
+      toInclusiveOr(warnResult),
+      InclusiveOr.flatMapRightEffect((success: A1) =>
+        Effect.map(mapSuccess(success), toInclusiveOr),
+      ),
+      Effect.map((io) => fromInclusiveOr(io)),
+    );
