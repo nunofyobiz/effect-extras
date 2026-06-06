@@ -1,5 +1,27 @@
 # @nunofyobiz/effect-extras
 
+## 2.1.0
+
+### Minor Changes
+
+- [#16](https://github.com/nunofyobiz/effect-extras/pull/16) [`1ee0ff0`](https://github.com/nunofyobiz/effect-extras/commit/1ee0ff09cf7b17ffe05bae61bcaccd74f43e9743) Thanks [@bigpopakap](https://github.com/bigpopakap)! - feat: per-function tree-shakeable build with subpath exports
+
+  Each module now ships as a flat ESM file built with `tsc` + Babel's
+  `annotate-pure-calls` (replacing the single bundle), so every helper is stamped
+  `/*#__PURE__*/`. Each module is also exposed under a subpath export, and a
+  subpath import tree-shakes down to the function:
+  - `import { compactNullable } from "@nunofyobiz/effect-extras/ArrayX"` — ~40 B
+  - `import * as ArrayX from "@nunofyobiz/effect-extras/ArrayX"` — ~1 kB (whole module)
+  - vs ~4.4 kB for the full library
+
+  The root-barrel import (`import { ArrayX } from "@nunofyobiz/effect-extras"`) is
+  unchanged. `publint` and `size-limit` now guard packaging and the per-function
+  budgets in CI.
+
+### Patch Changes
+
+- [#14](https://github.com/nunofyobiz/effect-extras/pull/14) [`96e78e7`](https://github.com/nunofyobiz/effect-extras/commit/96e78e7bb4b4e56b701b31008d2096cccb3e202a) Thanks [@bigpopakap](https://github.com/bigpopakap)! - docs: link the deployed GitHub Pages API reference at the top of the README
+
 ## 2.0.0
 
 ### Major Changes
