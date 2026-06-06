@@ -4,6 +4,7 @@ export * as BooleanX from "./BooleanX.js";
 export * as DurationX from "./DurationX.js";
 export * as EffectX from "./EffectX.js";
 export * as FormDataX from "./FormDataX.js";
+export * as InclusiveOr from "./InclusiveOr.js";
 export * as MapX from "./MapX.js";
 export * as NonNullableX from "./NonNullableX.js";
 export { fromNullableOrThrow as nn } from "./NonNullableX.js";

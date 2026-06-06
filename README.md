@@ -129,12 +129,13 @@ matching subpath (`@nunofyobiz/effect-extras/ArrayX`); see
 
 | Module         | Extends / purpose                                                          |
 | -------------- | -------------------------------------------------------------------------- |
-| `ArrayX`       | Array helpers (grouping, ordered insertion, `WarnResult`-zip)              |
+| `ArrayX`       | Array helpers (grouping, ordered insertion)                                |
 | `BigIntX`      | BigInt helpers (`toNumberOrThrow`)                                         |
 | `BooleanX`     | Boolean helpers                                                            |
 | `DurationX`    | Duration / DateTime diff helpers                                           |
 | `EffectX`      | Effect bridges (`flattenOption`, `fromOptionOrElse`, `tryUntil`)           |
 | `FormDataX`    | Schema-based `FormData` parsing                                            |
+| `InclusiveOr`  | Inclusive-or of a `left` and/or `right` — terminology-free `WarnResult`    |
 | `MapX`         | Native `Map` helpers                                                       |
 | `NonNullableX` | Non-nullable assertions (`fromNullableOrThrow`, exported as `nn`)          |
 | `NumberX`      | Number helpers                                                             |
