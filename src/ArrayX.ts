@@ -119,6 +119,10 @@ export const zipWithWarnings = dual<
         );
       }
 
+      // `index` ranges over `[0, max(len1, len2))`, so once the two checks
+      // above have failed `index < array2.length` is always true — its false
+      // branch (and the defensive throw below) is unreachable.
+      /* v8 ignore next */
       if (index < array2.length) {
         return f(
           WarnResult.SuccessOnly({
@@ -127,6 +131,7 @@ export const zipWithWarnings = dual<
         );
       }
 
+      /* v8 ignore next */
       throw new Error(`Index ${index} is out of bounds for array1 and array2`);
     });
   },
@@ -181,6 +186,10 @@ const moveUniqWith = dual<
 
     // Find the source item and its index
     const sourceIndex = array.findIndex((item) => identify(item) === sourceId);
+    // Unreachable via the public API: the only caller (`insertUniq`) appends the
+    // item before delegating here, so `sourceId` is always present. Kept as a
+    // defensive no-op for direct (internal) callers.
+    /* v8 ignore next 3 */
     if (sourceIndex < 0) {
       return array;
     }

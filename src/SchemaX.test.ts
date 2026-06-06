@@ -3,6 +3,8 @@ import { describe, expect, test } from "vitest";
 import { it } from "@effect/vitest";
 import {
   TrimmedNonEmptyString,
+  URLSafeFilePath,
+  nonNegativeBigInt,
   omit,
   partial,
   pick,
@@ -89,7 +91,104 @@ describe("Schema utils", () => {
   });
 
   describe("URLSafeFilePath", () => {
-    test.todo("this works to encode+dedde safely");
+    it.effect("decoding expands percent-escapes", () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.decodeEffect(URLSafeFilePath)("a%2Fb.txt");
+        expect(result).toBe("a/b.txt");
+      }),
+    );
+
+    it.effect("encoding produces the URL-safe form", () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.encodeEffect(URLSafeFilePath)("a/b.txt");
+        expect(result).toBe("a%2Fb.txt");
+      }),
+    );
+
+    it.effect("decode then encode round-trips", () =>
+      Effect.gen(function* () {
+        const decoded = yield* Schema.decodeEffect(URLSafeFilePath)(
+          "dir%2Ffile%20name.txt",
+        );
+        expect(decoded).toBe("dir/file name.txt");
+
+        const reEncoded = yield* Schema.encodeEffect(URLSafeFilePath)(decoded);
+        expect(reEncoded).toBe("dir%2Ffile%20name.txt");
+      }),
+    );
+
+    it.effect("encodes special characters", () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.encodeEffect(URLSafeFilePath)("a&b#c?d");
+        expect(result).toBe(encodeURIComponent("a&b#c?d"));
+      }),
+    );
+
+    it.effect("trims surrounding whitespace before decoding", () =>
+      Effect.gen(function* () {
+        const result =
+          yield* Schema.decodeEffect(URLSafeFilePath)("  a%2Fb.txt  ");
+        expect(result).toBe("a/b.txt");
+      }),
+    );
+
+    it.effect("whitespace-only input fails the non-empty refinement", () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.result(
+          Schema.decodeEffect(URLSafeFilePath)("    "),
+        );
+        expect(Result.isFailure(result)).toBe(true);
+      }),
+    );
+
+    it.effect("empty input fails the non-empty refinement", () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.result(
+          Schema.decodeEffect(URLSafeFilePath)(""),
+        );
+        expect(Result.isFailure(result)).toBe(true);
+      }),
+    );
+  });
+
+  describe("nonNegativeBigInt", () => {
+    const NonNegative = nonNegativeBigInt(Schema.BigInt);
+
+    it.effect("clamps negative values up to 0n on decode", () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.decodeEffect(NonNegative)(-5n);
+        expect(result).toBe(0n);
+      }),
+    );
+
+    it.effect("clamps negative values up to 0n on encode", () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.encodeEffect(NonNegative)(-5n);
+        expect(result).toBe(0n);
+      }),
+    );
+
+    it.effect("passes zero through unchanged", () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.decodeEffect(NonNegative)(0n);
+        expect(result).toBe(0n);
+      }),
+    );
+
+    it.effect("passes positive values through unchanged", () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.decodeEffect(NonNegative)(7n);
+        expect(result).toBe(7n);
+      }),
+    );
+
+    it.effect("handles large bigints", () =>
+      Effect.gen(function* () {
+        const big = BigInt(Number.MAX_SAFE_INTEGER) * 1000n;
+        const result = yield* Schema.decodeEffect(NonNegative)(big);
+        expect(result).toBe(big);
+      }),
+    );
   });
 
   describe("pick", () => {

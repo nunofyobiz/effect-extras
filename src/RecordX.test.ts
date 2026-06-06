@@ -5,6 +5,7 @@ import {
   getOrThrow,
   getOrThrowWith,
   isNonEmptyRecord,
+  keysAs,
   modifyIfExists,
   takeFirstWhere,
   takeLast,
@@ -299,6 +300,19 @@ describe("Record utils", () => {
       const input: Record<string, number> = {};
       const result = modifyIfExists(input, "anything", (n) => n + 1);
       expect(result).toStrictEqual({});
+    });
+  });
+
+  describe("keysAs", () => {
+    test("returns the same runtime value, re-typed", () => {
+      type UserId = string & { readonly _brand: "UserId" };
+
+      const byId: Record<string, number> = { u1: 10, u2: 20 };
+      const branded = keysAs<UserId>()(byId);
+
+      // Identical value and reference — purely a type-level reinterpretation.
+      expect(branded).toStrictEqual({ u1: 10, u2: 20 });
+      expect(branded).toBe(byId);
     });
   });
 });

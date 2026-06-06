@@ -15,7 +15,7 @@ import { dual } from "effect/Function";
  *
  * @example
  * ```ts
- * import { Option } from "effect"
+ * import { Option, pipe } from "effect"
  * import { OptionX } from "@nunofyobiz/effect-extras"
  *
  * // Both Some — succeeds with the pair
@@ -29,13 +29,19 @@ import { dual } from "effect/Function";
  *   OptionX.tupleOf(Option.some(1), Option.none()),
  *   Option.none(),
  * )
+ *
+ * // Data-last (piped): the piped Option fills the first tuple slot
+ * assert.deepStrictEqual(
+ *   pipe(Option.some(1), OptionX.tupleOf(Option.some("a"))),
+ *   Option.some([1, "a"]),
+ * )
  * ```
  *
  * @category combinators
  * @since 0.0.0
  */
 export const tupleOf = dual<
-  <A>(a: Option.Option<A>) => <B>(b: Option.Option<B>) => Option.Option<[A, B]>,
+  <B>(b: Option.Option<B>) => <A>(a: Option.Option<A>) => Option.Option<[A, B]>,
   <A, B>(a: Option.Option<A>, b: Option.Option<B>) => Option.Option<[A, B]>
 >(
   2,

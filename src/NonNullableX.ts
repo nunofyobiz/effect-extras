@@ -162,10 +162,15 @@ export const map = dual<
       return map(a);
     }
 
+    // Every value is either nullish or not, so once the check above has failed
+    // `isNullish(a)` is always true — its false branch (and the defensive throw
+    // below) is unreachable.
+    /* v8 ignore next */
     if (Predicate.isNullish(a)) {
       return a;
     }
 
+    /* v8 ignore next */
     throw new Error(`Value is neither nullable nor non-nullable: ${String(a)}`);
   },
 );

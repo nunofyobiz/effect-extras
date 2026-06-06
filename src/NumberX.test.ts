@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { Option } from "effect";
 import {
   indexToExcel,
+  indexToRank,
   padLeftZeroes,
   roundToDigits,
   toFixed,
@@ -77,6 +78,12 @@ describe("lib/number", () => {
     expect(padLeftZeroes(10, 3)).toBe("010");
     expect(padLeftZeroes(100, 3)).toBe("100");
     expect(padLeftZeroes(1000, 3)).toBe("1000");
+  });
+
+  test("indexToRank", () => {
+    expect(indexToRank(0)).toBe(1);
+    expect(indexToRank(4)).toBe(5);
+    expect(indexToRank(-1)).toBe(0);
   });
 
   test("indexToExcel", () => {

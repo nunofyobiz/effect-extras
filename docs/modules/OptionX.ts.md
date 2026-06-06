@@ -40,14 +40,14 @@ Returns `Some([a, b])` when both inputs are `Some`, and `None` if either is
 **Signature**
 
 ```ts
-export declare const tupleOf: (<A>(a: Option.Option<A>) => <B>(b: Option.Option<B>) => Option.Option<[A, B]>) &
+export declare const tupleOf: (<B>(b: Option.Option<B>) => <A>(a: Option.Option<A>) => Option.Option<[A, B]>) &
   (<A, B>(a: Option.Option<A>, b: Option.Option<B>) => Option.Option<[A, B]>)
 ```
 
 **Example**
 
 ```ts
-import { Option } from "effect"
+import { Option, pipe } from "effect"
 import { OptionX } from "@nunofyobiz/effect-extras"
 
 // Both Some — succeeds with the pair
@@ -55,6 +55,9 @@ assert.deepStrictEqual(OptionX.tupleOf(Option.some(1), Option.some("a")), Option
 
 // Either None collapses to None
 assert.deepStrictEqual(OptionX.tupleOf(Option.some(1), Option.none()), Option.none())
+
+// Data-last (piped): the piped Option fills the first tuple slot
+assert.deepStrictEqual(pipe(Option.some(1), OptionX.tupleOf(Option.some("a"))), Option.some([1, "a"]))
 ```
 
 Added in v0.0.0
