@@ -1,5 +1,59 @@
 # @nunofyobiz/effect-extras
 
+## 3.0.0
+
+### Major Changes
+
+- [#20](https://github.com/nunofyobiz/effect-extras/pull/20) [`42f5f2d`](https://github.com/nunofyobiz/effect-extras/commit/42f5f2d883c664c3502c03e1c34c99d4cdeb194c) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Move inclusive-or zipping out of `ArrayX` and into the modules that own the data type.
+
+  **BREAKING:** `ArrayX.zipWithWarnings` is removed. `ArrayX` no longer depends on `WarnResult`.
+
+  Replace it with the new `zip` on whichever inclusive-or module you want:
+  - `WarnResult.zip(array1, array2, f)` — same behavior as the old `ArrayX.zipWithWarnings` (array1 → `warnings`, array2 → `success`).
+  - `InclusiveOr.zip(array1, array2, f)` — the terminology-free version (array1 → `left`, array2 → `right`).
+
+  Both walk to the length of the longer array, passing `f` a `SuccessWithWarnings`/`LeftAndRight` where both arrays have an element, a `WarningsOnly`/`LeftOnly` where only the first does, and a `SuccessOnly`/`RightOnly` where only the second does.
+
+  Both are `dual`, so they also work data-last in a `pipe`: `pipe(array1, WarnResult.zip(array2, f))`.
+
+  ```diff
+  -import { ArrayX, WarnResult } from "@nunofyobiz/effect-extras"
+  -ArrayX.zipWithWarnings(array1, array2, f)
+  +import { WarnResult } from "@nunofyobiz/effect-extras"
+  +WarnResult.zip(array1, array2, f)
+  ```
+
+- [#17](https://github.com/nunofyobiz/effect-extras/pull/17) [`08cb853`](https://github.com/nunofyobiz/effect-extras/commit/08cb853f8f15e6497fbb5b853541209bc33ee3fb) Thanks [@bigpopakap](https://github.com/bigpopakap)! - **BREAKING:** `WarnResult`'s type parameters are now success-first. `WarnResult<W, A>` (warnings first) becomes `WarnResult<A, W>` (success first), to match Effect's `Result<A, E>`. The same reorder applies to the two-parameter member aliases — `SuccessWithWarnings<A, W>`, `WithWarnings<A, W>`, `WithSuccess<A, W>` — and to the function generic parameters. This is a type-level change only: runtime behavior, the `warnings`/`success` field names, and every constructor are unchanged. The underlying generic `InclusiveOr<L, R>` is intentionally left as-is (it has no success/failure notion — just `left`/`right`).
+
+  Migration — swap the type arguments anywhere they're written explicitly:
+
+  ```ts
+  // before
+  const r: WarnResult.WarnResult<MyWarning, MySuccess> = ...
+  // after
+  const r: WarnResult.WarnResult<MySuccess, MyWarning> = ...
+  ```
+
+  Likewise for `SuccessWithWarnings`, `WithWarnings`, and `WithSuccess`. Call sites that rely on inference (constructors, `match`, `zip`, and the `map`/`flatMap` helpers) need no change.
+
+### Minor Changes
+
+- [#17](https://github.com/nunofyobiz/effect-extras/pull/17) [`7ffdcb0`](https://github.com/nunofyobiz/effect-extras/commit/7ffdcb096451c969787ee0d024a04bf57710c700) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Add seven generic JSON-tree and line-editing helpers (adopted from a downstream project), each generic, pure, and domain-free:
+  - `PredicateX.unsafeIsRecord` — a plain-object guard narrowing `unknown` to `Record<string, unknown>`. It rules out arrays, `null`, `Map`, `Set`, `Date`, `RegExp`, and class instances. "Unsafe" because it asserts the record shape purely from the value's structure, without validating key or value types — reach for `Schema` when you need real guarantees.
+  - `RecordX.deepMerge` — recursively deep-merge two JSON values (plain objects merge key-by-key; arrays and primitives are replaced by the second argument). Dual (pipeable).
+  - `RecordX.deepMergeReducer` — `deepMerge` as a `Reducer` (monoid) with identity `{}`, so `combineAll` folds N object layers left-to-right.
+  - `RecordX.canonicalize` — recursively sort object keys (arrays keep their order) so `JSON.stringify(canonicalize(x))` is a stable structural key.
+  - `RecordX.deleteByPath` — immutably delete the value at a path, pruning parent objects left empty, returning `Option`. Dual (pipeable).
+  - `StringX.replaceLineRange` / `StringX.insertBeforeLine` — line-range replace/delete and insert-before-line for multi-line strings. Both dual (pipeable).
+
+- [#20](https://github.com/nunofyobiz/effect-extras/pull/20) [`8a09115`](https://github.com/nunofyobiz/effect-extras/commit/8a091154857ecdcf8581c86ea7a8274c84265c0f) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Add the `InclusiveOr<L, R>` module — a generic, terminology-free inclusive-or carrying a `left`, a `right`, or both (`LeftOnly`, `RightOnly`, `LeftAndRight`). It exposes the same surface as `WarnResult` with neutral `left`/`right` naming (`mapBoth`, `mapLeft`/`mapRight`, `flatMapLeft`/`flatMapRight`, `matchLeft`/`matchRight`, `orElse`, the `*Effect` variants, and so on).
+
+  `WarnResult` is now implemented on top of `InclusiveOr`, relabeling `warnings`→`left` and `success`→`right`, so the two modules share all their logic. `WarnResult`'s public API and runtime shape are unchanged.
+
+### Patch Changes
+
+- [#18](https://github.com/nunofyobiz/effect-extras/pull/18) [`b2c6b02`](https://github.com/nunofyobiz/effect-extras/commit/b2c6b024d760099b88adb6c0c1957e4e987fb0e8) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Fix `OptionX.tupleOf` data-last type signature. The curried (pipeable) overload was declared `<A>(a) => <B>(b) => Option<[A, B]>`, which mislabelled which value is piped: at runtime `pipe(Option.some("a"), OptionX.tupleOf(Option.some(1)))` yields `["a", 1]` (the piped value first), but the old type claimed `[1, "a"]`. The signature is now `<B>(b) => <A>(a) => Option<[A, B]>`, so the inferred tuple type matches the runtime result. Runtime behaviour is unchanged.
+
 ## 2.1.0
 
 ### Minor Changes
