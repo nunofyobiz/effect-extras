@@ -38,6 +38,33 @@ pnpm add @nunofyobiz/effect-extras
 compatible version of `effect`. This package extends Effect; it does not bundle
 it.
 
+## Tree-shaking
+
+The package is **side-effect free** (`"sideEffects": false`) and is built — the
+same way [Effect](https://effect.website) is — with `tsc` (one ESM file per
+module, no bundling) plus Babel's
+[`annotate-pure-calls`](https://github.com/Andarist/babel-plugin-annotate-pure-calls)
+pass, which stamps every helper `/*#__PURE__*/`. A bundler therefore keeps only
+what you actually use. Three import styles, finest-grained first:
+
+```ts
+// Subpath, named — only this function (and its real deps) reach your bundle.
+import { compactNullable } from "@nunofyobiz/effect-extras/ArrayX";
+
+// Subpath, namespace — `ArrayX.*`, tree-shaken per function (Effect-style).
+import * as ArrayX from "@nunofyobiz/effect-extras/ArrayX";
+
+// Root barrel — convenient; unused *modules* are shaken away, but a module you
+// touch is kept whole (per-module granularity).
+import { ArrayX } from "@nunofyobiz/effect-extras";
+```
+
+Measured (minified + brotli, `effect` externalized): a single function lands at
+**~40 B**, a whole module at **~1 kB**, the entire library at **~4.4 kB** — so a
+subpath import pays for what it uses, not the library. Budgets are enforced in CI
+via [size-limit](https://github.com/ai/size-limit); packaging correctness via
+[publint](https://publint.dev).
+
 ## What belongs here
 
 This package has exactly one job: hold the generic `*X` helpers that extend
@@ -96,7 +123,9 @@ shape — not before.
 
 ## Modules
 
-Each module is exported as a namespace from the package root:
+Each module is exported as a namespace — from the package root and from a
+matching subpath (`@nunofyobiz/effect-extras/ArrayX`); see
+[Tree-shaking](#tree-shaking):
 
 | Module         | Extends / purpose                                                          |
 | -------------- | -------------------------------------------------------------------------- |
@@ -128,7 +157,9 @@ pnpm install
 pnpm tc          # typecheck (src + tests)
 pnpm lint        # ESLint (formatting included via eslint-plugin-prettier)
 pnpm test        # vitest run
-pnpm build       # emit dist/ (ESM + bundled .d.ts) via tsup
+pnpm build       # emit dist/ (one ESM file + .d.ts per module): tsc + babel
+pnpm publint     # validate packaging (exports map, types, ESM) — needs a build
+pnpm treeshake   # enforce per-function tree-shaking budgets (size-limit) — needs a build
 pnpm knip        # unused code / deps
 pnpm check-all   # all of the above, in CI order
 ```

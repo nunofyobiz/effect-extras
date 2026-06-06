@@ -52,16 +52,22 @@ Before claiming a task done, run **`pnpm check-all`**. It runs, in order:
 2. `pnpm lint` — ESLint flat config (formatting included via `eslint-plugin-prettier`; no separate
    Prettier step)
 3. `pnpm test` — Vitest (`@effect/vitest`)
-4. `pnpm build` — `tsup` (ESM + bundled `.d.ts`)
-5. `pnpm knip` — unused files / exports / deps
-6. `pnpm docgen` — `@effect/docgen`: type-checks every JSDoc `@example` (via `tsx`) and regenerates
+4. `pnpm build` — `tsc` + `babel` (ESM, one output file + `.d.ts` per module, with
+   `/*#__PURE__*/` annotations — see [Tree-shaking & packaging](#tree-shaking--packaging))
+5. `pnpm publint` — `publint`: validates the published packaging (`exports` map, `types` conditions,
+   ESM correctness) against `dist/` (needs a prior `build`)
+6. `pnpm treeshake` — `size-limit`: enforces the per-function tree-shaking byte budgets in
+   `.size-limit.json` (needs a prior `build`)
+7. `pnpm knip` — unused files / exports / deps
+8. `pnpm docgen` — `@effect/docgen`: type-checks every JSDoc `@example` (via `tsx`) and regenerates
    the API docs under `docs/` from the source
 
 While iterating, run the individual checks (faster). CI mirrors these as one job per check, plus:
-`commitlint` on PR commits, a `renovate-config-validator --strict` job, and a `pack --dry-run`
+`commitlint` on PR commits, a `renovate-config-validator --strict` job, a `pack --dry-run`
 that catches `files` / tarball misconfigurations before a real release (it uses `pnpm pack`, not
 `publish --dry-run`: the latter computes a dist-tag against the live registry and errors once the
-package is published, since every non-release branch sits at an already-published version). The `docgen` CI job runs
+package is published, since every non-release branch sits at an already-published version), and the
+`publint` + `treeshake` jobs above (each builds first, then runs the check). The `docgen` CI job runs
 read-only (`contents: read`): it regenerates the docs and then fails on `git diff --exit-code docs/`
 if the committed `docs/` drifted — it never writes back or opens PRs. Keeping `docs/` current is the
 author's job locally (the pre-commit hook automates it; see below), so the committed docs that
@@ -113,24 +119,71 @@ When unsure, leave it at the call site. A helper graduates into this package the
 
 ## The `*X` module + barrel pattern
 
-Each module is a directory under `src/`:
+Each module is a **single flat file** under `src/` — the same layout as Effect itself (`src/Array.ts`,
+`src/Option.ts`, …):
 
 ```
 src/
-  ArrayX/
-    ArrayX.ts         # implementation
-    ArrayX.test.ts    # exhaustive tests
-    index.ts          # export * as ArrayX from "./ArrayX";
+  ArrayX.ts           # implementation: flat `export const …` helpers
+  ArrayX.test.ts      # exhaustive tests
   …
-  index.ts            # root barrel: export { ArrayX } from "./ArrayX"; (one line per module)
+  index.ts            # root barrel: export * as ArrayX from "./ArrayX.js"; (one line per module)
 ```
 
-- The folder `index.ts` does a **namespace re-export**: `export * as ArrayX from "./ArrayX";`.
-- The root `src/index.ts` re-exports each namespace by name. A module with a top-level named export
-  (e.g. `NonNullableX`'s `nn`) lists it too: `export { NonNullableX, nn } from "./NonNullableX";`.
-- Modules import each other by **relative path** (`import { RecordX } from "../RecordX";`) — never
-  by the package name. That's why no `src/` file references `@nunofyobiz/effect-extras`.
-- Adding a module = new `src/FooX/` folder (impl + test + `index.ts`) + one line in `src/index.ts`.
+- Each module file exports its helpers **flat** (`export const compactNullable = …`). It is _not_
+  wrapped in a namespace — that is what lets a consumer's bundler tree-shake **per function**.
+- The root `src/index.ts` forms the namespace: `export * as ArrayX from "./ArrayX.js";` (one line per
+  module). A module with a top-level named export (e.g. `NonNullableX`'s `nn`) adds a line for it too:
+  `export { fromNullableOrThrow as nn } from "./NonNullableX.js";`.
+- Imports carry an **explicit `.js` extension** (`import * as RecordX from "./RecordX.js";`) — the
+  build is raw `tsc` emit (no bundler to rewrite specifiers), so Node's ESM resolver needs the real
+  extension. Modules import each other by **relative path**, never by the package name; that's why no
+  `src/` file references `@nunofyobiz/effect-extras`.
+- A module that needs another module's helpers imports it as a **namespace** (`import * as RecordX
+from "./RecordX.js"` → `RecordX.foo`), mirroring how a consumer would.
+- Adding a module = new `src/FooX.ts` (+ `src/FooX.test.ts`) + one `export * as FooX from "./FooX.js";`
+  line in `src/index.ts`. The subpath export and size budget are wildcard/automatic — no per-module
+  wiring in `package.json` or `.size-limit.json` (see below).
+
+## Tree-shaking & packaging
+
+The package must stay tree-shakeable down to the **function**: a consumer importing one helper gets
+one helper's worth of code, not the module and not the library. This is the **same build Effect
+uses**. Four things hold the line — change any and shaking silently coarsens, so the `publint` +
+`treeshake` checks gate them:
+
+- **Flat exports, no namespace wrapper in the shipped file.** Each `dist/ArrayX.js` is plain
+  `export const … = /*#__PURE__*/ …`. The namespace (`ArrayX.*`) is formed only by `import * as` (the
+  root barrel, or a consumer's subpath import). A pre-built namespace **object** (esbuild's
+  `__export(NS, { getter, … })`) pins every member and defeats per-function shaking — never reintroduce
+  one (e.g. by bundling, or by adding a per-module `index.ts` that the subpath points at).
+- **`tsc` compile + `babel annotate-pure-calls`, not a bundler.** `pnpm build` runs `tsc -p
+tsconfig.build.json` (emits `dist/ArrayX.js`, `dist/index.js`, `.d.ts`, maps — one file per source,
+  specifiers preserved) then `babel dist --plugins annotate-pure-calls`, which stamps `/*#__PURE__*/`
+  on every top-level call so a consumer's bundler can drop unused `export const`s. A bundler (tsup/
+  esbuild) would re-introduce the `__export` getter objects above — don't switch back.
+- **`"sideEffects": false`** in `package.json` — lets bundlers drop the side-effect-free modules.
+  Every helper here is pure, so this stays true; never add module-level side effects. (Safe alongside
+  the pure annotations: `annotate-pure-calls` only marks the value-producing calls, not the bare
+  `export *` statements.)
+- **Subpath exports.** `package.json` `exports` maps `"./*"` → `./dist/*.js` (+ matching `types`), so
+  `@nunofyobiz/effect-extras/ArrayX` resolves to that one flat module file — `import * as ArrayX` (or
+  `import { compactNullable }`) shakes per function regardless of the consumer's bundler. The wildcard
+  auto-covers new modules; `"./index": null` blocks the redundant `…/index` path.
+
+Granularity: a **subpath** import (`import * as ArrayX from "…/ArrayX"`) tree-shakes **per function**;
+the **root barrel** (`import { ArrayX } from "…"`) shakes unused _modules_ away but keeps a touched
+module whole — the same `export * as` trade-off Effect's root re-export makes. Point consumers who
+care at the subpath. The validators:
+
+- **`publint`** (`pnpm publint`) lints the packaging config against the built `dist/` — that every
+  `exports` target resolves, `types` are present, ESM is well-formed.
+- **`size-limit`** (`pnpm treeshake`, config in `.size-limit.json`) enforces byte budgets on representative
+  imports (single function, whole module, barrel, whole library), with `effect` externalized
+  (`ignore: ["effect", "effect/*"]`) so we measure only this package. The budgets are set so that a
+  tree-shaking regression — a single-function import ballooning toward the module or library size —
+  trips the limit. Re-measure and bump a limit only for genuine, intended growth; a sudden jump means
+  shaking broke, so fix the build, don't raise the budget.
 
 ## Effect v4 conventions
 
@@ -360,8 +413,8 @@ covers.
 1. **Generic type parameters** — operate on `<A>`, not concrete types.
 2. **Pure functions** — no side effects, no mutations.
 3. **Support `dual`** when the utility takes a pipeable data argument.
-4. **Follow the module/barrel pattern** — `FooX/FooX.ts` + `FooX/index.ts` namespace re-export + a
-   line in `src/index.ts`.
+4. **Follow the module/barrel pattern** — a flat `src/FooX.ts` (+ `src/FooX.test.ts`) + an
+   `export * as FooX from "./FooX.js";` line in `src/index.ts`.
 5. **Exhaustive test coverage** — every public function, every branch, edge cases (empty,
    single-element, boundary), and type-level correctness where the utility's whole point is type
    narrowing. Non-negotiable: these helpers are consumed by every layer above them, they outlive the

@@ -45,8 +45,8 @@ pnpm test
 pnpm build
 ```
 
-`tsup` → `dist/` (ESM + bundled `.d.ts`). Catches `exports` / entry-point problems that unit tests
-miss.
+`tsc` + `babel` → `dist/` (ESM + `.d.ts`, one file per module). Catches `exports` / entry-point
+problems that unit tests miss.
 
 ### 5. Dead code / unused deps
 
@@ -68,16 +68,16 @@ prefer the individual checks while iterating.
 
 ## What CI actually runs (`.github/workflows/ci.yml`)
 
-| Job               | Equivalent command                       | What it checks                          |
-| ----------------- | ---------------------------------------- | --------------------------------------- |
-| `commits` (PRs)   | `commitlint`                             | Commit messages are Conventional Commits |
-| `renovate-config` | `renovate-config-validator --strict`     | `renovate.json5` is valid               |
-| `typecheck`       | `pnpm tc` (Node 22 and 24)               | Types compile                           |
-| `lint`            | `pnpm lint`                              | ESLint + formatting                     |
-| `knip`            | `pnpm knip`                              | No unused files / exports / deps        |
-| `test`            | `pnpm test` (Node 22 and 24)             | Tests pass                              |
-| `build`           | `pnpm build`                             | `tsup` build succeeds                   |
-| `publish-dry-run` | `pnpm publish --dry-run`                 | `files` / `exports` are publishable     |
+| Job               | Equivalent command                   | What it checks                           |
+| ----------------- | ------------------------------------ | ---------------------------------------- |
+| `commits` (PRs)   | `commitlint`                         | Commit messages are Conventional Commits |
+| `renovate-config` | `renovate-config-validator --strict` | `renovate.json5` is valid                |
+| `typecheck`       | `pnpm tc` (Node 22 and 24)           | Types compile                            |
+| `lint`            | `pnpm lint`                          | ESLint + formatting                      |
+| `knip`            | `pnpm knip`                          | No unused files / exports / deps         |
+| `test`            | `pnpm test` (Node 22 and 24)         | Tests pass                               |
+| `build`           | `pnpm build`                         | `tsc` + `babel` build succeeds           |
+| `publish-dry-run` | `pnpm publish --dry-run`             | `files` / `exports` are publishable      |
 
 If you touched `renovate.json5`, validate it locally too:
 

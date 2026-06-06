@@ -25,7 +25,12 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.js"
+    },
+    "./index": null
   },
   "files": [
     "dist",
@@ -33,9 +38,10 @@
     "!src/**/*.test.ts"
   ],
   "scripts": {
-    "build": "tsup",
+    "babel": "babel dist --out-dir dist --source-maps",
+    "build": "pnpm clean && tsc -p tsconfig.build.json && pnpm babel",
     "changeset": "changeset",
-    "check-all": "pnpm tc && pnpm lint && pnpm test && pnpm build && pnpm knip && pnpm docgen",
+    "check-all": "pnpm tc && pnpm lint && pnpm test && pnpm build && pnpm publint && pnpm treeshake && pnpm knip && pnpm docgen",
     "clean": "rm -rf dist *.tsbuildinfo",
     "docgen": "docgen",
     "format": "prettier --write \"**/*.{md,mdx,yml,yaml,json5,css}\"",
@@ -44,10 +50,12 @@
     "lint:fix": "eslint . --fix",
     "prepare": "husky",
     "prepublishOnly": "pnpm build",
+    "publint": "publint",
     "release": "pnpm build && changeset publish",
     "tc": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "testw": "vitest",
+    "treeshake": "size-limit",
     "version-packages": "changeset version"
   },
   "lint-staged": {
@@ -59,6 +67,8 @@
     ]
   },
   "devDependencies": {
+    "@babel/cli": "7.29.7",
+    "@babel/core": "7.29.7",
     "@changesets/changelog-github": "0.5.1",
     "@changesets/cli": "2.29.7",
     "@commitlint/config-conventional": "20.5.3",
@@ -69,10 +79,12 @@
     "@eslint-community/eslint-plugin-eslint-comments": "4.7.2",
     "@eslint/compat": "2.0.5",
     "@eslint/js": "10.0.1",
+    "@size-limit/preset-small-lib": "12.1.0",
     "@types/node": "24.12.2",
     "@typescript-eslint/parser": "8.60.0",
     "@vitest/coverage-v8": "4.1.7",
     "@vitest/eslint-plugin": "1.6.18",
+    "babel-plugin-annotate-pure-calls": "0.5.0",
     "commitlint": "20.5.3",
     "effect": "4.0.0-beta.74",
     "eslint": "10.2.1",
@@ -86,7 +98,8 @@
     "knip": "6.4.1",
     "lint-staged": "17.0.7",
     "prettier": "3.8.3",
-    "tsup": "8.5.0",
+    "publint": "0.3.21",
+    "size-limit": "12.1.0",
     "tsx": "4.22.4",
     "typescript": "6.0.3",
     "typescript-eslint": "8.60.0",

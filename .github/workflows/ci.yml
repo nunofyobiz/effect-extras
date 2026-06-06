@@ -142,3 +142,36 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm pack --dry-run
+
+  # Lints the published package's packaging config (`exports` map, `types`
+  # conditions, ESM correctness) against the built `dist/` — the config that, if
+  # broken, silently defeats consumer tree-shaking.
+  publint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm publint
+
+  # Tree-shaking gate. Enforces the byte budgets in `.size-limit.json` (via
+  # size-limit) — proves a subpath import tree-shakes to the function (one helper
+  # stays ~tens of bytes, not the whole module) and that other modules shake away.
+  # Fails if a change coarsens shaking or re-bundles the library into a blob.
+  treeshake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm treeshake
