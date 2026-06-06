@@ -14,6 +14,9 @@ Added in v0.0.0
 
 <h2 class="text-delta">Table of contents</h2>
 
+- [combining](#combining)
+  - [deepMerge](#deepmerge)
+  - [deleteByPath](#deletebypath)
 - [constructors](#constructors)
   - [collectBy](#collectby)
 - [conversions](#conversions)
@@ -24,14 +27,97 @@ Added in v0.0.0
   - [takeLastWhere](#takelastwhere)
 - [guards](#guards)
   - [isNonEmptyRecord](#isnonemptyrecord)
+- [instances](#instances)
+  - [deepMergeReducer](#deepmergereducer)
 - [mapping](#mapping)
   - [modifyIfExists](#modifyifexists)
   - [upsert](#upsert)
+- [transformations](#transformations)
+  - [canonicalize](#canonicalize)
 - [unsafe](#unsafe)
   - [getOrThrow](#getorthrow)
   - [getOrThrowWith](#getorthrowwith)
 
 ---
+
+# combining
+
+## deepMerge
+
+Deep-merges two JSON values, with `b` winning on conflicts.
+
+Plain objects (per `PredicateX.unsafeIsRecord`) are merged recursively,
+key-by-key; every other shape — primitives, arrays, and impostors like
+`Map`/`Date`/class instances — is replaced wholesale by `b`. If either side
+isn't a plain object, `b` is returned as-is. Neither input is mutated. Reach
+for it to layer partial JSON overrides on top of a base.
+
+**Signature**
+
+```ts
+export declare const deepMerge: ((b: unknown) => (a: unknown) => unknown) & ((a: unknown, b: unknown) => unknown)
+```
+
+**Example**
+
+```ts
+import { RecordX } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
+
+// data-first — nested objects merge, b wins on leaf conflicts
+assert.deepStrictEqual(RecordX.deepMerge({ a: { x: 1 }, b: 2 }, { a: { y: 3 }, c: 4 }), {
+  a: { x: 1, y: 3 },
+  b: 2,
+  c: 4
+})
+
+// arrays are replaced wholesale, not concatenated
+assert.deepStrictEqual(RecordX.deepMerge({ a: [1, 2] }, { a: [3] }), { a: [3] })
+
+// data-last (pipeable) — merges the override onto the piped base
+assert.deepStrictEqual(pipe({ a: 1 }, RecordX.deepMerge({ b: 2 })), {
+  a: 1,
+  b: 2
+})
+```
+
+Added in v0.0.0
+
+## deleteByPath
+
+Immutably deletes the value at a `path` from a JSON object, pruning any parent
+objects left empty by the deletion.
+
+Walks `path` from the root; when it resolves to an existing key, that key is
+removed and every ancestor that becomes empty as a result is removed too.
+Returns `Some(newObject)` when the path existed (so callers can tell something
+changed), or `None` when it was absent or `object` isn't a plain object. The
+input is never mutated.
+
+**Signature**
+
+```ts
+export declare const deleteByPath: ((path: readonly string[]) => (object: unknown) => Option.Option<unknown>) &
+  ((object: unknown, path: readonly string[]) => Option.Option<unknown>)
+```
+
+**Example**
+
+```ts
+import { RecordX } from "@nunofyobiz/effect-extras"
+import { Option, pipe } from "effect"
+
+// deletes the leaf and prunes the now-empty parent
+assert.deepStrictEqual(RecordX.deleteByPath({ a: { b: 1 } }, ["a", "b"]), Option.some({}))
+
+// a sibling key keeps the parent alive
+assert.deepStrictEqual(RecordX.deleteByPath({ a: { b: 1, c: 2 } }, ["a", "b"]), Option.some({ a: { c: 2 } }))
+
+// absent path → None; data-last (pipeable) form
+assert.deepStrictEqual(pipe({ a: 1 }, RecordX.deleteByPath(["b"])), Option.none())
+```
+
+Added in v0.0.0
 
 # constructors
 
@@ -265,6 +351,39 @@ assert.deepStrictEqual(RecordX.isNonEmptyRecord({}), false)
 
 Added in v0.0.0
 
+# instances
+
+## deepMergeReducer
+
+{@link deepMerge} as a `Reducer` (monoid) with identity `{}`.
+
+`deepMergeReducer.combineAll(layers)` folds an iterable of object layers
+left-to-right via {@link deepMerge} — the universal "merge N JSON objects into
+one" fold, replacing a hand-rolled `Array.reduce(layers, {}, deepMerge)`. The
+`{}` identity is exact for the object-valued layers these folds carry: an empty
+list yields `{}`, and a single layer is returned unchanged.
+
+**Signature**
+
+```ts
+export declare const deepMergeReducer: Reducer.Reducer<unknown>
+```
+
+**Example**
+
+```ts
+import { RecordX } from "@nunofyobiz/effect-extras"
+
+assert.deepStrictEqual(RecordX.deepMergeReducer.combineAll([{ a: { x: 1 } }, { a: { y: 2 }, b: 3 }, { b: 4 }]), {
+  a: { x: 1, y: 2 },
+  b: 4
+})
+
+assert.deepStrictEqual(RecordX.deepMergeReducer.combineAll([]), {})
+```
+
+Added in v0.0.0
+
 # mapping
 
 ## modifyIfExists
@@ -362,6 +481,43 @@ assert.deepStrictEqual(pipe(counts, RecordX.upsert("b", bump)), {
   a: 1,
   b: 1
 })
+```
+
+Added in v0.0.0
+
+# transformations
+
+## canonicalize
+
+Canonicalizes a JSON value by recursively sorting object keys; arrays keep
+their order.
+
+Two structurally-equal values that differ only in key order canonicalize to
+the same shape, so `JSON.stringify(canonicalize(x))` is a stable structural
+key for comparison, deduping, or hashing. Plain objects (per
+`PredicateX.unsafeIsRecord`) have their keys sorted ascending and their values
+canonicalized recursively; arrays are canonicalized element-wise in place;
+everything else passes through unchanged.
+
+**Signature**
+
+```ts
+export declare const canonicalize: (value: unknown) => unknown
+```
+
+**Example**
+
+```ts
+import { RecordX } from "@nunofyobiz/effect-extras"
+
+assert.deepStrictEqual(
+  JSON.stringify(RecordX.canonicalize({ b: 1, a: { d: 1, c: 2 } })),
+  JSON.stringify({ a: { c: 2, d: 1 }, b: 1 })
+)
+
+// arrays keep their order; primitives pass through
+assert.deepStrictEqual(RecordX.canonicalize([3, 1, 2]), [3, 1, 2])
+assert.deepStrictEqual(RecordX.canonicalize("x"), "x")
 ```
 
 Added in v0.0.0

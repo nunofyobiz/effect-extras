@@ -16,7 +16,9 @@ Added in v0.0.0
 
 - [combinators](#combinators)
   - [ensurePrepend](#ensureprepend)
+  - [insertBeforeLine](#insertbeforeline)
   - [prepend](#prepend)
+  - [replaceLineRange](#replacelinerange)
   - [surround](#surround)
 
 ---
@@ -56,6 +58,43 @@ assert.deepStrictEqual(pipe("bar", StringX.ensurePrepend("foo")), "foobar")
 
 Added in v0.0.0
 
+## insertBeforeLine
+
+Inserts `lines` immediately before the line at `anchorIndex`, preserving the
+anchor line and everything after it; returns the rejoined string.
+
+`content` is split on `\n` and `lines` are spliced in just before the
+zero-based `anchorIndex`. An `anchorIndex` of `0` prepends, and one at or past
+the end appends.
+
+**Signature**
+
+```ts
+export declare const insertBeforeLine: ((
+  anchorIndex: number,
+  lines: readonly string[]
+) => (content: string) => string) &
+  ((content: string, anchorIndex: number, lines: readonly string[]) => string)
+```
+
+**Example**
+
+```ts
+import { pipe } from "effect"
+import { StringX } from "@nunofyobiz/effect-extras"
+
+// data-first — insert before line 1, keeping the anchor and the rest
+assert.deepStrictEqual(StringX.insertBeforeLine("a\nb\nc", 1, ["X"]), "a\nX\nb\nc")
+
+// an anchor at the end appends
+assert.deepStrictEqual(StringX.insertBeforeLine("a\nb", 2, ["X"]), "a\nb\nX")
+
+// data-last (piped)
+assert.deepStrictEqual(pipe("a\nb", StringX.insertBeforeLine(0, ["X"])), "X\na\nb")
+```
+
+Added in v0.0.0
+
 ## prepend
 
 Prepends `start` to `string_`.
@@ -81,6 +120,45 @@ assert.deepStrictEqual(StringX.prepend("world", "hello "), "hello world")
 
 // data-last (piped)
 assert.deepStrictEqual(pipe("world", StringX.prepend("hello ")), "hello world")
+```
+
+Added in v0.0.0
+
+## replaceLineRange
+
+Replaces the inclusive line range `[startLine, endLine]` of `content` with
+`replacement` lines, returning the rejoined string.
+
+`content` is split on `\n`; the zero-based lines `startLine` through `endLine`
+(both inclusive) are dropped and `replacement` is spliced into their place.
+Pass an empty `replacement` to delete the range. Indices clamp naturally via
+`Array.take`/`Array.drop`, so out-of-range values don't throw.
+
+**Signature**
+
+```ts
+export declare const replaceLineRange: ((
+  startLine: number,
+  endLine: number,
+  replacement: readonly string[]
+) => (content: string) => string) &
+  ((content: string, startLine: number, endLine: number, replacement: readonly string[]) => string)
+```
+
+**Example**
+
+```ts
+import { pipe } from "effect"
+import { StringX } from "@nunofyobiz/effect-extras"
+
+// data-first — replace lines 1..2 with a single line
+assert.deepStrictEqual(StringX.replaceLineRange("a\nb\nc\nd", 1, 2, ["X"]), "a\nX\nd")
+
+// an empty replacement deletes the range
+assert.deepStrictEqual(StringX.replaceLineRange("a\nb\nc\nd", 1, 2, []), "a\nd")
+
+// data-last (piped)
+assert.deepStrictEqual(pipe("a\nb\nc", StringX.replaceLineRange(1, 1, ["X", "Y"])), "a\nX\nY\nc")
 ```
 
 Added in v0.0.0

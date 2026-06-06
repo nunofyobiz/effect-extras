@@ -86,7 +86,7 @@ describe("WarnResult", () => {
     });
 
     test("narrows the type when true", () => {
-      const value: WarnResult<string, number> = SuccessWithWarnings({
+      const value: WarnResult<number, string> = SuccessWithWarnings({
         warnings: "w",
         success: 1,
       });
@@ -102,7 +102,7 @@ describe("WarnResult", () => {
   });
 
   describe("match", () => {
-    const describeIt = (warnResult: WarnResult<string, number>) =>
+    const describeIt = (warnResult: WarnResult<number, string>) =>
       match(warnResult, {
         WarningsOnly: ({ warnings }) => `warnings ${warnings}`,
         SuccessOnly: ({ success }) => `success ${success}`,
@@ -140,7 +140,7 @@ describe("WarnResult", () => {
 
     test("undefined success → WarningsOnly", () => {
       expect(
-        WithWarnings<string, number>({ warnings: "w", success: undefined }),
+        WithWarnings<number, string>({ warnings: "w", success: undefined }),
       ).toStrictEqual(WarningsOnly({ warnings: "w" }));
     });
 
@@ -172,7 +172,7 @@ describe("WarnResult", () => {
 
     test("undefined warnings → SuccessOnly", () => {
       expect(
-        WithSuccess<string, number>({ warnings: undefined, success: 1 }),
+        WithSuccess<number, string>({ warnings: undefined, success: 1 }),
       ).toStrictEqual(SuccessOnly({ success: 1 }));
     });
 

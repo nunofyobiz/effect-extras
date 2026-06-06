@@ -1,6 +1,6 @@
 import { Predicate, pipe } from "effect";
 import { describe, expect, test } from "vitest";
-import { isNonEmptyString, matchRefine } from "./PredicateX.js";
+import { isNonEmptyString, matchRefine, unsafeIsRecord } from "./PredicateX.js";
 
 describe("PredicateX", () => {
   describe("matchRefine", () => {
@@ -77,6 +77,33 @@ describe("PredicateX", () => {
 
       expect(isNonEmptyString({})).toBe(false);
       expect(isNonEmptyString({ a: 1 })).toBe(false);
+    });
+  });
+
+  describe("unsafeIsRecord", () => {
+    test("plain objects", () => {
+      expect(unsafeIsRecord({})).toBe(true);
+      expect(unsafeIsRecord({ a: 1 })).toBe(true);
+      expect(unsafeIsRecord(Object.create(null))).toBe(true);
+    });
+
+    test("arrays, null, undefined, and primitives", () => {
+      expect(unsafeIsRecord([])).toBe(false);
+      expect(unsafeIsRecord([1, 2, 3])).toBe(false);
+      expect(unsafeIsRecord(null)).toBe(false);
+      expect(unsafeIsRecord(undefined)).toBe(false);
+      expect(unsafeIsRecord("x")).toBe(false);
+      expect(unsafeIsRecord(123)).toBe(false);
+      expect(unsafeIsRecord(true)).toBe(false);
+    });
+
+    test("rules out Map, Set, Date, RegExp, and custom-prototype objects", () => {
+      expect(unsafeIsRecord(new Map())).toBe(false);
+      expect(unsafeIsRecord(new Set())).toBe(false);
+      expect(unsafeIsRecord(new Date())).toBe(false);
+      expect(unsafeIsRecord(new Error("boom"))).toBe(false);
+      expect(unsafeIsRecord(/re/u)).toBe(false);
+      expect(unsafeIsRecord(Object.create({ inherited: true }))).toBe(false);
     });
   });
 });

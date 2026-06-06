@@ -23,6 +23,6 @@
     "name": "whole library surface (every module)",
     "path": "dist/index.js",
     "ignore": ["effect", "effect/*"],
-    "limit": "5 kB"
+    "limit": "6 kB"
   }
 ]

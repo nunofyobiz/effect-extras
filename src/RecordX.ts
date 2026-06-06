@@ -3,9 +3,10 @@
  *
  * @since 0.0.0
  */
-import { Array, Option, Order, Predicate, Record, pipe } from "effect";
+import { Array, Option, Order, Predicate, Record, Reducer, pipe } from "effect";
 import { dual } from "effect/Function";
 import * as ArrayX from "./ArrayX.js";
+import * as PredicateX from "./PredicateX.js";
 
 /**
  * Returns `true` when `record` has at least one entry, narrowing it to a
@@ -476,3 +477,184 @@ export const collectBy = dual<
       Record.set<K, V, K, V>(accumulator, identify(value), value),
     ),
 );
+
+/**
+ * Deep-merges two JSON values, with `b` winning on conflicts.
+ *
+ * Plain objects (per `PredicateX.unsafeIsRecord`) are merged recursively,
+ * key-by-key; every other shape — primitives, arrays, and impostors like
+ * `Map`/`Date`/class instances — is replaced wholesale by `b`. If either side
+ * isn't a plain object, `b` is returned as-is. Neither input is mutated. Reach
+ * for it to layer partial JSON overrides on top of a base.
+ *
+ * @example
+ * ```ts
+ * import { RecordX } from "@nunofyobiz/effect-extras"
+ * import { pipe } from "effect"
+ *
+ * // data-first — nested objects merge, b wins on leaf conflicts
+ * assert.deepStrictEqual(
+ *   RecordX.deepMerge({ a: { x: 1 }, b: 2 }, { a: { y: 3 }, c: 4 }),
+ *   { a: { x: 1, y: 3 }, b: 2, c: 4 },
+ * )
+ *
+ * // arrays are replaced wholesale, not concatenated
+ * assert.deepStrictEqual(RecordX.deepMerge({ a: [1, 2] }, { a: [3] }), { a: [3] })
+ *
+ * // data-last (pipeable) — merges the override onto the piped base
+ * assert.deepStrictEqual(pipe({ a: 1 }, RecordX.deepMerge({ b: 2 })), {
+ *   a: 1,
+ *   b: 2,
+ * })
+ * ```
+ *
+ * @category combining
+ * @since 0.0.0
+ */
+export const deepMerge = dual<
+  (b: unknown) => (a: unknown) => unknown,
+  (a: unknown, b: unknown) => unknown
+>(2, (a: unknown, b: unknown): unknown => {
+  if (!PredicateX.unsafeIsRecord(a) || !PredicateX.unsafeIsRecord(b)) {
+    return b;
+  }
+  return Record.reduce(b, { ...a }, (accumulator, value, key) => ({
+    ...accumulator,
+    [key]: key in a ? deepMerge(a[key], value) : value,
+  }));
+});
+
+/**
+ * {@link deepMerge} as a `Reducer` (monoid) with identity `{}`.
+ *
+ * `deepMergeReducer.combineAll(layers)` folds an iterable of object layers
+ * left-to-right via {@link deepMerge} — the universal "merge N JSON objects into
+ * one" fold, replacing a hand-rolled `Array.reduce(layers, {}, deepMerge)`. The
+ * `{}` identity is exact for the object-valued layers these folds carry: an empty
+ * list yields `{}`, and a single layer is returned unchanged.
+ *
+ * @example
+ * ```ts
+ * import { RecordX } from "@nunofyobiz/effect-extras"
+ *
+ * assert.deepStrictEqual(
+ *   RecordX.deepMergeReducer.combineAll([
+ *     { a: { x: 1 } },
+ *     { a: { y: 2 }, b: 3 },
+ *     { b: 4 },
+ *   ]),
+ *   { a: { x: 1, y: 2 }, b: 4 },
+ * )
+ *
+ * assert.deepStrictEqual(RecordX.deepMergeReducer.combineAll([]), {})
+ * ```
+ *
+ * @category instances
+ * @since 0.0.0
+ */
+export const deepMergeReducer: Reducer.Reducer<unknown> = Reducer.make<unknown>(
+  deepMerge,
+  {},
+);
+
+/**
+ * Canonicalizes a JSON value by recursively sorting object keys; arrays keep
+ * their order.
+ *
+ * Two structurally-equal values that differ only in key order canonicalize to
+ * the same shape, so `JSON.stringify(canonicalize(x))` is a stable structural
+ * key for comparison, deduping, or hashing. Plain objects (per
+ * `PredicateX.unsafeIsRecord`) have their keys sorted ascending and their values
+ * canonicalized recursively; arrays are canonicalized element-wise in place;
+ * everything else passes through unchanged.
+ *
+ * @example
+ * ```ts
+ * import { RecordX } from "@nunofyobiz/effect-extras"
+ *
+ * assert.deepStrictEqual(
+ *   JSON.stringify(RecordX.canonicalize({ b: 1, a: { d: 1, c: 2 } })),
+ *   JSON.stringify({ a: { c: 2, d: 1 }, b: 1 }),
+ * )
+ *
+ * // arrays keep their order; primitives pass through
+ * assert.deepStrictEqual(RecordX.canonicalize([3, 1, 2]), [3, 1, 2])
+ * assert.deepStrictEqual(RecordX.canonicalize("x"), "x")
+ * ```
+ *
+ * @category transformations
+ * @since 0.0.0
+ */
+export const canonicalize = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return Array.map(value, canonicalize);
+  }
+  if (!PredicateX.unsafeIsRecord(value)) {
+    return value;
+  }
+  return pipe(
+    Record.toEntries(value),
+    Array.map(([key, entry]) => [key, canonicalize(entry)] as const),
+    Array.sort(
+      Order.mapInput(Order.String, ([key]: readonly [string, unknown]) => key),
+    ),
+    Record.fromEntries,
+  );
+};
+
+/**
+ * Immutably deletes the value at a `path` from a JSON object, pruning any parent
+ * objects left empty by the deletion.
+ *
+ * Walks `path` from the root; when it resolves to an existing key, that key is
+ * removed and every ancestor that becomes empty as a result is removed too.
+ * Returns `Some(newObject)` when the path existed (so callers can tell something
+ * changed), or `None` when it was absent or `object` isn't a plain object. The
+ * input is never mutated.
+ *
+ * @example
+ * ```ts
+ * import { RecordX } from "@nunofyobiz/effect-extras"
+ * import { Option, pipe } from "effect"
+ *
+ * // deletes the leaf and prunes the now-empty parent
+ * assert.deepStrictEqual(
+ *   RecordX.deleteByPath({ a: { b: 1 } }, ["a", "b"]),
+ *   Option.some({}),
+ * )
+ *
+ * // a sibling key keeps the parent alive
+ * assert.deepStrictEqual(
+ *   RecordX.deleteByPath({ a: { b: 1, c: 2 } }, ["a", "b"]),
+ *   Option.some({ a: { c: 2 } }),
+ * )
+ *
+ * // absent path → None; data-last (pipeable) form
+ * assert.deepStrictEqual(pipe({ a: 1 }, RecordX.deleteByPath(["b"])), Option.none())
+ * ```
+ *
+ * @category combining
+ * @since 0.0.0
+ */
+export const deleteByPath = dual<
+  (path: readonly string[]) => (object: unknown) => Option.Option<unknown>,
+  (object: unknown, path: readonly string[]) => Option.Option<unknown>
+>(2, (object: unknown, path: readonly string[]): Option.Option<unknown> => {
+  if (!PredicateX.unsafeIsRecord(object)) {
+    return Option.none();
+  }
+  const [head, ...rest] = path;
+  if (head === undefined) {
+    return Option.none();
+  }
+  if (rest.length === 0) {
+    return head in object
+      ? Option.some(Record.remove(object, head))
+      : Option.none();
+  }
+  return Option.map(deleteByPath(object[head], rest), (newChild) =>
+    PredicateX.unsafeIsRecord(newChild) && Record.isEmptyRecord(newChild)
+      ? Record.remove(object, head)
+      : { ...object, [head]: newChild },
+  );
+});
