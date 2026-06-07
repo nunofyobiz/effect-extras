@@ -96,6 +96,31 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
+  # Compatibility floor for the `effect` peer range (`^4.0.0-beta.74`). The latest
+  # supported version is already exercised by the `typecheck`/`test` jobs above
+  # (they install the pinned devDep, which Renovate keeps current); this job pins
+  # the OTHER end — the oldest version the range promises — and re-runs the type
+  # + runtime checks against it. Boundary testing: floor + latest, nothing in
+  # between. `pnpm add` intentionally un-freezes the lockfile to swap the version.
+  effect-compat:
+    name: effect-compat (effect ${{ matrix.effect }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        effect: ["4.0.0-beta.74"] # peer-range floor; add entries only if we widen the floor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm add -D effect@${{ matrix.effect }} @effect/vitest@${{ matrix.effect }}
+      - run: pnpm tc
+      - run: pnpm test
+
   build:
     runs-on: ubuntu-latest
     steps:
