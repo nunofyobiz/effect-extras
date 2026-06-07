@@ -103,21 +103,26 @@ jobs:
   # + runtime checks against it. Boundary testing: floor + latest, nothing in
   # between. `pnpm add` intentionally un-freezes the lockfile to swap the version.
   effect-compat:
-    name: effect-compat (effect ${{ matrix.effect }})
+    # Name uses the stable `floor` label, never the version — so the required
+    # status check keeps the same name when the floor moves (and Renovate, which
+    # only bumps the devDep = latest, never touches it). Bump `matrix.floor`
+    # below only when we deliberately raise the supported floor.
+    name: effect-compat (floor, node ${{ matrix.node }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        effect: ["4.0.0-beta.74"] # peer-range floor; add entries only if we widen the floor
+        floor: ["4.0.0-beta.74"] # oldest effect the peer range promises
+        node: ["22", "24"] # same Node range the typecheck/test jobs cover
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version: ${{ matrix.node }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm add -D effect@${{ matrix.effect }} @effect/vitest@${{ matrix.effect }}
+      - run: pnpm add -D effect@${{ matrix.floor }} @effect/vitest@${{ matrix.floor }}
       - run: pnpm tc
       - run: pnpm test
 
