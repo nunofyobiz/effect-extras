@@ -1,5 +1,5 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
 
-  extends: ["github>StoryCut/renovate-config:js-lib.json5"],
+  extends: ["github>nunofyobiz/renovate-config:js-lib.json5"],
 }
