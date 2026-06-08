@@ -11,6 +11,7 @@ export { fromNullableOrThrow as nn } from "./NonNullableX.js";
 export * as NumberX from "./NumberX.js";
 export * as OptionX from "./OptionX.js";
 export * as OrderX from "./OrderX.js";
+export * as PathX from "./PathX.js";
 export * as PredicateX from "./PredicateX.js";
 export * as PromiseX from "./PromiseX.js";
 export * as RecordX from "./RecordX.js";
