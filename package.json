@@ -106,7 +106,7 @@
     "vitest": "4.1.7"
   },
   "peerDependencies": {
-    "effect": "4.0.0-beta.74"
+    "effect": "^4.0.0-beta.74"
   },
   "packageManager": "pnpm@10.33.4",
   "engines": {
