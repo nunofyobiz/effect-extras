@@ -8,6 +8,30 @@ understand it without archaeology.
 
 ---
 
+## Effect — v4 beta (read first)
+
+This repo targets **Effect v4** (`effect@4.0.0-beta.*`), the beta published from the
+[`effect-smol`](https://github.com/Effect-TS/effect-smol) repo. **v3 is wrong here by default.** Most
+Effect material you'll reach for — the `effect.website` docs, the `effect-docs` MCP, blog posts, and
+model training data — describes **v3** and will mislead you (it still offers `Either`, which v4
+replaced with `Result`).
+
+**Sources of truth, in order:**
+
+1. **`node_modules/effect`** — the installed `.d.ts` types and source are the exact v4 you compile
+   against. Unsure about a signature? Read it here first.
+2. The [`effect-smol`](https://github.com/Effect-TS/effect-smol) repo — where v4 beta is developed.
+3. This repo's own **`*X` modules** — worked v4 examples that already compile green.
+
+Treat `effect.website` **and** the `effect-docs` MCP as **v3 conceptual references only** — useful for
+ideas and prose, never trusted for exact API shape. Verify every signature against
+`node_modules/effect` before you write it. The known v3→v4 divergences are in
+[Effect v4 conventions](#effect-v4-conventions).
+
+> [!NOTE]
+> When v4 ships **stable**, this guardrail comes down and the `effect-docs` MCP becomes the source we
+> trust again — tracked in [#25](https://github.com/nunofyobiz/effect-extras/issues/25).
+
 ## What this repo is
 
 `@nunofyobiz/effect-extras` is a **single published npm package** of generic, framework-agnostic
@@ -83,8 +107,8 @@ belongs here only if **all** of these hold:
 
 1. **It is not already in Effect.** If `effect` (or an `@effect/*` package) already does it, use
    that. The built-in modules (`Array`, `Option`, `Record`, `Predicate`, `String`, `Number`,
-   `Order`, `Result`, `Match`, `Struct`, …) are wide — check the [docs](https://effect.website)
-   first.
+   `Order`, `Result`, `Match`, `Struct`, …) are wide — check them first (read the installed
+   `node_modules/effect` types; `effect.website` is **v3**, so verify any v4 shape against the source).
 2. **It is generic and pure.** Operates on type parameters (`<A>`), no side effects, no mutations,
    and would make sense in a project that shares nothing with yours.
 3. **It carries zero app knowledge.** It never references a business domain or data model
@@ -187,15 +211,20 @@ care at the subpath. The validators:
 
 ## Effect v4 conventions
 
-This package targets **Effect v4** (`effect@beta`), its sole peer dependency. A few v4-isms to keep
-straight when copying snippets from older Effect docs:
+This package targets **Effect v4** (`effect@4.0.0-beta.*`), its sole peer dependency. See
+[Effect — v4 beta (read first)](#effect--v4-beta-read-first) for why v3 docs, snippets, and the
+`effect-docs` MCP mislead you; the v4-isms below are the specific divergences to keep straight when
+copying from older Effect material:
 
-- **`Result` replaced `Either`.** `Either.right(x)` → `Result.success(x)`; `Either.left(e)` →
-  `Result.failure(e)`. There is no `Either` alias in v4.
+- **`Result` replaced `Either`.** `Either.right(x)` → `Result.succeed(x)`; `Either.left(e)` →
+  `Result.fail(e)`. There is no `Either` alias in v4. (`success`/`failure` exist only as the variant
+  field accessors and the `Success`/`Failure` types — not as constructors.)
 - **Schema checks compose with `.check(...)`**, not piped refinements:
-  `Schema.Number.check(Schema.greaterThan(0))`, not `Schema.Number.pipe(Schema.positive())`.
-- **Don't re-implement Effect's control-flow combinators.** Effect ships `Effect.if`, `Effect.when`,
-  `Effect.unless`, `Effect.forEach`, `Effect.all` — use them. This package extends Effect's **data**
+  `Schema.Number.check(Schema.isGreaterThan(0))`, not `Schema.Number.pipe(Schema.positive())`. (v4
+  renamed the check constructors to the `is*` form — `isGreaterThan`, `isInt`, `isBetween`, … — so
+  the bare `greaterThan`/`positive` you'll see in v3 material no longer exist on `Schema`.)
+- **Don't re-implement Effect's control-flow combinators.** Effect ships `Effect.when`,
+  `Effect.forEach`, `Effect.all` (among others) — use them. This package extends Effect's **data**
   surface (`ArrayX`, `RecordX`, `StructX`, …), never its control flow.
 
 ## Effect patterns
@@ -238,14 +267,14 @@ Use predicates from Effect modules instead of manual `=== null`, `typeof`, or `.
 ```ts
 import { Predicate, String, Number, Array } from "effect";
 
-if (Predicate.isNotNullable(value)) { ... } // not: value != null
-if (Predicate.isString(value)) { ... } //      not: typeof value === "string"
-if (String.isNonEmpty(str)) { ... } //         not: str.length > 0
-if (Array.isNonEmptyArray(arr)) { ... } //     not: arr.length > 0
-if (Number.isFinite(n)) { ... }
+if (Predicate.isNotNullish(value)) { ... } // not: value != null
+if (Predicate.isString(value)) { ... } //     not: typeof value === "string"
+if (String.isNonEmpty(str)) { ... } //        not: str.length > 0
+if (Array.isArrayNonEmpty(arr)) { ... } //    not: arr.length > 0
+if (Number.isNumber(n)) { ... } //            not: typeof n === "number"
 ```
 
-A compound predicate worth reusing (an `isNonEmptyString` combining `isNotNullable`, `isString`, and
+A compound predicate worth reusing (an `isNonEmptyString` combining `isNotNullish`, `isString`, and
 `String.isNonEmpty`) is exactly what `PredicateX` is for — create it the first time a second call
 site wants it.
 
@@ -327,10 +356,10 @@ Result.match(parsed, {
 | --------------------------------- | ------------------------------------------ |
 | `if/else` chains                  | `Match.value` / `Match.valueTags`          |
 | `=== null`                        | `Predicate.isNull`                         |
-| `!= null`                         | `Predicate.isNotNullable`                  |
+| `!= null`                         | `Predicate.isNotNullish`                   |
 | `typeof x === "string"`           | `Predicate.isString`                       |
 | `str.length > 0`                  | `String.isNonEmpty(str)`                   |
-| `arr.length > 0`                  | `Array.isNonEmptyArray(arr)`               |
+| `arr.length > 0`                  | `Array.isArrayNonEmpty(arr)`               |
 | `{ key: maybeUndefined }`         | `StructX.defined("key", maybeUndefined)`   |
 | Custom `_tag` discriminated union | `Result<A, E>` + `Result.match`            |
 | Inline `Array.prototype.sort`     | `Array.sort(arr, order)` — see Sort orders |
@@ -369,7 +398,8 @@ logic, ask in order:
 
 1. **Does Effect already cover this?** `Array`, `Option`, `Record`, `Predicate`, `String`, `Number`,
    `Order`, `Result`, `Match`, `Struct`, `Tuple`, `HashMap`, `HashSet`, … are wide and well-tested.
-   Check the [Effect docs](https://effect.website/) when unsure.
+   When unsure, read the installed `node_modules/effect` types (`effect.website` is **v3** — verify any
+   v4 shape against the source; see [Effect — v4 beta](#effect--v4-beta-read-first)).
 2. **Does an existing `*X` module already do it?** (See "Check existing utilities first" below.)
 3. **Can the logic be a generic utility another call site could reuse?**
 
@@ -437,7 +467,7 @@ import { Array, Order } from "effect";
 
 const sorted = Array.sort(
   items,
-  Order.mapInput(Order.string, (item: Item) => item.path),
+  Order.mapInput(Order.String, (item: Item) => item.path),
 );
 ```
 
@@ -448,7 +478,7 @@ const sorted = Array.sort(
 | `Order.mapInput(base, extract)`     | Sort objects by a field               |
 | `Order.combine(primary, secondary)` | Multi-key sort (two orders)           |
 | `Order.combineAll([o1, o2, …])`     | Multi-key sort (more than two orders) |
-| `Order.reverse(order)`              | Flip ascending to descending          |
+| `Order.flip(order)`                 | Flip ascending to descending          |
 | `Array.sort(array, order)`          | Sort by a single order                |
 | `Array.sortBy(o1, o2, …)`           | Sort by multiple orders combined      |
 
