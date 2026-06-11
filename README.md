@@ -18,6 +18,10 @@ are pure, generic, and carry **no** domain or framework knowledge — that is th
 whole point, and the bar every addition has to clear (see
 [What belongs here](#what-belongs-here)).
 
+> **Requires [Effect v4](https://github.com/Effect-TS/effect-smol)** (peer
+> `effect@^4.0.0-beta.*`). The published `effect.website` docs still describe v3,
+> which differs (e.g. `Result` replaced `Either`).
+
 ```ts
 import {
   ArrayX,
@@ -74,10 +78,12 @@ package is scope creep, so the bar for adding something is deliberately high.
 A utility belongs here only if **all** of these hold:
 
 1. **It is not already in Effect.** If `effect` (or an `@effect/*` package)
-   already does it, use that directly. Check the [Effect docs](https://effect.website)
-   first — the built-in modules (`Array`, `Option`, `Record`, `Predicate`,
-   `String`, `Number`, `Order`, `Result`, `Match`, `Struct`, …) are wide and
-   well-tested, and most "manipulate this shape" needs already exist there.
+   already does it, use that directly. Check the built-in modules first (`Array`,
+   `Option`, `Record`, `Predicate`, `String`, `Number`, `Order`, `Result`,
+   `Match`, `Struct`, …) — they're wide and well-tested, and most "manipulate this
+   shape" needs already exist there. This package targets **Effect v4** (beta);
+   the [Effect docs](https://effect.website) are **v3**, so verify any v4 signature
+   against the installed `node_modules/effect` types.
 2. **It is generic and pure.** It operates on type parameters (`<A>`), has no
    side effects, no mutations, and would make sense in a project that shares
    nothing with yours.
