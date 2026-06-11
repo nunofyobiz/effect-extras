@@ -4,7 +4,7 @@ import { fromOption } from "./ResultX.js";
 
 describe("Result utils", () => {
   describe("fromOption", () => {
-    test("some(value) → Result.success(value)", () => {
+    test("some(value) → Result.succeed(value)", () => {
       expect(fromOption(Option.some(42))).toStrictEqual(Result.succeed(42));
     });
 
@@ -12,21 +12,21 @@ describe("Result utils", () => {
       expect(fromOption(Option.none())).toStrictEqual(Result.failVoid);
     });
 
-    test("some(0) → Result.success(0) (falsy values preserved)", () => {
+    test("some(0) → Result.succeed(0) (falsy values preserved)", () => {
       expect(fromOption(Option.some(0))).toStrictEqual(Result.succeed(0));
     });
 
-    test("some(empty string) → Result.success('')", () => {
+    test("some(empty string) → Result.succeed('')", () => {
       expect(fromOption(Option.some(""))).toStrictEqual(Result.succeed(""));
     });
 
-    test("some(false) → Result.success(false)", () => {
+    test("some(false) → Result.succeed(false)", () => {
       expect(fromOption(Option.some(false))).toStrictEqual(
         Result.succeed(false),
       );
     });
 
-    test("some(null) → Result.success(null) (None ≠ null)", () => {
+    test("some(null) → Result.succeed(null) (None ≠ null)", () => {
       expect(fromOption(Option.some<string | null>(null))).toStrictEqual(
         Result.succeed(null),
       );
