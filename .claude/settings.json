@@ -51,6 +51,8 @@
       "Bash(git fetch *)",
       "Bash(git log)",
       "Bash(git log *)",
+      "Bash(git grep)",
+      "Bash(git grep *)",
       "Bash(git mv *)",
       "Bash(git push)",
       "Bash(git push -u *)",
@@ -62,6 +64,7 @@
       "Bash(git status *)",
       "Bash(git rev-list *)",
       "Bash(git ls-remote *)",
+      "Bash(git check-ignore)",
       "Bash(git check-ignore *)",
       "Bash(gh pr create)",
       "Bash(gh pr create *)",
@@ -114,6 +117,10 @@
       "Bash(sed *)",
       "Bash(rg)",
       "Bash(rg *)",
+      "Bash(grep)",
+      "Bash(grep *)",
+      "Bash(echo)",
+      "Bash(echo *)",
       "Bash(head *)",
       "Bash(tail *)",
       "Bash(wc)",
@@ -122,7 +129,12 @@
       "Bash(pnpm --version)",
       "Bash(command -v *)",
       "mcp__effect-docs__effect_docs_search",
-      "mcp__effect-docs__get_effect_doc"
+      "mcp__effect-docs__get_effect_doc",
+      "mcp__kandev__list_workspaces_kandev",
+      "mcp__kandev__list_workflows_kandev",
+      "mcp__kandev__list_workflow_steps_kandev",
+      "mcp__kandev__list_tasks_kandev",
+      "mcp__kandev__move_task_kandev"
     ]
   }
 }
