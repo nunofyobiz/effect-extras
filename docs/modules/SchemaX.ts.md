@@ -21,6 +21,7 @@ Added in v0.0.0
   - [pick](#pick)
   - [pickPartial](#pickpartial)
 - [constructors](#constructors)
+  - [IntFromString](#intfromstring)
   - [TrimmedNonEmptyString](#trimmednonemptystring)
   - [URLSafeFilePath](#urlsafefilepath)
 - [models](#models)
@@ -226,6 +227,58 @@ assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(Update)({ a: 1 })), { 
 Added in v0.0.0
 
 # constructors
+
+## IntFromString
+
+A `Schema` that decodes a numeric string into a JS `number`, **failing loudly**
+when the value isn't a safe integer instead of silently rounding it.
+
+`Schema.NumberFromString` has no range guard, so a string past
+`Number.MAX_SAFE_INTEGER` — e.g. a Postgres `int8` column, which node-postgres
+returns as a string — decodes to a silently-rounded number
+(`Number("9223372036854775807")` is `9223372036854776000`). This codec adds
+`Schema.isInt` (which is `Number.isSafeInteger`), so any value that can't be
+represented exactly fails decoding rather than corrupting data. On encode a
+`number` is written back as a decimal string.
+
+Being an integer guard, it also rejects fractional strings (`"3.14"`). Note
+the failure names the _already-parsed_ number (the rounded value), since the
+check runs after `NumberFromString` has produced the JS `number` — by which
+point the original digits are gone. The loud failure still flags the offending
+input.
+
+The parsing step is `NumberFromString`'s, so its lenient `Number(...)` coercion
+carries through: blank input decodes to zero (`""` and `"   "` → `0`), and
+exponential / hex notation is accepted (`"1e3"` → `1000`, `"0x10"` → `16`).
+The guard protects against unsafe-integer _overflow_, not against
+non-canonical numeric strings — a caller that needs strict input (reject blanks
+or only accept plain decimal digits) should compose an upstream check.
+
+**Signature**
+
+```ts
+export declare const IntFromString: Schema.NumberFromString
+```
+
+**Example**
+
+```ts
+import { Effect, Result, Schema } from "effect"
+import { SchemaX } from "@nunofyobiz/effect-extras"
+
+// A safe integer round-trips
+const decoded = Effect.runSync(Schema.decodeEffect(SchemaX.IntFromString)("42"))
+assert.deepStrictEqual(decoded, 42)
+
+const encoded = Effect.runSync(Schema.encodeEffect(SchemaX.IntFromString)(42))
+assert.deepStrictEqual(encoded, "42")
+
+// A value past Number.MAX_SAFE_INTEGER fails instead of silently rounding
+const result = Effect.runSync(Effect.result(Schema.decodeEffect(SchemaX.IntFromString)("9223372036854775807")))
+assert.deepStrictEqual(Result.isFailure(result), true)
+```
+
+Added in v0.0.0
 
 ## TrimmedNonEmptyString
 
