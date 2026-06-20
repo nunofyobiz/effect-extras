@@ -2,6 +2,7 @@ import { Effect, Result, Schema } from "effect";
 import { describe, expect, test } from "vitest";
 import { it } from "@effect/vitest";
 import {
+  IntFromString,
   TrimmedNonEmptyString,
   URLSafeFilePath,
   nonNegativeBigInt,
@@ -147,6 +148,147 @@ describe("Schema utils", () => {
           Schema.decodeEffect(URLSafeFilePath)(""),
         );
         expect(Result.isFailure(result)).toBe(true);
+      }),
+    );
+  });
+
+  describe("IntFromString", () => {
+    it.effect("decodes a safe integer string to a number", () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.decodeEffect(IntFromString)("42");
+        expect(result).toBe(42);
+      }),
+    );
+
+    it.effect("encodes a number back to a decimal string", () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.encodeEffect(IntFromString)(42);
+        expect(result).toBe("42");
+      }),
+    );
+
+    // The safe-integer guard is bidirectional (it's a `Schema.check`), so encode
+    // rejects an unsafe `number` too — not just decode. Pins that direction so a
+    // regression that made the codec decode-only would be caught.
+    it.effect("fails to encode an unsafe integer", () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.result(
+          Schema.encodeEffect(IntFromString)(Number.MAX_SAFE_INTEGER + 1),
+        );
+        expect(Result.isFailure(result)).toBe(true);
+      }),
+    );
+
+    it.effect("fails to encode a fractional number", () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.result(
+          Schema.encodeEffect(IntFromString)(3.14),
+        );
+        expect(Result.isFailure(result)).toBe(true);
+      }),
+    );
+
+    it.effect("round-trips a safe integer", () =>
+      Effect.gen(function* () {
+        const decoded = yield* Schema.decodeEffect(IntFromString)("-100");
+        expect(decoded).toBe(-100);
+        const encoded = yield* Schema.encodeEffect(IntFromString)(decoded);
+        expect(encoded).toBe("-100");
+      }),
+    );
+
+    it.effect("decodes negative safe integers", () =>
+      Effect.gen(function* () {
+        const result =
+          yield* Schema.decodeEffect(IntFromString)("-9007199254740991");
+        expect(result).toBe(-Number.MAX_SAFE_INTEGER);
+      }),
+    );
+
+    it.effect("decodes Number.MAX_SAFE_INTEGER at the boundary", () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.decodeEffect(IntFromString)(
+          String(Number.MAX_SAFE_INTEGER),
+        );
+        expect(result).toBe(Number.MAX_SAFE_INTEGER);
+      }),
+    );
+
+    it.effect(
+      "fails on MAX_SAFE_INTEGER + 1 rather than silently rounding",
+      () =>
+        Effect.gen(function* () {
+          const result = yield* Effect.result(
+            // "9007199254740992" === String(Number.MAX_SAFE_INTEGER + 1)
+            Schema.decodeEffect(IntFromString)("9007199254740992"),
+          );
+          expect(Result.isFailure(result)).toBe(true);
+        }),
+    );
+
+    it.effect("fails loudly on int8 overflow (would silently round)", () =>
+      Effect.gen(function* () {
+        // Number("9223372036854775807") === 9223372036854776000 (rounded)
+        const result = yield* Effect.result(
+          Schema.decodeEffect(IntFromString)("9223372036854775807"),
+        );
+        expect(Result.isFailure(result)).toBe(true);
+      }),
+    );
+
+    it.effect("rejects fractional strings", () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.result(
+          Schema.decodeEffect(IntFromString)("3.14"),
+        );
+        expect(Result.isFailure(result)).toBe(true);
+      }),
+    );
+
+    it.effect("rejects non-numeric strings", () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.result(
+          Schema.decodeEffect(IntFromString)("abc"),
+        );
+        expect(Result.isFailure(result)).toBe(true);
+      }),
+    );
+
+    test("the failure message names the overflow contract", () => {
+      expect(() =>
+        Schema.decodeUnknownSync(IntFromString)("9223372036854775807"),
+      ).toThrow(/safe integer/u);
+    });
+
+    // Inherited from NumberFromString's lenient Number(...) coercion — pinned so
+    // the behavior is part of the spec, not an accident. The guard catches
+    // unsafe-integer overflow, not non-canonical numeric strings; callers needing
+    // strict input compose an upstream check (see the JSDoc caveat).
+    it.effect('decodes an empty string to 0 (Number("") === 0)', () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.decodeEffect(IntFromString)("");
+        expect(result).toBe(0);
+      }),
+    );
+
+    it.effect("decodes a whitespace-only string to 0", () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.decodeEffect(IntFromString)("   ");
+        expect(result).toBe(0);
+      }),
+    );
+
+    it.effect("decodes exponential notation to its safe-integer value", () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.decodeEffect(IntFromString)("1e3");
+        expect(result).toBe(1000);
+      }),
+    );
+
+    it.effect("decodes hex notation to its safe-integer value", () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.decodeEffect(IntFromString)("0x10");
+        expect(result).toBe(16);
       }),
     );
   });
