@@ -16,3 +16,6 @@
 
 # docgen example type-check artifacts
 /docs/examples
+
+# agent scratch (PR bodies, etc.)
+.agent-ops/
