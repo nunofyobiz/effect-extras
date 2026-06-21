@@ -59,6 +59,9 @@ If `pnpm` is not found, escalate in this exact order — do not chain them:
 3. Run `source ~/.nvm/nvm.sh && nvm use`. Try again.
 4. Only if all three fail, ask the user.
 
+`nvm ls` is a read (allowlisted) for _inspecting_ installed versions — it is **not** a bootstrap
+step. Don't probe Node state with it before running pnpm; just follow the escalation above.
+
 Do **not** prepend `cd /path/to/repo` to pnpm commands — pnpm respects the current working
 directory, and chaining `cd && pnpm` triggers permission prompts unnecessarily.
 
@@ -91,6 +94,11 @@ covers the safe reads and routine scripts; you keep prompts low by _how_ you inv
   redirect and prompts on _every_ commit.
 - **Don't `cd` / `git -C <path>` into the worktree you're already in** — an out-of-cwd path triggers a
   prompt. The cwd already _is_ the repo; run `git status`, `pnpm test`, etc. directly.
+- **Run git subcommands plain — no `git -c <k>=<v>` or other global-flag prefix.** A flag _before_ the
+  subcommand (`git -c core.pager=… log`, `git --no-pager show`, the `git -C <path>` above) sits outside
+  the `git <subcmd> *` allowlist pattern, so it prompts even when the subcommand itself is allowlisted.
+  The harness output is already plain — you don't need `-c core.pager=cat` / `--no-pager`. Run the bare
+  subcommand (`git log`, `git blame`, `git show`).
 
 Consequential actions stay **deliberately gated** (they _should_ prompt): inline code runners
 (`node -e`, `tsx -e`, `npx -e`), `gh pr merge`, `gh issue create`, publishes (`changeset publish`,
