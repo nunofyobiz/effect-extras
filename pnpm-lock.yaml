@@ -33,8 +33,8 @@ importers:
         specifier: 0.86.2
         version: 0.86.2
       '@effect/vitest':
-        specifier: 4.0.0-beta.74
-        version: 4.0.0-beta.74(effect@4.0.0-beta.74)(vitest@4.1.7)
+        specifier: 4.0.0-beta.90
+        version: 4.0.0-beta.90(effect@4.0.0-beta.90)(vitest@4.1.7)
       '@eslint-community/eslint-plugin-eslint-comments':
         specifier: 4.7.2
         version: 4.7.2(eslint@10.2.1(jiti@2.7.0))
@@ -66,8 +66,8 @@ importers:
         specifier: 20.5.3
         version: 20.5.3(@types/node@24.12.2)(conventional-commits-parser@6.4.0)(typescript@6.0.3)
       effect:
-        specifier: 4.0.0-beta.74
-        version: 4.0.0-beta.74
+        specifier: 4.0.0-beta.90
+        version: 4.0.0-beta.90
       eslint:
         specifier: 10.2.1
         version: 10.2.1(jiti@2.7.0)
@@ -366,10 +366,10 @@ packages:
     engines: {node: '>=0.10.0'}
     hasBin: true
 
-  '@effect/vitest@4.0.0-beta.74':
-    resolution: {integrity: sha512-+SFcjtbboJdWA+cP7JFW7Gp1PL7vj7uqvBnh9xY7JFU8VMsrHN5mblsqE7l7+ZFGpJvBGLgjGrhfe8QZ7f5vgg==}
+  '@effect/vitest@4.0.0-beta.90':
+    resolution: {integrity: sha512-eWSkDg34TjsrSVfrU0PkR8YN/AeeM0kt792/RCobCVTx5SGO/iYwyqyjl/73nP8Q5rMM6UTepaBCzK7D/H1tlg==}
     peerDependencies:
-      effect: ^4.0.0-beta.74
+      effect: ^4.0.0-beta.90
       vitest: ^3.0.0 || ^4.0.0
 
   '@emnapi/core@1.10.0':
@@ -1663,8 +1663,8 @@ packages:
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
 
-  effect@4.0.0-beta.74:
-    resolution: {integrity: sha512-Yx+Kh12U+i2FmjwEfKs+ePFmpMd43RPD1oGqc/VraSS9bYzvF0Ff3PojwEFEVEewp8xc92Uxu28gTspU4qyvHA==}
+  effect@4.0.0-beta.90:
+    resolution: {integrity: sha512-A0U3OE+2oyK/iFG6VYbFj9gwjJ7rFXjgP7qV+m7n/4lOREp9Lfk1///SlGCpX7HRueOCZO1l7aW0KByXuJeiPA==}
 
   electron-to-chromium@1.5.366:
     resolution: {integrity: sha512-OlRuhb688YTCzzU3gXPLn6nGyd+F+53INE1qaKKlu6kETErE8FYsyDh0XqXEU+uBRn0MpCzz2vfNwORhkap8qg==}
@@ -1990,6 +1990,7 @@ packages:
   git-raw-commits@5.0.1:
     resolution: {integrity: sha512-Y+csSm2GD/PCSh6Isd/WiMjNAydu0VBiG9J7EdQsNA5P9uXvLayqjmTsNlK5Gs9IhblFZqOU0yid5Il5JPoLiQ==}
     engines: {node: '>=18'}
+    deprecated: Deprecated and no longer maintained. Use @conventional-changelog/git-client instead.
     hasBin: true
 
   glob-parent@5.1.2:
@@ -3638,9 +3639,9 @@ snapshots:
       repeat-string: 1.6.1
       strip-color: 0.1.0
 
-  '@effect/vitest@4.0.0-beta.74(effect@4.0.0-beta.74)(vitest@4.1.7)':
+  '@effect/vitest@4.0.0-beta.90(effect@4.0.0-beta.90)(vitest@4.1.7)':
     dependencies:
-      effect: 4.0.0-beta.74
+      effect: 4.0.0-beta.90
       vitest: 4.1.7(@types/node@24.12.2)(@vitest/coverage-v8@4.1.7)(vite@8.0.16(@types/node@24.12.2)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
   '@emnapi/core@1.10.0':
@@ -4678,7 +4679,7 @@ snapshots:
 
   eastasianwidth@0.2.0: {}
 
-  effect@4.0.0-beta.74:
+  effect@4.0.0-beta.90:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 4.8.0
