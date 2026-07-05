@@ -5,6 +5,7 @@ import {
   IntFromString,
   TrimmedNonEmptyString,
   URLSafeFilePath,
+  clamp,
   nonNegativeBigInt,
   omit,
   partial,
@@ -331,6 +332,153 @@ describe("Schema utils", () => {
         expect(result).toBe(big);
       }),
     );
+  });
+
+  describe("clamp", () => {
+    describe("both bounds", () => {
+      const Percent = clamp({ min: 0, max: 100 })(Schema.Number);
+
+      it.effect("clamps a value below min up to min on decode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Percent)(-5);
+          expect(result).toBe(0);
+        }),
+      );
+
+      it.effect("clamps a value below min up to min on encode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.encodeEffect(Percent)(-5);
+          expect(result).toBe(0);
+        }),
+      );
+
+      it.effect("clamps a value above max down to max on decode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Percent)(150);
+          expect(result).toBe(100);
+        }),
+      );
+
+      it.effect("clamps a value above max down to max on encode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.encodeEffect(Percent)(150);
+          expect(result).toBe(100);
+        }),
+      );
+
+      it.effect("passes an in-range value through unchanged", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Percent)(42);
+          expect(result).toBe(42);
+        }),
+      );
+
+      it.effect("passes the lower boundary through unchanged", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Percent)(0);
+          expect(result).toBe(0);
+        }),
+      );
+
+      it.effect("passes the upper boundary through unchanged", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Percent)(100);
+          expect(result).toBe(100);
+        }),
+      );
+    });
+
+    describe("lower bound only", () => {
+      const NonNegative = clamp({ min: 0 })(Schema.Number);
+
+      it.effect("clamps a value below min up to min on decode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(NonNegative)(-5);
+          expect(result).toBe(0);
+        }),
+      );
+
+      it.effect("clamps a value below min up to min on encode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.encodeEffect(NonNegative)(-5);
+          expect(result).toBe(0);
+        }),
+      );
+
+      it.effect("leaves an arbitrarily large value unchanged", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(NonNegative)(
+            Number.MAX_SAFE_INTEGER,
+          );
+          expect(result).toBe(Number.MAX_SAFE_INTEGER);
+        }),
+      );
+
+      it.effect("passes an in-range value through unchanged", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(NonNegative)(7);
+          expect(result).toBe(7);
+        }),
+      );
+    });
+
+    describe("upper bound only", () => {
+      const Capped = clamp({ max: 100 })(Schema.Number);
+
+      it.effect("clamps a value above max down to max on decode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Capped)(150);
+          expect(result).toBe(100);
+        }),
+      );
+
+      it.effect("clamps a value above max down to max on encode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.encodeEffect(Capped)(150);
+          expect(result).toBe(100);
+        }),
+      );
+
+      it.effect("leaves an arbitrarily small value unchanged", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Capped)(
+            -Number.MAX_SAFE_INTEGER,
+          );
+          expect(result).toBe(-Number.MAX_SAFE_INTEGER);
+        }),
+      );
+
+      it.effect("passes an in-range value through unchanged", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Capped)(42);
+          expect(result).toBe(42);
+        }),
+      );
+    });
+
+    describe("no bounds", () => {
+      const Unbounded = clamp({})(Schema.Number);
+
+      it.effect("passes any value through unchanged", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Unbounded)(-12_345);
+          expect(result).toBe(-12_345);
+        }),
+      );
+    });
+
+    test("min equal to max clamps every value to that single point", () => {
+      const Pinned = clamp({ min: 5, max: 5 })(Schema.Number);
+      expect(Schema.decodeUnknownSync(Pinned)(1)).toBe(5);
+      expect(Schema.decodeUnknownSync(Pinned)(9)).toBe(5);
+      expect(Schema.decodeUnknownSync(Pinned)(5)).toBe(5);
+    });
+
+    test("throws when min is greater than max", () => {
+      expect(() => clamp({ min: 10, max: 0 })(Schema.Number)).toThrow(
+        /min.*max/u,
+      );
+    });
   });
 
   describe("pick", () => {
