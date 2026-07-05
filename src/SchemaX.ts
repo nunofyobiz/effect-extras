@@ -3,7 +3,14 @@
  *
  * @since 0.0.0
  */
-import { BigInt, Schema, SchemaGetter, Struct } from "effect";
+import {
+  BigInt,
+  Number as EffectNumber,
+  Predicate,
+  Schema,
+  SchemaGetter,
+  Struct,
+} from "effect";
 
 /**
  * A `Schema` for a non-empty string that is trimmed on both decode and encode.
@@ -173,6 +180,85 @@ const clampMinBigInt =
  * @since 0.0.0
  */
 export const nonNegativeBigInt = clampMinBigInt(0n);
+
+/**
+ * Transforms a `number` `Schema` so its value is clamped into the inclusive
+ * range `[min, max]`, mapping any out-of-range value to the nearest bound on
+ * both decode and encode. Generalizes {@link nonNegativeBigInt}'s coercion —
+ * both bounds are optional, so `min` alone floors a value, `max` alone caps
+ * it, and both together bound it on each side.
+ *
+ * Unlike a refinement that *rejects* out-of-range input (e.g.
+ * `Schema.isBetween`), this *coerces* it: a value past a bound decodes to that
+ * bound rather than failing. Apply it wherever out-of-range magnitudes are
+ * meaningless and should be floored/capped rather than treated as errors.
+ *
+ * Throws immediately if both `min` and `max` are given and `min` is greater
+ * than `max` — an invalid range is a programmer error to catch at
+ * schema-construction time, not a decode-time failure.
+ *
+ * @example
+ * ```ts
+ * import { Effect, Schema } from "effect"
+ * import { SchemaX } from "@nunofyobiz/effect-extras"
+ *
+ * const NonNegative = SchemaX.clamp({ min: 0 })(Schema.Number)
+ *
+ * // Negative values are clamped up to the min
+ * assert.deepStrictEqual(
+ *   Effect.runSync(Schema.decodeEffect(NonNegative)(-5)),
+ *   0,
+ * )
+ *
+ * const Percentage = SchemaX.clamp({ min: 0, max: 100 })(Schema.Number)
+ *
+ * // Values past the max are clamped down to it
+ * assert.deepStrictEqual(
+ *   Effect.runSync(Schema.decodeEffect(Percentage)(150)),
+ *   100,
+ * )
+ *
+ * // In-range values pass through unchanged
+ * assert.deepStrictEqual(
+ *   Effect.runSync(Schema.decodeEffect(Percentage)(42)),
+ *   42,
+ * )
+ * ```
+ *
+ * @category combinators
+ * @since 0.0.0
+ */
+export const clamp = (bounds: {
+  readonly min?: number;
+  readonly max?: number;
+}) => {
+  if (
+    Predicate.isNotUndefined(bounds.min) &&
+    Predicate.isNotUndefined(bounds.max) &&
+    bounds.min > bounds.max
+  ) {
+    throw new Error(
+      `SchemaX.clamp: min (${bounds.min}) must be <= max (${bounds.max})`,
+    );
+  }
+
+  const clampValue = (value: number): number => {
+    const withMin = Predicate.isNotUndefined(bounds.min)
+      ? EffectNumber.max(value, bounds.min)
+      : value;
+    return Predicate.isNotUndefined(bounds.max)
+      ? EffectNumber.min(withMin, bounds.max)
+      : withMin;
+  };
+
+  return <S extends Schema.Schema<number>>(schema: S) =>
+    schema.pipe(
+      Schema.decode({
+        decode: SchemaGetter.transform(clampValue),
+        encode: SchemaGetter.transform(clampValue),
+      }),
+    );
+};
 
 /**
  * Extracts the "constructor input" type of a `Schema` — what `.make({...})`

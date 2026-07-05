@@ -15,6 +15,7 @@ Added in v0.0.0
 <h2 class="text-delta">Table of contents</h2>
 
 - [combinators](#combinators)
+  - [clamp](#clamp)
   - [nonNegativeBigInt](#nonnegativebigint)
   - [omit](#omit)
   - [partial](#partial)
@@ -30,6 +31,54 @@ Added in v0.0.0
 ---
 
 # combinators
+
+## clamp
+
+Transforms a `number` `Schema` so its value is clamped into the inclusive
+range `[min, max]`, mapping any out-of-range value to the nearest bound on
+both decode and encode. Generalizes {@link nonNegativeBigInt}'s coercion —
+both bounds are optional, so `min` alone floors a value, `max` alone caps
+it, and both together bound it on each side.
+
+Unlike a refinement that _rejects_ out-of-range input (e.g.
+`Schema.isBetween`), this _coerces_ it: a value past a bound decodes to that
+bound rather than failing. Apply it wherever out-of-range magnitudes are
+meaningless and should be floored/capped rather than treated as errors.
+
+Throws immediately if both `min` and `max` are given and `min` is greater
+than `max` — an invalid range is a programmer error to catch at
+schema-construction time, not a decode-time failure.
+
+**Signature**
+
+```ts
+export declare const clamp: (bounds: {
+  readonly min?: number
+  readonly max?: number
+}) => <S extends Schema.Schema<number>>(schema: S) => Schema.decodeTo<Schema.toType<S>, S, never, never>
+```
+
+**Example**
+
+```ts
+import { Effect, Schema } from "effect"
+import { SchemaX } from "@nunofyobiz/effect-extras"
+
+const NonNegative = SchemaX.clamp({ min: 0 })(Schema.Number)
+
+// Negative values are clamped up to the min
+assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(NonNegative)(-5)), 0)
+
+const Percentage = SchemaX.clamp({ min: 0, max: 100 })(Schema.Number)
+
+// Values past the max are clamped down to it
+assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(Percentage)(150)), 100)
+
+// In-range values pass through unchanged
+assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(Percentage)(42)), 42)
+```
+
+Added in v0.0.0
 
 ## nonNegativeBigInt
 
