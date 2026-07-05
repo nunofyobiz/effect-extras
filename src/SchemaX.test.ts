@@ -5,6 +5,7 @@ import {
   IntFromString,
   TrimmedNonEmptyString,
   URLSafeFilePath,
+  clamp,
   nonNegativeBigInt,
   omit,
   partial,
@@ -331,6 +332,127 @@ describe("Schema utils", () => {
         expect(result).toBe(big);
       }),
     );
+  });
+
+  describe("clamp", () => {
+    describe("both bounds", () => {
+      const Percentage = clamp({ min: 0, max: 100 })(Schema.Number);
+
+      it.effect("clamps a value below min up to min on decode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Percentage)(-10);
+          expect(result).toBe(0);
+        }),
+      );
+
+      it.effect("clamps a value below min up to min on encode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.encodeEffect(Percentage)(-10);
+          expect(result).toBe(0);
+        }),
+      );
+
+      it.effect("clamps a value above max down to max on decode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Percentage)(150);
+          expect(result).toBe(100);
+        }),
+      );
+
+      it.effect("clamps a value above max down to max on encode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.encodeEffect(Percentage)(150);
+          expect(result).toBe(100);
+        }),
+      );
+
+      it.effect("passes an in-range value through unchanged", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Percentage)(42);
+          expect(result).toBe(42);
+        }),
+      );
+
+      it.effect("passes the min bound through unchanged (inclusive)", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Percentage)(0);
+          expect(result).toBe(0);
+        }),
+      );
+
+      it.effect("passes the max bound through unchanged (inclusive)", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Percentage)(100);
+          expect(result).toBe(100);
+        }),
+      );
+    });
+
+    describe("lower bound only", () => {
+      const NonNegative = clamp({ min: 0 })(Schema.Number);
+
+      it.effect("clamps a negative value up to 0 on decode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(NonNegative)(-5);
+          expect(result).toBe(0);
+        }),
+      );
+
+      it.effect("clamps a negative value up to 0 on encode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.encodeEffect(NonNegative)(-5);
+          expect(result).toBe(0);
+        }),
+      );
+
+      it.effect("does not cap a large positive value", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(NonNegative)(1_000_000);
+          expect(result).toBe(1_000_000);
+        }),
+      );
+    });
+
+    describe("upper bound only", () => {
+      const Capped = clamp({ max: 100 })(Schema.Number);
+
+      it.effect("clamps a value above max down to max on decode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Capped)(150);
+          expect(result).toBe(100);
+        }),
+      );
+
+      it.effect("clamps a value above max down to max on encode", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.encodeEffect(Capped)(150);
+          expect(result).toBe(100);
+        }),
+      );
+
+      it.effect("does not floor a large negative value", () =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decodeEffect(Capped)(-1_000_000);
+          expect(result).toBe(-1_000_000);
+        }),
+      );
+    });
+
+    test("neither bound is a no-op", () => {
+      const Identity = clamp({})(Schema.Number);
+      expect(Schema.decodeUnknownSync(Identity)(-10)).toBe(-10);
+      expect(Schema.decodeUnknownSync(Identity)(10)).toBe(10);
+    });
+
+    test("throws when min > max", () => {
+      expect(() => clamp({ min: 10, max: 0 })(Schema.Number)).toThrow(
+        /min.*must be <= max/u,
+      );
+    });
+
+    test("does not throw when min === max", () => {
+      expect(() => clamp({ min: 5, max: 5 })(Schema.Number)).not.toThrow();
+    });
   });
 
   describe("pick", () => {
