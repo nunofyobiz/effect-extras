@@ -18,8 +18,8 @@ are pure, generic, and carry **no** domain or framework knowledge — that is th
 whole point, and the bar every addition has to clear (see
 [What belongs here](#what-belongs-here)).
 
-> **Requires [Effect v4](https://github.com/Effect-TS/effect-smol)** (peer
-> `effect@^4.0.0-beta.*`). The published `effect.website` docs still describe v3,
+> **Requires [Effect v4](https://github.com/Effect-TS/effect)** (peer
+> `effect@^4.0.0-rc.111`). The published `effect.website` docs still describe v3,
 > which differs (e.g. `Result` replaced `Either`).
 
 ```ts
@@ -81,7 +81,7 @@ A utility belongs here only if **all** of these hold:
    already does it, use that directly. Check the built-in modules first (`Array`,
    `Option`, `Record`, `Predicate`, `String`, `Number`, `Order`, `Result`,
    `Match`, `Struct`, …) — they're wide and well-tested, and most "manipulate this
-   shape" needs already exist there. This package targets **Effect v4** (beta);
+   shape" needs already exist there. This package targets **Effect v4** (RC);
    the [Effect docs](https://effect.website) are **v3**, so verify any v4 signature
    against the installed `node_modules/effect` types.
 2. **It is generic and pure.** It operates on type parameters (`<A>`), has no

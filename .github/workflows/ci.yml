@@ -96,7 +96,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
-  # Compatibility floor for the `effect` peer range (`^4.0.0-beta.74`). The latest
+  # Compatibility floor for the `effect` peer range (`^4.0.0-rc.111`). The latest
   # supported version is already exercised by the `typecheck`/`test` jobs above
   # (they install the pinned devDep, which Renovate keeps current); this job pins
   # the OTHER end — the oldest version the range promises — and re-runs the type
@@ -112,7 +112,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        floor: ["4.0.0-beta.74"] # oldest effect the peer range promises
+        floor: ["4.0.0-rc.111"] # oldest effect the peer range promises
         node: ["22", "24"] # same Node range the typecheck/test jobs cover
     steps:
       - uses: actions/checkout@v4
