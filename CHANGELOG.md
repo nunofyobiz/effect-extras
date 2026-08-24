@@ -1,5 +1,15 @@
 # @nunofyobiz/effect-extras
 
+## 4.0.0
+
+### Major Changes
+
+- [#38](https://github.com/nunofyobiz/effect-extras/pull/38) [`732fe27`](https://github.com/nunofyobiz/effect-extras/commit/732fe27901962c60604458921a0ed29791ce8dd1) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Migrate the package from Effect v4 beta to the release candidate and require `effect@^4.0.0-rc.111`.
+
+  The package now develops and tests against the synchronized `effect` and `@effect/vitest` RC releases. The peer range accepts RC.111, later release candidates, stable Effect 4, and compatible 4.x releases, while no longer supporting Effect v4 betas. CI boundary-tests the RC floor on Node 22 and 24 in addition to exercising the pinned development version.
+
+  Raising the minimum supported Effect version drops previously supported beta releases, so this is a breaking peer-dependency change and a major release.
+
 ## 3.2.0
 
 ### Minor Changes
