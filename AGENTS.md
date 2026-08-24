@@ -8,10 +8,10 @@ understand it without archaeology.
 
 ---
 
-## Effect — v4 beta (read first)
+## Effect — v4 RC (read first)
 
-This repo targets **Effect v4** (`effect@4.0.0-beta.*`), the beta published from the
-[`effect-smol`](https://github.com/Effect-TS/effect-smol) repo. **v3 is wrong here by default.** Most
+This repo targets **Effect v4** (`effect@4.0.0-rc.*`), the release candidate published from the
+[`effect`](https://github.com/Effect-TS/effect) repo. **v3 is wrong here by default.** Most
 Effect material you'll reach for — the `effect.website` docs, the `effect-docs` MCP, blog posts, and
 model training data — describes **v3** and will mislead you (it still offers `Either`, which v4
 replaced with `Result`).
@@ -20,7 +20,7 @@ replaced with `Result`).
 
 1. **`node_modules/effect`** — the installed `.d.ts` types and source are the exact v4 you compile
    against. Unsure about a signature? Read it here first.
-2. The [`effect-smol`](https://github.com/Effect-TS/effect-smol) repo — where v4 beta is developed.
+2. The [`effect`](https://github.com/Effect-TS/effect) repo — where v4 RC is developed.
 3. This repo's own **`*X` modules** — worked v4 examples that already compile green.
 
 Treat `effect.website` **and** the `effect-docs` MCP as **v3 conceptual references only** — useful for
@@ -256,8 +256,8 @@ care at the subpath. The validators:
 
 ## Effect v4 conventions
 
-This package targets **Effect v4** (`effect@4.0.0-beta.*`), its sole peer dependency. See
-[Effect — v4 beta (read first)](#effect--v4-beta-read-first) for why v3 docs, snippets, and the
+This package targets **Effect v4** (`effect@4.0.0-rc.*`), its sole peer dependency. See
+[Effect — v4 RC (read first)](#effect--v4-rc-read-first) for why v3 docs, snippets, and the
 `effect-docs` MCP mislead you; the v4-isms below are the specific divergences to keep straight when
 copying from older Effect material:
 
@@ -444,7 +444,7 @@ logic, ask in order:
 1. **Does Effect already cover this?** `Array`, `Option`, `Record`, `Predicate`, `String`, `Number`,
    `Order`, `Result`, `Match`, `Struct`, `Tuple`, `HashMap`, `HashSet`, … are wide and well-tested.
    When unsure, read the installed `node_modules/effect` types (`effect.website` is **v3** — verify any
-   v4 shape against the source; see [Effect — v4 beta](#effect--v4-beta-read-first)).
+   v4 shape against the source; see [Effect — v4 RC](#effect--v4-rc-read-first)).
 2. **Does an existing `*X` module already do it?** (See "Check existing utilities first" below.)
 3. **Can the logic be a generic utility another call site could reuse?**
 
