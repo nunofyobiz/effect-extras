@@ -38,11 +38,11 @@ ls .changeset/*.md | grep -vE 'README|config'
 Read the diff since the last release and suggest a bump per
 [AGENTS.md → Versioning & releasing](../../../AGENTS.md):
 
-| Change                                                                      | Bump  |
-| --------------------------------------------------------------------------- | ----- |
-| Breaking change to a public export, or a widened/raised `effect` peer range | major |
-| New public helper, new `*X` module, or other backward-compatible capability | minor |
-| Bug fix, docs, internal refactor, dep bump with no consumer-visible change  | patch |
+| Change                                                                             | Bump  |
+| ---------------------------------------------------------------------------------- | ----- |
+| Breaking change to a public export, or a widened/raised `effect` peer range        | major |
+| New public helper, new `*X` module, or other backward-compatible capability        | minor |
+| Bug fix, shipped docs, internal refactor, dep bump with no consumer-visible change | patch |
 
 Tell the user the suggestion + the highest-severity reason. They confirm or override. When in
 doubt, pick the higher one.
@@ -54,7 +54,7 @@ pnpm check-all
 pnpm pack --dry-run
 ```
 
-`check-all` is tc → lint → test → build → knip → docgen. `pack --dry-run` confirms `files` produce a
+`check-all` is tc → lint → test → build → publint → treeshake → knip → docgen. `pack --dry-run` confirms `files` produce a
 publishable tarball **without contacting the registry** (a real `publish --dry-run` errors once the
 package exists, since the branch sits at an already-published version). If anything fails → stop,
 surface it.
@@ -109,6 +109,6 @@ manual step was the changeset; tell the user where to watch the workflow.
 - `pnpm changeset` errors with "no packages selected" → re-run and select the package.
 - `pnpm pack --dry-run` complains about missing files → check `files` in `package.json` and that
   `pnpm build` produced `dist/`.
-- The Release workflow runs but nothing publishes → confirm the `RELEASE_APP_ID` /
+- The Release workflow runs but nothing publishes → confirm the `RELEASE_APP_CLIENT_ID` /
   `RELEASE_APP_PRIVATE_KEY` secrets exist and the npm **trusted publisher** is configured for the
-  package (see README → Repository setup).
+  package (see `.github/workflows/release.yml`).

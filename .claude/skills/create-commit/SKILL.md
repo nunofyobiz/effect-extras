@@ -61,15 +61,16 @@ Once a commit has reached `main`, it's history — don't rewrite it; further cha
 
 ## Before committing
 
-Run verification so the commit won't break CI — `pnpm tc`, `pnpm lint`, `pnpm knip`, `pnpm test`
-(or `pnpm check-all`). See the `verify-commit` skill.
+Run `pnpm check-all` (the full CI simulation) so the commit won't break CI. See the `verify-commit`
+skill for the individual checks and their order.
 
 ## Pre-commit hooks
 
 `pnpm install` runs `prepare` (`husky`), which wires up two git hooks:
 
-- **pre-commit** runs `lint-staged` — ESLint `--fix` on staged JS/TS, `prettier --write` on staged
-  Markdown / YAML / JSON5 / CSS.
+- **pre-commit** first regenerates the API docs when non-test `src/**/*.ts` is staged — it runs
+  `pnpm docgen` and `git add docs/`. Then it runs `lint-staged` — ESLint `--fix` on staged JS/TS,
+  `prettier --write` on staged Markdown / YAML / JSON5 / CSS.
 - **commit-msg** runs `commitlint` to validate the Conventional Commits format.
 
 If a hook fails, the commit is rejected and nothing is written — fix the issue, re-stage, and run
