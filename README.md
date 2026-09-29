@@ -168,6 +168,7 @@ pnpm build       # emit dist/ (one ESM file + .d.ts per module): tsc + babel
 pnpm publint     # validate packaging (exports map, types, ESM) — needs a build
 pnpm treeshake   # enforce per-function tree-shaking budgets (size-limit) — needs a build
 pnpm knip        # unused code / deps
+pnpm docgen      # type-check JSDoc examples + regenerate docs/
 pnpm check-all   # all of the above, in CI order
 ```
 
@@ -187,5 +188,7 @@ This package uses [Changesets](https://github.com/changesets/changesets).
 
 1. Add a changeset describing your change: `pnpm changeset`.
 2. Commit it and push/merge to `main`.
-3. The **Release** workflow opens a "Version Packages" PR. Merging it publishes
-   to npm (with provenance) and creates a GitHub release.
+3. The **Release** workflow opens a "Version Packages" PR that bumps the version
+   and rolls up the changelog. That PR **auto-merges once CI is green** — no
+   manual merge — and the merge publishes to npm (with provenance) and creates
+   a GitHub release.
