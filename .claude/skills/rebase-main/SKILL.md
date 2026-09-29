@@ -26,9 +26,14 @@ push.
 5. **Reapply matching upstream patterns to code we added.** If an upstream commit removed or
    renamed a helper/import, our new code may still use the old form — search the diff and apply the
    same cleanup so we don't reintroduce what was just removed.
-6. Re-run the green-check set: `pnpm install && pnpm check-all` (tc → lint → test → build → knip). A
-   clean rebase is not the same as a green rebase. If you touched packaging (`exports`, `files`,
-   entry points), also run `pnpm publish --dry-run --no-git-checks`.
+6. Re-run the green-check set:
+   ```bash
+   pnpm install
+   pnpm check-all
+   ```
+   (tc → lint → test → build → publint → treeshake → knip → docgen). A clean rebase is not the same
+   as a green rebase. If you touched packaging (`exports`, `files`, entry points), also run
+   `pnpm build` then `pnpm pack --dry-run`.
 7. Amend the rebased commit only if your fixes belong to it (conflict resolution, style). Otherwise
    stack a new commit.
 8. If the rebase required substantial reworking, **tell the user before pushing** so they can
@@ -47,8 +52,8 @@ Covers, in order:
   it didn't conflict (a renamed `*X` export, a new module, a dep bump). Three sentences max each;
   don't omit anything a reviewer should know.
 - **Tests that changed.** Upstream tests we modified (and why); our tests that needed updating.
-- **Check results.** `pnpm tc` / `lint` / `test` / `knip` / `build` status, plus the test count if
-  it shifted, and `publish --dry-run` if packaging changed.
+- **Check results.** `pnpm check-all` (tc → lint → test → build → publint → treeshake → knip →
+  docgen) status, plus the test count if it shifted, and `pnpm pack --dry-run` if packaging changed.
 - **Commit list after the rebase.** `git log --oneline -<N>` covering our new commits + the upstream
   HEAD they sit on.
 - **Safety estimate.** One line — low / medium / high confidence that no regression slipped in, with
