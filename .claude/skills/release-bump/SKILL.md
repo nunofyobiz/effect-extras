@@ -91,9 +91,12 @@ gh pr create --fill
 
 Once merged to `main`, the **Release** workflow (running under a GitHub App token) opens a **"Version
 Packages"** PR that bumps the version and updates the changelog, re-signs its bump commit so it lands
-**Verified**, and **auto-merges it once CI is green** — no manual merge. That auto-merge re-triggers
-the workflow, which **publishes to npm via OIDC trusted publishing** (with provenance). The only
-manual step was the changeset; tell the user where to watch the workflow.
+**Verified**, and attempts to enable auto-merge once CI is green. Auto-merge is best-effort, not
+release evidence: the deploy seat must follow the shared `changeset-release/main` PR, ensure its
+required CI is green, and merge it if it remains open. That merge re-triggers the workflow, which
+**publishes to npm via OIDC trusted publishing** (with provenance). Do not call the release complete
+until the post-merge workflow succeeds and the version derived from the merged version PR appears on
+npm with provenance and in a matching non-draft GitHub release; point the user to that procedure.
 
 ## What this skill never does
 

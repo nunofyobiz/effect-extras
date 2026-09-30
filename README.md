@@ -189,6 +189,8 @@ This package uses [Changesets](https://github.com/changesets/changesets).
 1. Add a changeset describing your change: `pnpm changeset`.
 2. Commit it and push/merge to `main`.
 3. The **Release** workflow opens a "Version Packages" PR that bumps the version
-   and rolls up the changelog. That PR **auto-merges once CI is green** — no
-   manual merge — and the merge publishes to npm (with provenance) and creates
-   a GitHub release.
+   and rolls up the changelog. Auto-merge is best-effort: after its required CI
+   passes, the deploy seat must ensure the shared PR is merged. Its merge runs
+   the publishing workflow, which must succeed before the exact derived version
+   can be verified on npm (with provenance) and in a matching GitHub release.
+   Never publish locally or edit versions by hand.
