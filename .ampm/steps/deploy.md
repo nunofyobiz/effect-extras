@@ -7,8 +7,9 @@ publish a package.
 1. Open the Release workflow run for the task's merged commit. Record its URL and locate the
    **Version Packages** PR it created.
 2. Re-read that PR immediately before acting. It must be the open or merged `changeset-release/main`
-   PR targeting `main`, titled **Version Packages**, and it may contain other changesets. Never merge
-   a PR solely because it has a similar title or version.
+   PR targeting `main` created by that workflow (currently titled `chore(release): version packages`),
+   and it may contain other changesets. Never merge a PR solely because it has a similar title or
+   version.
 3. If the PR is open, wait for all required CI checks to pass. Re-read its state, base branch, head
    branch, and checks immediately before merging. Merge it only when it is still that verified PR.
    The workflow's auto-merge request is best-effort; the deploy seat is responsible for ensuring the
