@@ -687,12 +687,13 @@ Flow: `pnpm changeset` (in the same PR) → merge to `main`. The **Release** wor
 changelog. Because it is App-authored, that PR triggers CI like any other PR; its bump commit is
 recreated through the **Git Data API** so it lands **Verified** (a bot cannot hold an SSH key, so it
 earns the same signed-`main` bar the [Commit signing](#commit-signing) section sets for agent commits,
-via a different mechanism). The workflow attempts to enable auto-merge as a convenience, but the
-deploy seat is responsible for ensuring the shared `changeset-release/main` PR merges after its
-required CI is green. Its merge re-triggers the workflow, which publishes to npm via **OIDC trusted
-publishing** with provenance and no stored token. Do not publish locally or edit versions by hand;
-do not report a release complete until that post-merge workflow succeeds and the exact merged version
-is visible on npm with provenance and in a matching non-draft GitHub release. Skill:
+via a different mechanism). The workflow attempts to enable auto-merge as a convenience, but whoever
+cuts the release must ensure the shared `changeset-release/main` PR merges after its required CI is
+green. ampm's deploy seat does this using the [release verification checklist](.ampm/steps/deploy.md).
+Its merge re-triggers the workflow, which publishes to npm via **OIDC trusted publishing** with
+provenance and no stored token. Do not publish locally or edit versions by hand; do not report a
+release complete until that post-merge workflow succeeds and the exact merged version is visible on
+npm with provenance and in a matching non-draft GitHub release. Skill:
 [`release-bump`](.claude/skills/release-bump).
 
 ## Dependency upgrades (Renovate)
