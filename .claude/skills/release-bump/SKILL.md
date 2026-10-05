@@ -91,17 +91,21 @@ gh pr create --fill
 
 Once merged to `main`, the **Release** workflow (running under a GitHub App token) opens a **"Version
 Packages"** PR that bumps the version and updates the changelog, re-signs its bump commit so it lands
-**Verified**, and **auto-merges it once CI is green** — no manual merge. That auto-merge re-triggers
-the workflow, which **publishes to npm via OIDC trusted publishing** (with provenance). The only
-manual step was the changeset; tell the user where to watch the workflow.
+**Verified**, and attempts to enable auto-merge once CI is green. Auto-merge is best-effort, not
+release evidence: the agent running this skill must watch the shared `changeset-release/main` PR,
+ensure its required CI is green, and merge it if it remains open (or tell the user to do so). That
+merge re-triggers the workflow, which **publishes to npm via OIDC trusted publishing** (with
+provenance). Do not call the release complete until the post-merge workflow succeeds and the version
+derived from the merged version PR appears on npm with provenance and in a matching non-draft GitHub
+release; use the [release verification checklist](../../../.ampm/steps/deploy.md).
 
 ## What this skill never does
 
 - **Does not run `npm publish` / `pnpm publish` for real.** The Release workflow publishes from CI via
   OIDC trusted publishing (no stored token) with provenance — a local publish bypasses both the audit
   trail and the provenance attestation.
-- **Does not bump the version by hand.** `changeset version` (run by CI on merge of the Version
-  Packages PR) handles that.
+- **Does not bump the version by hand.** `changeset version` runs in CI when changesets land on
+  `main`, creating or updating the Version Packages PR; merging that PR publishes the package.
 - **Does not amend or force-push a shared branch.** If something's wrong, fix forward.
 
 ## Failure modes

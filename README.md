@@ -188,7 +188,10 @@ This package uses [Changesets](https://github.com/changesets/changesets).
 
 1. Add a changeset describing your change: `pnpm changeset`.
 2. Commit it and push/merge to `main`.
-3. The **Release** workflow opens a "Version Packages" PR that bumps the version
-   and rolls up the changelog. That PR **auto-merges once CI is green** — no
-   manual merge — and the merge publishes to npm (with provenance) and creates
-   a GitHub release.
+3. The **Release** workflow opens a shared "Version Packages" PR that bumps the
+   version and rolls up the changelog. Auto-merge is best-effort: whoever cuts
+   the release must ensure that PR is merged after its required CI passes.
+   ampm's deploy step follows the [release verification checklist](.ampm/steps/deploy.md).
+   Its merge runs the publishing workflow, which must succeed before the exact
+   derived version can be verified on npm (with provenance) and in a matching
+   GitHub release. Never publish locally or edit versions by hand.

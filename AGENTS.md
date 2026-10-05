@@ -684,13 +684,17 @@ PR (e.g. "no changeset: CI-only, nothing ships") so the omission reads as delibe
 Flow: `pnpm changeset` (in the same PR) → merge to `main`. The **Release** workflow
 ([release.yml](./.github/workflows/release.yml)) — running under a **GitHub App token**, not
 `GITHUB_TOKEN` — then opens a **"Version Packages"** PR that bumps the version and rolls up the
-changelog. That PR is hands-off: because it's App-authored it triggers CI like any other PR; its
-bump commit is recreated through the **Git Data API** so it lands **Verified** (a bot can't hold an
-SSH key, so it earns the same signed-`main` bar the [Commit signing](#commit-signing) section sets
-for agent commits, via a different mechanism); and it **auto-merges** once CI is green. That merge
-re-triggers the workflow, which now **publishes to npm via OIDC trusted publishing**, with
-provenance and no stored token. So a release needs nothing past the changeset — no manual version PR
-merge, no `npm publish` by hand. Skill: [`release-bump`](.claude/skills/release-bump).
+changelog. Because it is App-authored, that PR triggers CI like any other PR; its bump commit is
+recreated through the **Git Data API** so it lands **Verified** (a bot cannot hold an SSH key, so it
+earns the same signed-`main` bar the [Commit signing](#commit-signing) section sets for agent commits,
+via a different mechanism). The workflow attempts to enable auto-merge as a convenience, but whoever
+cuts the release must ensure the shared `changeset-release/main` PR merges after its required CI is
+green. ampm's deploy seat does this using the [release verification checklist](.ampm/steps/deploy.md).
+Its merge re-triggers the workflow, which publishes to npm via **OIDC trusted publishing** with
+provenance and no stored token. Do not publish locally or edit versions by hand; do not report a
+release complete until that post-merge workflow succeeds and the exact merged version is visible on
+npm with provenance and in a matching non-draft GitHub release. Skill:
+[`release-bump`](.claude/skills/release-bump).
 
 ## Dependency upgrades (Renovate)
 
