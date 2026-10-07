@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "profiles": {
+    "default": {
+      "backends": ["docker"],
+      "docker": {
+        "dockerfile": ".ampm/agent.Dockerfile",
+        "context": "."
+      },
+      "checks": [
+        {
+          "name": "pnpm",
+          "argv": ["bash", "-lc", "node --version && pnpm --version"],
+          "expectedExitCode": 0
+        }
+      ]
+    }
+  }
+}
