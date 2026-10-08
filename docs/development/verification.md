@@ -1,5 +1,43 @@
 # Verification
 
+## Forbidden shortcuts when fixing failures
+
+> Provenance: ampm's `docs/development/contributing.md` "Forbidden shortcuts when fixing failures",
+> which wins over StoryCut's and effect-clue's own versions of this rule by the default precedence
+> (ampm, then StoryCut, then effect-clue). Its worktree-path and no-`git stash` rationale already
+> matches this repo's own worktree-discipline rule; restated here for a reviewer landing on this page
+> directly.
+
+Fix the cause, not the symptom. Never, to make a red check green:
+
+- an unsafe cast (see [no type assertions](./effect-patterns.md#no-type-assertions));
+- delete code to pass a check, unless the task itself is removing verified-dead code;
+- stub or no-op a failing path — returning `null`, `undefined`, or `{}` just to make it typecheck or
+  stop throwing;
+- remove or `.skip` a failing test;
+- loosen an assertion or a type to make the test agree with buggy behavior instead of fixing the
+  behavior.
+
+If a fix would need any of these, stop and surface it instead of pushing it through.
+
+**A suppression needs a trailing reason.** Never add `// @ts-expect-error` or an ESLint
+`eslint-disable` comment without one naming why that exact site cannot conform. `@ts-ignore` is
+rejected outright by the strict ESLint config, not just discouraged — always `@ts-expect-error` with a
+reason. The one sanctioned, deliberate use of `@ts-expect-error` is a test proving the runtime behavior
+for input the types reject — see [Tests](./tests.md#runtime-edge-cases-the-types-reject). That is a
+promise you investigated the case, not a workaround for one you didn't.
+
+**Worktree path hygiene.** A tracked file can exist at two absolute paths when a task runs in its own
+git worktree: the task worktree and the main checkout. Edit through the cwd-relative path in the task
+worktree, never a main-checkout absolute path, or a check runs against the untouched file while your
+edit sits unreferenced. After editing, `git status` from the worktree's cwd must show exactly the files
+you intended to touch.
+
+**Never `git stash`.** `refs/stash` belongs to the shared repository, not to one worktree: a stash
+pushed in one task's tree can be popped by another's, and a pop here can land another task's files in
+this tree, read as work you did. Commit your in-progress work to your own branch instead — a commit is
+cheap and private, and `git reset --soft HEAD~1` undoes it without leaving a stray ref.
+
 ## Node version
 
 Pinned in `.nvmrc` to **24.15.0** for development. The published `engines.node` floor is `>=22`,

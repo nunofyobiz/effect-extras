@@ -17,6 +17,17 @@ If a hook blocks a commit, read the output, fix the surfaced issue, re-stage, an
 
 ## Commit signing
 
+> Provenance: the rationale paragraph below is adapted from StoryCut's
+> `docs/dev-guides/agents-signing.md` "Why this exists". Effect-extras's own signing setup, scope
+> (`claude/*` / `agent/*` only), and script are unchanged facts about this repository's tooling.
+
+**Why a distinct agent identity.** A commit signed by a contributor's personal key implies that
+contributor wrote it; an agent didn't. A dedicated agent key keeps the audit trail honest, lets the key
+be revoked independently of the contributor's own signing key if it ever leaks, and sidesteps
+passphrase prompts a non-interactive sandbox has no TTY to answer. The commit author name
+(`Claude Code (<contributor>)`) still carries the contributor's own identity — this is about who signs,
+not about hiding who asked for the change.
+
 Local Claude Code commits on `claude/*` or `agent/*` branches can use a distinct `Claude Code
 (<contributor>)` identity and SSH signature. This is not a rule for every agent or every branch:
 [`scripts/setup-signing.sh`](../../scripts/setup-signing.sh), run by the `SessionStart` hook in

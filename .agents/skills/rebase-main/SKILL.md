@@ -5,6 +5,13 @@ description: Rebase the current branch onto the latest `origin/main`. Use this s
 
 # Rebasing on latest `origin/main`
 
+> Provenance: this skill descends from StoryCut's `rebase-main` skill. Compared against ampm's
+> "Rebasing onto latest main" (`docs/development/contributing.md`), which wins conflicts by default —
+> this procedure already reconciles intentions (step 5), already treats "clean" and "green" as
+> different claims (step 6), and already ends in a mandatory report, so no substantive change was
+> needed. ampm's web-build, dev-preview, and migration steps are app-specific and intentionally absent
+> here.
+
 Use this end-to-end whenever the user asks to update the current branch against `origin/main`. The
 rebase report at the end is non-negotiable — it's how the user decides whether the result is safe to
 push.

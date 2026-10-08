@@ -5,6 +5,14 @@ description: Run the project's CI verification commands to ensure code will pass
 
 # Verify Commit
 
+> Provenance: compared against ampm's `ampm-verification` skill, which wins conflicts by default.
+> ampm's reportable shape — commands run, outcomes, what was skipped, and the head tested — is already
+> what this skill asks for below; its Docker/Postgres/browser-evidence and `ci:final` sections are
+> ampm-factory machinery this package has no equivalent of, so they're left out. Because `pnpm
+check-all` runs in well under a minute on this small package, every commit runs the full set rather
+> than a diff-selected subset — a case where effect-extras's own stricter practice holds rather than
+> deferring to the source's change-relevant selection.
+
 Run these to verify code will pass CI before committing or pushing. Run them individually first
 (faster iteration), then `pnpm check-all` as a final sanity check. There is no `.env`, database, or
 dev server to set up — these are pure checks.

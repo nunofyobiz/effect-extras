@@ -157,6 +157,33 @@ If none of those work, that's a sign the shape is wrong — discuss before reach
 strict ESLint config already bans `any` and unused eslint-disable directives, so casts are one of the
 few escape hatches left; treat reaching for one as a design smell.
 
+**The one sanctioned suppression.** A test that deliberately calls a helper with input its types
+reject — proving what happens when untyped or loosely typed calling code reaches it — may suppress the
+resulting type error with `// @ts-expect-error - <reason naming the case>`. That is not a workaround
+for a design smell; it is the test asserting a real runtime behavior the types otherwise hide. Never
+`@ts-ignore`: it has no trailing-reason requirement and keeps "working" even after the call starts
+compiling for real, so a stale suppression never surfaces. See
+[Tests — runtime edge cases the types reject](./tests.md#runtime-edge-cases-the-types-reject).
+
+## Time
+
+One clock, and it is Effect's. Read time with `Clock.currentTimeMillis` (or `DateTime.now`) inside an
+Effect, never `Date.now()` / `new Date()`; represent a duration with `Duration` and an instant with
+`DateTime`, never a raw number of milliseconds or a `Date`. `Duration.seconds(15)` reads as "15
+seconds" at the call site and is unit-safe to add or compare; `15_000` reads as "fifteen thousand" with
+the unit left to the reader, and adding two such numbers silently assumes they share a unit.
+
+Convert to a primitive only at a non-Effect boundary — handing a value to `setTimeout`, JSON, or
+another library that takes milliseconds: `Duration.toMillis(d)`, `DateTime.toEpochMillis(t)`. Thread
+the `Duration`/`DateTime` value through everywhere else; don't convert early just because a later step
+is easier to write with a number.
+
+> Provenance: ampm's
+> [`docs/development/code-conventions.md`](https://github.com/nunofyobiz/ampm) "Time" rule, trimmed to
+> drop its diagnostics-ratchet enforcement and its Postgres-driver and domain-layer exemptions — neither
+> applies to a published library with no database boundary. Where ampm's rule left no gap,
+> effect-clue's "Use `Duration` and `DateTime` for time" was not separately needed.
+
 ## Sort orders
 
 Use Effect's `Order` module for type-safe, composable sorting — never an inline `Array.prototype.sort`

@@ -5,6 +5,13 @@ description: Push commits and create or update a GitHub pull request with a well
 
 # Push PR
 
+> Provenance: this skill descends from StoryCut's `push-pr` skill. Compared against ampm's
+> "Commits & PRs" (`docs/development/contributing.md`) and the `ampm-pr-creation` skill, which win
+> conflicts by default — this procedure already makes the title a Conventional Commit for the whole
+> branch rather than the task's own wording, already treats one branch as one PR, and already
+> regenerates the title and body from the full commit set on every push (the behavior effect-clue's
+> "PR workflow" section separately asks for), so no substantive change was needed.
+
 This skill handles pushing commits and creating or updating a GitHub pull request. Every time
 commits are pushed, regenerate the PR title and description from the full set of commits in the PR.
 

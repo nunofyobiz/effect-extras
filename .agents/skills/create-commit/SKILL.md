@@ -5,6 +5,12 @@ description: Create a well-formed git commit following the project's Conventiona
 
 # Create Commit
 
+> Provenance: compared against ampm's "Atomic, reviewable commits" (`docs/development/contributing.md`),
+> which wins conflicts by default. ampm asks for change-relevant checks per commit and a report naming
+> what ran, what was skipped, and the head tested; this repository's `pnpm check-all` is fast enough on
+> this small package that every commit runs the full set instead of a diff-selected subset — that's
+> effect-extras's own stricter practice holding over the source's lighter one, not a gap.
+
 Every commit follows Conventional Commits (validated by commitlint in CI) and is atomic.
 
 ## Commit message format
