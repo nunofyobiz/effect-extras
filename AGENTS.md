@@ -76,7 +76,7 @@ not the first — fix the root cause in scripts or command shape before reaching
 Run **`pnpm check-all`** before claiming a task done.
 
 **Conventional Commits**, enforced by commitlint (body lines ≤ 200 chars for bot compatibility). Types:
-`feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `perf`, `style`, `ci`, or `build`. "Visible to a
+`feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `perf`, `style`, `ci`, `build`. "Visible to a
 consumer of the library" is the lens for `feat`/`fix`; tooling/CI/deps are `chore`.
 
 A changeset belongs in the same PR as every consumer-visible change; if none is needed, say why in the PR.
