@@ -39,6 +39,21 @@ describe("lib/number", () => {
     expect(() => unsafeLogBase(0.5, 2)).toThrow(
       "Error calculating log base 2 of 0.5",
     );
+
+    expect(unsafeLogBase(1, 2)).toBe(0);
+    expect(() => unsafeLogBase(-0, 2)).toThrow(
+      "Error calculating log base 2 of 0",
+    );
+    expect(Number.isNaN(unsafeLogBase(Number.NaN, 2))).toBe(true);
+    expect(Number.isNaN(unsafeLogBase(8, Number.NaN))).toBe(true);
+    expect(unsafeLogBase(Infinity, 2)).toBe(Infinity);
+    expect(unsafeLogBase(8, Infinity)).toBe(0);
+    expect(() => unsafeLogBase(Infinity, 0.5)).toThrow(
+      "Error calculating log base 0.5 of Infinity",
+    );
+    expect(() => unsafeLogBase(0.5, Infinity)).toThrow(
+      "Error calculating log base Infinity of 0.5",
+    );
   });
 
   test("unsafeToPercentOf", () => {
@@ -53,6 +68,7 @@ describe("lib/number", () => {
 
     expect(() => unsafeToPercentOf(1, 0)).toThrow(/Division by zero/u);
     expect(() => unsafeToPercentOf(0, 0)).toThrow(/Division by zero/u);
+    expect(() => unsafeToPercentOf(1, -0)).toThrow(/Division by zero/u);
   });
 
   test("toFixed", () => {
@@ -71,6 +87,14 @@ describe("lib/number", () => {
     expect(roundToDigits(3.236_242, 0)).toBe(3);
 
     expect(roundToDigits(3.736_242, 0)).toBe(4);
+
+    expect(roundToDigits(-2.5, 0)).toBe(-3);
+    expect(roundToDigits(-0.5, 0)).toBe(-1);
+    expect(roundToDigits(1.45, 1)).toBe(1.4);
+    expect(roundToDigits(2.675, 2)).toBe(2.67);
+    expect(Object.is(roundToDigits(-0, 2), 0)).toBe(true);
+    expect(Object.is(roundToDigits(-0, 2), -0)).toBe(false);
+    expect(roundToDigits(1e21, 2)).toBe(1e21);
   });
 
   test("padLeftZeroes", () => {
@@ -78,6 +102,11 @@ describe("lib/number", () => {
     expect(padLeftZeroes(10, 3)).toBe("010");
     expect(padLeftZeroes(100, 3)).toBe("100");
     expect(padLeftZeroes(1000, 3)).toBe("1000");
+    expect(padLeftZeroes(-1, 3)).toBe("0-1");
+    expect(padLeftZeroes(-0, 3)).toBe("000");
+    expect(padLeftZeroes(Number.NaN, 5)).toBe("00NaN");
+    expect(padLeftZeroes(Infinity, 3)).toBe("Infinity");
+    expect(padLeftZeroes(0.5, 5)).toBe("000.5");
   });
 
   test("indexToRank", () => {
@@ -99,5 +128,11 @@ describe("lib/number", () => {
 
     expect(indexToExcel(701)).toStrictEqual(Option.some("ZZ"));
     expect(indexToExcel(702)).toStrictEqual(Option.some("AAA"));
+    expect(indexToExcel(18_277)).toStrictEqual(Option.some("ZZZ"));
+    expect(indexToExcel(18_278)).toStrictEqual(Option.some("AAAA"));
+    expect(indexToExcel(-Infinity)).toStrictEqual(Option.none());
+    expect(indexToExcel(-0)).toStrictEqual(Option.some("A"));
+    expect(indexToExcel(Number.NaN)).toStrictEqual(Option.some("undefined"));
+    expect(indexToExcel(26.5)).toStrictEqual(Option.some("Aundefined"));
   });
 });

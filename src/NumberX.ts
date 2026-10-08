@@ -3,7 +3,7 @@
  *
  * @since 0.0.0
  */
-import { Number as EffectNumber, Option, pipe } from "effect";
+import { Number as EffectNumber, Match, Option, String, pipe } from "effect";
 import { dual } from "effect/Function";
 
 // Internal — used by unsafeLogBase.
@@ -12,25 +12,29 @@ const logBase = dual<
   (base: number) => (number: number) => Option.Option<number>,
   // Data-first typing
   (number: number, base: number) => Option.Option<number>
->(2, (number: number, base: number): Option.Option<number> => {
-  if (number <= 0) {
-    return Option.none();
-  }
-
-  if (base <= 0 || base === 1) {
-    return Option.none();
-  }
-
-  if (base < 1 && number >= 1) {
-    return Option.none();
-  }
-
-  if (base >= 1 && number < 1) {
-    return Option.none();
-  }
-
-  return Option.some(Math.log(number) / Math.log(base));
-});
+>(
+  2,
+  (number: number, base: number): Option.Option<number> =>
+    Match.value({ number, base }).pipe(
+      Match.when(
+        ({ number }) => number <= 0,
+        () => Option.none(),
+      ),
+      Match.when(
+        ({ base }) => base <= 0 || base === 1,
+        () => Option.none(),
+      ),
+      Match.when(
+        ({ number, base }) => base < 1 && number >= 1,
+        () => Option.none(),
+      ),
+      Match.when(
+        ({ number, base }) => base >= 1 && number < 1,
+        () => Option.none(),
+      ),
+      Match.orElse(() => Option.some(Math.log(number) / Math.log(base))),
+    ),
+);
 
 /**
  * Computes the logarithm of `number` in the given `base`, throwing when the
@@ -86,7 +90,7 @@ const toPercentOf = dual<
   (numerator: number, total: number): Option.Option<number> =>
     pipe(
       EffectNumber.divide(numerator, total),
-      Option.map((ratio) => ratio * 100),
+      Option.map((ratio) => EffectNumber.multiply(ratio, 100)),
     ),
 );
 
@@ -219,7 +223,7 @@ export const padLeftZeroes = dual<
   (numberDigits: number) => (number: number) => string,
   (number: number, numberDigits: number) => string
 >(2, (number: number, numberDigits: number): string =>
-  number.toString().padStart(numberDigits, "0"),
+  pipe(number.toString(), String.padStart(numberDigits, "0")),
 );
 
 /**
@@ -239,7 +243,8 @@ export const padLeftZeroes = dual<
  * @category mapping
  * @since 0.0.0
  */
-export const indexToRank = (index: number): number => index + 1;
+export const indexToRank = (index: number): number =>
+  EffectNumber.increment(index);
 
 const EXCEL_COLUMNS_BASE_CHARS = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
 
