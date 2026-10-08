@@ -3,7 +3,16 @@
  *
  * @since 0.0.0
  */
-import { Array, Option, Order, Predicate, Record, Reducer, pipe } from "effect";
+import {
+  Array,
+  Match,
+  Option,
+  Order,
+  Predicate,
+  Record,
+  Reducer,
+  pipe,
+} from "effect";
 import { dual } from "effect/Function";
 import * as ArrayX from "./ArrayX.js";
 import * as PredicateX from "./PredicateX.js";
@@ -584,22 +593,24 @@ export const deepMergeReducer: Reducer.Reducer<unknown> = Reducer.make<unknown>(
  * @category transformations
  * @since 0.0.0
  */
-export const canonicalize = (value: unknown): unknown => {
-  if (Array.isArray(value)) {
-    return Array.map(value, canonicalize);
-  }
-  if (!PredicateX.unsafeIsRecord(value)) {
-    return value;
-  }
-  return pipe(
-    Record.toEntries(value),
-    Array.map(([key, entry]) => [key, canonicalize(entry)] as const),
-    Array.sort(
-      Order.mapInput(Order.String, ([key]: readonly [string, unknown]) => key),
+export const canonicalize = (value: unknown): unknown =>
+  Match.value(value).pipe(
+    Match.when(Array.isArray, (array) => Array.map(array, canonicalize)),
+    Match.when(PredicateX.unsafeIsRecord, (record) =>
+      pipe(
+        Record.toEntries(record),
+        Array.map(([key, entry]) => [key, canonicalize(entry)] as const),
+        Array.sort(
+          Order.mapInput(
+            Order.String,
+            ([key]: readonly [string, unknown]) => key,
+          ),
+        ),
+        Record.fromEntries,
+      ),
     ),
-    Record.fromEntries,
+    Match.orElse((value) => value),
   );
-};
 
 /**
  * Immutably deletes the value at a `path` from a JSON object, pruning any parent
@@ -638,22 +649,33 @@ export const canonicalize = (value: unknown): unknown => {
 export const deleteByPath = dual<
   (path: readonly string[]) => (object: unknown) => Option.Option<unknown>,
   (object: unknown, path: readonly string[]) => Option.Option<unknown>
->(2, (object: unknown, path: readonly string[]): Option.Option<unknown> => {
-  if (!PredicateX.unsafeIsRecord(object)) {
-    return Option.none();
-  }
-  const [head, ...rest] = path;
-  if (head === undefined) {
-    return Option.none();
-  }
-  if (rest.length === 0) {
-    return head in object
-      ? Option.some(Record.remove(object, head))
-      : Option.none();
-  }
-  return Option.map(deleteByPath(object[head], rest), (newChild) =>
-    PredicateX.unsafeIsRecord(newChild) && Record.isEmptyRecord(newChild)
-      ? Record.remove(object, head)
-      : { ...object, [head]: newChild },
-  );
-});
+>(
+  2,
+  (object: unknown, path: readonly string[]): Option.Option<unknown> =>
+    Match.value(object).pipe(
+      Match.when(PredicateX.unsafeIsRecord, (record) =>
+        Match.value(path).pipe(
+          Match.when(Array.isReadonlyArrayNonEmpty<string>, (nonEmptyPath) => {
+            const [head, rest] = Array.unprepend(nonEmptyPath);
+            return Match.value(rest).pipe(
+              Match.when(Array.isReadonlyArrayEmpty<string>, () =>
+                head in record
+                  ? Option.some(Record.remove(record, head))
+                  : Option.none(),
+              ),
+              Match.orElse(() =>
+                Option.map(deleteByPath(record[head], rest), (newChild) =>
+                  PredicateX.unsafeIsRecord(newChild) &&
+                  Record.isEmptyRecord(newChild)
+                    ? Record.remove(record, head)
+                    : { ...record, [head]: newChild },
+                ),
+              ),
+            );
+          }),
+          Match.orElse(() => Option.none()),
+        ),
+      ),
+      Match.orElse(() => Option.none()),
+    ),
+);

@@ -78,9 +78,7 @@ export const defined = <const K extends string, V>(
   name: K,
   value: V | undefined,
 ): Partial<Record<K, Exclude<V, undefined>>> =>
-  Predicate.isUndefined(value)
-    ? {}
-    : Record.singleton(name, value as Exclude<V, undefined>);
+  Predicate.isNotUndefined(value) ? Record.singleton(name, value) : {};
 
 /**
  * Removes every property whose value is `undefined` from `record`, narrowing
