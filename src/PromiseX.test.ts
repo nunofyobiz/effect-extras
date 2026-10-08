@@ -46,5 +46,13 @@ describe("promise", () => {
 
       await expect(voidedPromise).rejects.toThrow("error");
     });
+
+    test("passes the original rejection reason through", async () => {
+      expect.assertions(1);
+
+      const reason = { reason: "failed" };
+
+      await expect(asVoid(Promise.reject(reason))).rejects.toBe(reason);
+    });
   });
 });

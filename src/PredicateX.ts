@@ -3,8 +3,18 @@
  *
  * @since 0.0.0
  */
-import { Predicate, String } from "effect";
+import { Match, Predicate, String } from "effect";
 import { dual } from "effect/Function";
+
+const isNonEmptyStringPredicate = Predicate.compose(
+  Predicate.isString,
+  String.isNonEmpty,
+);
+
+const isRecordPredicate = Predicate.and(Predicate.isObject, (object) => {
+  const prototype = Object.getPrototypeOf(object);
+  return prototype === Object.prototype || prototype === null;
+});
 
 /**
  * Runs a refinement against `value` and branches on the result, passing the
@@ -58,23 +68,31 @@ export const matchRefine = dual<
     predicate: Predicate.Refinement<A, B>,
     handlers: { whenFalse: () => C; whenTrue: (value: B) => C },
   ) => C
->(
-  3,
-  <A, B extends A, C>(
-    value: A,
-    predicate: Predicate.Refinement<A, B>,
-    handlers: { whenFalse: () => C; whenTrue: (value: B) => C },
-  ): C => (predicate(value) ? handlers.whenTrue(value) : handlers.whenFalse()),
-);
+>(3, matchRefineValue);
+
+function matchRefineValue<A, B extends A, C>(
+  value: A,
+  predicate: Predicate.Refinement<A, B>,
+  handlers: { whenFalse: () => C; whenTrue: (value: B) => C },
+): C;
+function matchRefineValue(
+  value: unknown,
+  predicate: Predicate.Refinement<unknown, unknown>,
+  handlers: { whenFalse: () => unknown; whenTrue: (value: unknown) => unknown },
+): unknown {
+  return Match.value(value).pipe(
+    Match.when(predicate, handlers.whenTrue),
+    Match.orElse(() => handlers.whenFalse()),
+  );
+}
 
 /**
  * Refines an `unknown` value to a non-empty `string`, returning `true` only when
  * the value is present, is a `string`, and has at least one character.
  *
  * This is the compound guard the repo's conventions call for: it folds
- * `Predicate.isNotNullish`, `Predicate.isString`, and `String.isNonEmpty` into a
- * single reusable refinement so call sites get `value is string` narrowing
- * without restating the three checks.
+ * `Predicate.isString` and `String.isNonEmpty` into a single reusable refinement
+ * so call sites get `value is string` narrowing without restating the checks.
  *
  * @example
  * ```ts
@@ -90,11 +108,7 @@ export const matchRefine = dual<
  * @since 0.0.0
  */
 export function isNonEmptyString(value: unknown): value is string {
-  return (
-    Predicate.isNotNullish(value) &&
-    Predicate.isString(value) &&
-    String.isNonEmpty(value)
-  );
+  return isNonEmptyStringPredicate(value);
 }
 
 /**
@@ -131,9 +145,5 @@ export function isNonEmptyString(value: unknown): value is string {
 export function unsafeIsRecord(
   value: unknown,
 ): value is Record<string, unknown> {
-  if (!Predicate.isObject(value)) {
-    return false;
-  }
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
+  return isRecordPredicate(value);
 }

@@ -3,13 +3,7 @@
  *
  * @since 0.0.0
  */
-import {
-  Number as EffectNumber,
-  Match,
-  Order,
-  Ordering,
-  Predicate,
-} from "effect";
+import { Match, Option, Order, Predicate } from "effect";
 import { dual } from "effect/Function";
 
 /**
@@ -101,17 +95,27 @@ export const match = dual<
       whenNotNullable: (value: NonNullable<A>) => B;
     },
   ) => B
->(
-  2,
-  <A, B>(
-    value: A,
-    {
-      whenNullable,
-      whenNotNullable,
-    }: { whenNullable: () => B; whenNotNullable: (value: NonNullable<A>) => B },
-  ): B =>
-    Predicate.isNotNullish(value) ? whenNotNullable(value) : whenNullable(),
-);
+>(2, matchNullable);
+
+function matchNullable<A, B>(
+  value: A,
+  handlers: {
+    whenNullable: () => B;
+    whenNotNullable: (value: NonNullable<A>) => B;
+  },
+): B;
+function matchNullable(
+  value: unknown,
+  handlers: {
+    whenNullable: () => unknown;
+    whenNotNullable: (value: NonNullable<unknown>) => unknown;
+  },
+): unknown {
+  return Match.value(value).pipe(
+    Match.when(Match.defined, handlers.whenNotNullable),
+    Match.orElse(() => handlers.whenNullable()),
+  );
+}
 
 /**
  * Applies `map` to `a` only when it is non-nullish, passing nullish inputs
@@ -152,28 +156,18 @@ export const map = dual<
     a: A,
     map: (a: NonNullable<A>) => B,
   ) => B | (null & A) | (undefined & A)
->(
-  2,
-  <A, B>(
-    a: A,
-    map: (a: NonNullable<A>) => B,
-  ): B | (null & A) | (undefined & A) => {
-    if (Predicate.isNotNullish(a)) {
-      return map(a);
-    }
+>(2, mapNullable);
 
-    // Every value is either nullish or not, so once the check above has failed
-    // `isNullish(a)` is always true — its false branch (and the defensive throw
-    // below) is unreachable.
-    /* v8 ignore next */
-    if (Predicate.isNullish(a)) {
-      return a;
-    }
-
-    /* v8 ignore next */
-    throw new Error(`Value is neither nullable nor non-nullable: ${String(a)}`);
-  },
-);
+function mapNullable<A, B>(
+  value: A,
+  function_: (value: NonNullable<A>) => B,
+): B | (null & A) | (undefined & A);
+function mapNullable(
+  value: unknown,
+  function_: (value: NonNullable<unknown>) => unknown,
+): unknown {
+  return Predicate.isNotNullish(value) ? function_(value) : value;
+}
 
 /**
  * Lifts a total function `(a: A) => B` into one that tolerates nullish input,
@@ -200,14 +194,9 @@ export const map = dual<
  * @since 0.0.0
  */
 export const lift =
-  <A, B>(map: (a: A) => B) =>
-  (a: A | null | undefined): B | null | undefined => {
-    if (Predicate.isNullish(a)) {
-      return a;
-    }
-
-    return map(a);
-  };
+  <A, B>(function_: (a: A) => B) =>
+  (a: A | null | undefined): B | null | undefined =>
+    map(a, function_);
 
 /**
  * Extends an `Order.Order<A>` to an `Order.Order<A | null>`, deciding where
@@ -258,38 +247,22 @@ export const nullableOrder = dual<
   <A>(
     order: Order.Order<A>,
     behavior: "value-null" | "null-value",
-  ): Order.Order<A | null> => {
-    // Prepare to sort them based on their nullability
-    const { nullableSortCategory, valueSortCategory } = Match.value(
-      behavior,
-    ).pipe(
-      Match.when("value-null", () => ({
-        nullableSortCategory: 1,
-        valueSortCategory: 0,
-      })),
-      Match.when("null-value", () => ({
-        nullableSortCategory: 0,
-        valueSortCategory: 1,
-      })),
+  ): Order.Order<A | null> =>
+    Match.value(behavior).pipe(
+      Match.when("value-null", () =>
+        Order.flip(
+          Order.mapInput(
+            Option.makeOrder(Order.flip<NonNullable<A>>(order)),
+            (value: A | null) => Option.fromNullishOr(value),
+          ),
+        ),
+      ),
+      Match.when("null-value", () =>
+        Order.mapInput(
+          Option.makeOrder<NonNullable<A>>(order),
+          (value: A | null) => Option.fromNullishOr(value),
+        ),
+      ),
       Match.exhaustive,
-    );
-
-    return (a: A | null, b: A | null): Ordering.Ordering => {
-      // Right off the bat, if they are both defined just return the regular ordering
-      if (Predicate.isNotNullish(a) && Predicate.isNotNullish(b)) {
-        return order(a, b);
-      }
-
-      // Otherwise figure out which category each value is
-      const aCategory = Predicate.isNotNullish(a)
-        ? valueSortCategory
-        : nullableSortCategory;
-
-      const bCategory = Predicate.isNotNullish(b)
-        ? valueSortCategory
-        : nullableSortCategory;
-
-      return EffectNumber.sign(aCategory - bCategory);
-    };
-  },
+    ),
 );

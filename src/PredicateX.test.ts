@@ -20,6 +20,26 @@ describe("PredicateX", () => {
       expect(result).toBe("Not a string");
     });
 
+    test("calls the false handler with no arguments and the true handler with the refined value", () => {
+      let falseArguments: [] | undefined;
+      let trueArguments: [string] | undefined;
+      const handlers = {
+        whenFalse: (...arguments_: []) => {
+          falseArguments = arguments_;
+          return "false";
+        },
+        whenTrue: (...arguments_: [string]) => {
+          trueArguments = arguments_;
+          return "true";
+        },
+      };
+
+      expect(matchRefine(42, Predicate.isString, handlers)).toBe("false");
+      expect(matchRefine("value", Predicate.isString, handlers)).toBe("true");
+      expect(falseArguments).toStrictEqual([]);
+      expect(trueArguments).toStrictEqual(["value"]);
+    });
+
     test("data-last (piped) matching value", () => {
       const result = pipe(
         "hello",
@@ -98,12 +118,17 @@ describe("PredicateX", () => {
     });
 
     test("rules out Map, Set, Date, RegExp, and custom-prototype objects", () => {
+      class Example {
+        readonly example = true;
+      }
+
       expect(unsafeIsRecord(new Map())).toBe(false);
       expect(unsafeIsRecord(new Set())).toBe(false);
       expect(unsafeIsRecord(new Date())).toBe(false);
       expect(unsafeIsRecord(new Error("boom"))).toBe(false);
       expect(unsafeIsRecord(/re/u)).toBe(false);
       expect(unsafeIsRecord(Object.create({ inherited: true }))).toBe(false);
+      expect(unsafeIsRecord(new Example())).toBe(false);
     });
   });
 });
