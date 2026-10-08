@@ -3,7 +3,16 @@
  *
  * @since 0.0.0
  */
-import { Array, Data, Effect, Option, Predicate, Struct, pipe } from "effect";
+import {
+  Array,
+  Data,
+  Effect,
+  Match,
+  Option,
+  Predicate,
+  Struct,
+  pipe,
+} from "effect";
 import { constUndefined, dual, identity } from "effect/Function";
 
 /**
@@ -330,6 +339,21 @@ export const WithRight = <L, R>({
     ? LeftAndRight({ left, right })
     : RightOnly({ right });
 
+const optionFromOptions = <L, R>(
+  leftOption: Option.Option<L>,
+  rightOption: Option.Option<R>,
+): Option.Option<InclusiveOr<L, R>> =>
+  Option.orElse(
+    Option.map(Option.product(leftOption, rightOption), ([left, right]) =>
+      LeftAndRight({ left, right }),
+    ),
+    () =>
+      Option.orElse(
+        Option.map(leftOption, (left) => LeftOnly({ left })),
+        () => Option.map(rightOption, (right) => RightOnly({ right })),
+      ),
+  );
+
 /**
  * Builds an `InclusiveOr` from a pair of possibly-nullish inputs, wrapping the result in
  * an `Option` so the all-absent case is expressible.
@@ -363,24 +387,15 @@ export const WithRight = <L, R>({
  * @category constructors
  * @since 0.0.0
  */
+
 export const optionFromNullables = <L, R>({
   left,
   right,
 }: {
   left?: L | null | undefined;
   right?: R | null | undefined;
-}): Option.Option<InclusiveOr<L, R>> => {
-  if (Predicate.isNotNullish(left) && Predicate.isNotNullish(right)) {
-    return Option.some(LeftAndRight({ left, right }));
-  }
-  if (Predicate.isNotNullish(left)) {
-    return Option.some(LeftOnly({ left }));
-  }
-  if (Predicate.isNotNullish(right)) {
-    return Option.some(RightOnly({ right }));
-  }
-  return Option.none();
-};
+}): Option.Option<InclusiveOr<L, R>> =>
+  optionFromOptions(Option.fromNullishOr(left), Option.fromNullishOr(right));
 
 /**
  * Builds an `InclusiveOr` from a pair of possibly-nullish inputs, falling back to the
@@ -425,7 +440,7 @@ export const fromNullables = <L, R>({
   right?: R | null | undefined;
   orElse?: () => InclusiveOr<L, R>;
 }): InclusiveOr<L, R> =>
-  pipe(optionFromNullables({ left, right }), Option.getOrElse(orElse));
+  Option.getOrElse(optionFromNullables({ left, right }), orElse);
 
 /**
  * Folds an `InclusiveOr` from the left's perspective, collapsing the three tags into two
@@ -464,12 +479,11 @@ export const matchLeft =
     RightOnly: (right: R) => A;
   }) =>
   (inclusiveOr: InclusiveOr<L, R>): A =>
-    // `$match` widens the common return to `Unify<A>`; narrow it back to `A`.
-    match(inclusiveOr, {
+    Match.typeTags<InclusiveOr<L, R>, A>()({
       LeftOnly: ({ left }) => Left(left),
       RightOnly: ({ right }) => RightOnly(right),
       LeftAndRight: ({ left }) => Left(left),
-    }) as A;
+    })(inclusiveOr);
 
 /**
  * Folds an `InclusiveOr` from the right's perspective, collapsing the three tags into two
@@ -509,12 +523,11 @@ export const matchRight =
     Right: (right: R) => A;
   }) =>
   (inclusiveOr: InclusiveOr<L, R>): A =>
-    // `$match` widens the common return to `Unify<A>`; narrow it back to `A`.
-    match(inclusiveOr, {
+    Match.typeTags<InclusiveOr<L, R>, A>()({
       LeftOnly: ({ left }) => LeftOnly(left),
       RightOnly: ({ right }) => Right(right),
       LeftAndRight: ({ right }) => Right(right),
-    }) as A;
+    })(inclusiveOr);
 
 /**
  * Completes an `InclusiveOr` into a guaranteed `LeftAndRight` by filling whichever side
@@ -587,8 +600,8 @@ export const orElse = <L2, R2>({
  * @since 0.0.0
  */
 export const orUndefined = orElse({
-  orElseLeft: () => undefined,
-  orElseRight: () => undefined,
+  orElseLeft: constUndefined,
+  orElseRight: constUndefined,
 });
 
 /**
@@ -649,7 +662,7 @@ export const leftOrElse =
  * @category getters
  * @since 0.0.0
  */
-export const leftOrUndefined = leftOrElse(() => undefined);
+export const leftOrUndefined = leftOrElse(constUndefined);
 
 /**
  * Extracts the `right` of an `InclusiveOr`, falling back to `orElseReturn` when no
@@ -713,7 +726,7 @@ export const rightOrElse =
  * @category getters
  * @since 0.0.0
  */
-export const rightOrUndefined = rightOrElse(() => undefined);
+export const rightOrUndefined = rightOrElse(constUndefined);
 
 /**
  * Extracts the `right` of an `InclusiveOr` as an `Option`.
@@ -743,13 +756,10 @@ export const rightOrUndefined = rightOrElse(() => undefined);
 export const rightOption = <L, R>(
   inclusiveOr: InclusiveOr<L, R>,
 ): Option.Option<R> =>
-  pipe(
-    inclusiveOr,
-    matchRight({
-      LeftOnly: () => Option.none(),
-      Right: Option.some,
-    }),
-  );
+  matchRight({
+    LeftOnly: Option.none,
+    Right: Option.some,
+  })(inclusiveOr);
 
 /**
  * Extracts the `left` of an `InclusiveOr` as an `Option`.
@@ -778,13 +788,10 @@ export const rightOption = <L, R>(
 export const leftOption = <L, R>(
   inclusiveOr: InclusiveOr<L, R>,
 ): Option.Option<L> =>
-  pipe(
-    inclusiveOr,
-    matchLeft({
-      Left: Option.some,
-      RightOnly: () => Option.none(),
-    }),
-  );
+  matchLeft({
+    Left: Option.some,
+    RightOnly: Option.none,
+  })(inclusiveOr);
 
 /**
  * Transforms both sides of an `InclusiveOr`, applying `mapLeft` to any `left` and
@@ -869,23 +876,16 @@ export const mapBothEffect = <L1, R1, L2, R2, EL, ER, RL, RR>({
 ) => Effect.Effect<InclusiveOr<L2, R2>, EL | ER, RL | RR>) =>
   match({
     LeftOnly: ({ left }) =>
-      pipe(
-        mapLeft(left),
-        Effect.map((left2) => LeftOnly({ left: left2 })),
-      ),
+      Effect.map(mapLeft(left), (left2) => LeftOnly({ left: left2 })),
 
     RightOnly: ({ right }) =>
-      pipe(
-        mapRight(right),
-        Effect.map((right2) => RightOnly({ right: right2 })),
-      ),
+      Effect.map(mapRight(right), (right2) => RightOnly({ right: right2 })),
 
     LeftAndRight: ({ left, right }) =>
-      pipe(
+      Effect.map(
         Effect.all({ left: mapLeft(left), right: mapRight(right) }),
-        Effect.map(({ left: left2, right: right2 }) =>
+        ({ left: left2, right: right2 }) =>
           LeftAndRight({ left: left2, right: right2 }),
-        ),
       ),
   });
 
@@ -1229,27 +1229,13 @@ export const zip: {
     array1: readonly A[],
     array2: readonly B[],
     f: (inclusiveOr: InclusiveOr<A, B>) => C,
-  ): C[] => {
-    const newLength = Math.max(array1.length, array2.length);
-
-    if (newLength === 0) {
-      return [];
-    }
-
-    return Array.makeBy(newLength, (index) => {
-      if (index < array1.length && index < array2.length) {
-        return f(LeftAndRight({ left: array1[index], right: array2[index] }));
-      }
-
-      if (index < array1.length) {
-        return f(LeftOnly({ left: array1[index] }));
-      }
-
-      if (index < array2.length) {
-        return f(RightOnly({ right: array2[index] }));
-      }
-
-      throw new Error(`Index ${index} is out of bounds for array1 and array2`);
-    });
-  },
+  ): C[] =>
+    Array.getSomes(
+      Array.makeBy(Math.max(array1.length, array2.length), (index) =>
+        Option.map(
+          optionFromOptions(Array.get(array1, index), Array.get(array2, index)),
+          f,
+        ),
+      ),
+    ),
 );

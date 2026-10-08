@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Result, pipe } from "effect";
+import { Array, Effect, Equal, Hash, Option, Result, pipe } from "effect";
 import { describe, expect, test, vi } from "vitest";
 import { it } from "@effect/vitest";
 import {
@@ -144,6 +144,12 @@ describe("WarnResult", () => {
       ).toStrictEqual(WarningsOnly({ warnings: "w" }));
     });
 
+    test("null success → WarningsOnly", () => {
+      expect(WithWarnings({ warnings: "w", success: null })).toStrictEqual(
+        WarningsOnly({ warnings: "w" }),
+      );
+    });
+
     test("falsy-but-present success → SuccessWithWarnings", () => {
       expect(WithWarnings({ warnings: "w", success: 0 })).toStrictEqual(
         SuccessWithWarnings({ warnings: "w", success: 0 }),
@@ -174,6 +180,12 @@ describe("WarnResult", () => {
       expect(
         WithSuccess<number, string>({ warnings: undefined, success: 1 }),
       ).toStrictEqual(SuccessOnly({ success: 1 }));
+    });
+
+    test("null warnings → SuccessOnly", () => {
+      expect(WithSuccess({ warnings: null, success: 1 })).toStrictEqual(
+        SuccessOnly({ success: 1 }),
+      );
     });
 
     test("falsy-but-present warnings → SuccessWithWarnings", () => {
@@ -632,6 +644,29 @@ describe("WarnResult", () => {
       }),
     );
 
+    test("runs the warnings effect before the success effect", () => {
+      const order: string[] = [];
+      const result = Effect.runSync(
+        mapBothEffect({
+          mapWarnings: (warnings: string) =>
+            Effect.sync(() => {
+              order.push("warnings");
+              return warnings;
+            }),
+          mapSuccess: (success: number) =>
+            Effect.sync(() => {
+              order.push("success");
+              return success;
+            }),
+        })(SuccessWithWarnings({ warnings: "w", success: 1 })),
+      );
+
+      expect(result).toStrictEqual(
+        SuccessWithWarnings({ warnings: "w", success: 1 }),
+      );
+      expect(order).toStrictEqual(["warnings", "success"]);
+    });
+
     it.effect("failure in the warnings effect short-circuits", () =>
       Effect.gen(function* () {
         const failing = mapBothEffect({
@@ -884,5 +919,28 @@ describe("WarnResult", () => {
         "Warnings 4",
       ]);
     });
+
+    test("keeps an explicit undefined element as present", () => {
+      expect(
+        zip([undefined], ["success"], (warnResult) => warnResult),
+      ).toStrictEqual([
+        SuccessWithWarnings({ warnings: undefined, success: "success" }),
+      ]);
+    });
+  });
+
+  test("constructors retain structural Equal and Hash behavior", () => {
+    const warnings = WarningsOnly({ warnings: "w" });
+    const success = SuccessOnly({ success: 1 });
+    const both = SuccessWithWarnings({ warnings: "w", success: 1 });
+
+    expect(Equal.equals(warnings, WarningsOnly({ warnings: "w" }))).toBe(true);
+    expect(Equal.equals(success, SuccessOnly({ success: 1 }))).toBe(true);
+    expect(
+      Equal.equals(both, SuccessWithWarnings({ warnings: "w", success: 1 })),
+    ).toBe(true);
+    expect(Hash.hash(both)).toBe(
+      Hash.hash(SuccessWithWarnings({ warnings: "w", success: 1 })),
+    );
   });
 });
