@@ -24,6 +24,23 @@ describe("Duration utils", () => {
 
       expect(pipe(later, diff(earlier))).toStrictEqual(Duration.seconds(3));
     });
+
+    test("with fixed instants", () => {
+      const earlier = DateTime.makeUnsafe(1000);
+      const later = DateTime.makeUnsafe(4000);
+
+      expect(diff(later, earlier)).toStrictEqual(Duration.seconds(3));
+      expect(pipe(later, diff(earlier))).toStrictEqual(Duration.seconds(3));
+      expect(diff(earlier, later)).toStrictEqual(Duration.zero);
+      expect(diff(earlier, earlier)).toStrictEqual(Duration.zero);
+    });
+
+    test("with fractional instant inputs", () => {
+      const earlier = DateTime.makeUnsafe(1000.9);
+      const later = DateTime.makeUnsafe(1001.1);
+
+      expect(diff(later, earlier)).toStrictEqual(Duration.millis(1));
+    });
   });
 
   describe("mapAsUnit", () => {

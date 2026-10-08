@@ -49,12 +49,7 @@ export const diff = dual<
 >(
   2,
   (self: DateTime.DateTime, that: DateTime.DateTime): Duration.Duration =>
-    Duration.millis(
-      // Clamp at 0 — "diff" represents elapsed time since `that`; if `that`
-      // is in the future relative to `self`, the elapsed time is zero
-      // (not negative).
-      Math.max(0, DateTime.toEpochMillis(self) - DateTime.toEpochMillis(that)),
-    ),
+    Duration.max(DateTime.distance(that, self), Duration.zero),
 );
 
 // Internal — used by mapAsUnit.
