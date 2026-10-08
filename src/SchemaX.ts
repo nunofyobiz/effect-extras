@@ -3,7 +3,14 @@
  *
  * @since 0.0.0
  */
-import { BigInt, Schema, SchemaGetter, Struct } from "effect";
+import {
+  BigInt,
+  Number,
+  Predicate,
+  Schema,
+  SchemaGetter,
+  Struct,
+} from "effect";
 
 /**
  * A `Schema` for a non-empty string that is trimmed on both decode and encode.
@@ -128,6 +135,64 @@ export const IntFromString = Schema.NumberFromString.check(
     expected: "a safe integer (no overflow past Number.MAX_SAFE_INTEGER)",
   }),
 );
+
+/**
+ * Transforms a `number` `Schema` by coercing its values into an inclusive
+ * range on both decode and encode.
+ *
+ * Unlike Schema refinements, which reject values outside their range, `clamp`
+ * maps them to the nearest configured bound. Omit either bound to clamp only
+ * one side; an empty options object leaves values unchanged.
+ *
+ * @example
+ * ```ts
+ * import { Effect, Schema } from "effect"
+ * import { SchemaX } from "@nunofyobiz/effect-extras"
+ *
+ * const Percent = SchemaX.clamp({ min: 0, max: 100 })(Schema.Number)
+ *
+ * assert.deepStrictEqual(
+ *   Effect.runSync(Schema.decodeEffect(Percent)(125)),
+ *   100,
+ * )
+ * ```
+ *
+ * @category combinators
+ * @since 0.0.0
+ */
+export const clamp = (options: {
+  readonly min?: number;
+  readonly max?: number;
+}) => {
+  if (
+    Predicate.isNotUndefined(options.min) &&
+    Predicate.isNotUndefined(options.max) &&
+    options.min > options.max
+  ) {
+    throw new Error(
+      "SchemaX.clamp requires min to be less than or equal to max",
+    );
+  }
+
+  return <S extends Schema.Schema<number>>(schema: S) => {
+    const clampValue = (value: number) => {
+      const min = options.min;
+      const max = options.max;
+      const withMin = Predicate.isNotUndefined(min)
+        ? Number.max(value, min)
+        : value;
+
+      return Predicate.isNotUndefined(max) ? Number.min(withMin, max) : withMin;
+    };
+
+    return schema.pipe(
+      Schema.decode({
+        decode: SchemaGetter.transform(clampValue),
+        encode: SchemaGetter.transform(clampValue),
+      }),
+    );
+  };
+};
 
 // Internal — only used to construct nonNegativeBigInt below.
 const clampMinBigInt =

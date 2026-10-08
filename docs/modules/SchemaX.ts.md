@@ -15,6 +15,7 @@ Added in v0.0.0
 <h2 class="text-delta">Table of contents</h2>
 
 - [combinators](#combinators)
+  - [clamp](#clamp)
   - [nonNegativeBigInt](#nonnegativebigint)
   - [omit](#omit)
   - [partial](#partial)
@@ -30,6 +31,37 @@ Added in v0.0.0
 ---
 
 # combinators
+
+## clamp
+
+Transforms a `number` `Schema` by coercing its values into an inclusive
+range on both decode and encode.
+
+Unlike Schema refinements, which reject values outside their range, `clamp`
+maps them to the nearest configured bound. Omit either bound to clamp only
+one side; an empty options object leaves values unchanged.
+
+**Signature**
+
+```ts
+export declare const clamp: (options: {
+  readonly min?: number
+  readonly max?: number
+}) => <S extends Schema.Schema<number>>(schema: S) => Schema.decodeTo<Schema.toType<S>, S, never, never>
+```
+
+**Example**
+
+```ts
+import { Effect, Schema } from "effect"
+import { SchemaX } from "@nunofyobiz/effect-extras"
+
+const Percent = SchemaX.clamp({ min: 0, max: 100 })(Schema.Number)
+
+assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(Percent)(125)), 100)
+```
+
+Added in v0.0.0
 
 ## nonNegativeBigInt
 
