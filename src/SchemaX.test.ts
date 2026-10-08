@@ -5,6 +5,7 @@ import {
   IntFromString,
   TrimmedNonEmptyString,
   URLSafeFilePath,
+  clamp,
   nonNegativeBigInt,
   omit,
   partial,
@@ -330,6 +331,81 @@ describe("Schema utils", () => {
         const result = yield* Schema.decodeEffect(NonNegative)(big);
         expect(result).toBe(big);
       }),
+    );
+  });
+
+  describe("clamp", () => {
+    it.effect("clamps lower-only ranges on decode and encode", () =>
+      Effect.gen(function* () {
+        const NonNegative = clamp({ min: 0 })(Schema.Number);
+
+        expect(yield* Schema.decodeEffect(NonNegative)(-5)).toBe(0);
+        expect(yield* Schema.decodeEffect(NonNegative)(7)).toBe(7);
+        expect(yield* Schema.encodeEffect(NonNegative)(-5)).toBe(0);
+        expect(yield* Schema.encodeEffect(NonNegative)(0)).toBe(0);
+      }),
+    );
+
+    it.effect("clamps upper-only ranges on decode and encode", () =>
+      Effect.gen(function* () {
+        const AtMostTen = clamp({ max: 10 })(Schema.Number);
+
+        expect(yield* Schema.decodeEffect(AtMostTen)(15)).toBe(10);
+        expect(yield* Schema.decodeEffect(AtMostTen)(7)).toBe(7);
+        expect(yield* Schema.encodeEffect(AtMostTen)(15)).toBe(10);
+        expect(yield* Schema.encodeEffect(AtMostTen)(10)).toBe(10);
+      }),
+    );
+
+    it.effect("clamps two-sided ranges on decode and encode", () =>
+      Effect.gen(function* () {
+        const Percent = clamp({ min: 0, max: 100 })(Schema.Number);
+
+        expect(yield* Schema.decodeEffect(Percent)(-5)).toBe(0);
+        expect(yield* Schema.decodeEffect(Percent)(125)).toBe(100);
+        expect(yield* Schema.decodeEffect(Percent)(50)).toBe(50);
+        expect(yield* Schema.encodeEffect(Percent)(-5)).toBe(0);
+        expect(yield* Schema.encodeEffect(Percent)(125)).toBe(100);
+      }),
+    );
+
+    it.effect("leaves values unchanged without bounds", () =>
+      Effect.gen(function* () {
+        const Identity = clamp({})(Schema.Number);
+
+        expect(yield* Schema.decodeEffect(Identity)(-5)).toBe(-5);
+        expect(yield* Schema.encodeEffect(Identity)(5)).toBe(5);
+      }),
+    );
+
+    it.effect("pins values when bounds are equal", () =>
+      Effect.gen(function* () {
+        const Pinned = clamp({ min: 5, max: 5 })(Schema.Number);
+
+        expect(yield* Schema.decodeEffect(Pinned)(0)).toBe(5);
+        expect(yield* Schema.encodeEffect(Pinned)(10)).toBe(5);
+      }),
+    );
+
+    test("rejects a reversed range synchronously", () => {
+      expect(() => clamp({ min: 10, max: 0 })).toThrow(
+        /min to be less than or equal to max/u,
+      );
+    });
+
+    it.effect(
+      "preserves an IntFromString schema's encoded representation",
+      () =>
+        Effect.gen(function* () {
+          const NonNegativeIntFromString = clamp({ min: 0 })(IntFromString);
+
+          expect(
+            yield* Schema.decodeEffect(NonNegativeIntFromString)("-5"),
+          ).toBe(0);
+          expect(yield* Schema.encodeEffect(NonNegativeIntFromString)(-5)).toBe(
+            "0",
+          );
+        }),
     );
   });
 
