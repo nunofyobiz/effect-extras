@@ -3,7 +3,7 @@
  *
  * @since 0.0.0
  */
-import { Array } from "effect";
+import { Array, Match, String } from "effect";
 import { dual } from "effect/Function";
 
 /**
@@ -30,7 +30,7 @@ import { dual } from "effect/Function";
 export const prepend = dual<
   (start: string) => (string_: string) => string,
   (string_: string, start: string) => string
->(2, (string_: string, start: string): string => `${start}${string_}`);
+>(2, (string_: string, start: string): string => String.concat(start, string_));
 
 /**
  * Wraps `string_` between `start` and `end`.
@@ -55,10 +55,8 @@ export const prepend = dual<
 export const surround = dual<
   (start: string, end: string) => (string_: string) => string,
   (string_: string, start: string, end: string) => string
->(
-  3,
-  (string_: string, start: string, end: string): string =>
-    `${start}${string_}${end}`,
+>(3, (string_: string, start: string, end: string): string =>
+  String.concat(String.concat(start, string_), end),
 );
 
 /**
@@ -89,13 +87,12 @@ export const surround = dual<
 export const ensurePrepend = dual<
   (start: string) => (string_: string) => string,
   (string_: string, start: string) => string
->(2, (string_: string, start: string): string => {
-  if (string_.startsWith(start)) {
-    return string_;
-  }
-
-  return `${start}${string_}`;
-});
+>(2, (string_: string, start: string): string =>
+  Match.value(string_).pipe(
+    Match.when(String.startsWith(start), () => string_),
+    Match.orElse((value) => String.concat(start, value)),
+  ),
+);
 
 /**
  * Replaces the inclusive line range `[startLine, endLine]` of `content` with
@@ -150,7 +147,7 @@ export const replaceLineRange = dual<
     endLine: number,
     replacement: readonly string[],
   ): string => {
-    const lines = content.split("\n");
+    const lines = String.split(content, "\n");
     return Array.join(
       [
         ...Array.take(lines, startLine),
@@ -197,7 +194,7 @@ export const insertBeforeLine = dual<
 >(
   3,
   (content: string, anchorIndex: number, lines: readonly string[]): string => {
-    const split = content.split("\n");
+    const split = String.split(content, "\n");
     return Array.join(
       [
         ...Array.take(split, anchorIndex),
