@@ -43,6 +43,76 @@ describe("Map utils", () => {
       ).toBe("2");
     });
 
+    test("calls the data-first fallback once on a miss and not on a hit", () => {
+      const map = new Map<string, string>();
+      let misses = 0;
+
+      expect(
+        getOrElseSetGet(map, "a", () => {
+          misses = misses + 1;
+          return "fallback";
+        }),
+      ).toBe("fallback");
+      expect(misses).toBe(1);
+
+      let hits = 0;
+      expect(
+        getOrElseSetGet(map, "a", () => {
+          hits = hits + 1;
+          return "ignored";
+        }),
+      ).toBe("fallback");
+      expect(hits).toBe(0);
+    });
+
+    test("calls the data-last fallback once on a miss and not on a hit", () => {
+      const map = new Map<string, string>();
+      let misses = 0;
+
+      expect(
+        pipe(
+          map,
+          getOrElseSetGet("a", () => {
+            misses = misses + 1;
+            return "fallback";
+          }),
+        ),
+      ).toBe("fallback");
+      expect(misses).toBe(1);
+
+      let hits = 0;
+      expect(
+        pipe(
+          map,
+          getOrElseSetGet("a", () => {
+            hits = hits + 1;
+            return "ignored";
+          }),
+        ),
+      ).toBe("fallback");
+      expect(hits).toBe(0);
+    });
+
+    test("returns the value stored by an object fallback", () => {
+      const map = new Map<string, string[]>();
+      const value = getOrElseSetGet(map, "a", () => []);
+
+      expect(value).toBe(map.get("a"));
+      value.push("item");
+      expect(map.get("a")).toEqual(["item"]);
+    });
+
+    test.each([null, undefined])(
+      "stores and returns a nullish fallback on a miss",
+      (fallback) => {
+        const map = new Map<string, null | undefined>();
+
+        expect(getOrElseSetGet(map, "a", () => fallback)).toBe(fallback);
+        expect(map.has("a")).toBe(true);
+        expect(map.get("a")).toBe(fallback);
+      },
+    );
+
     test("throws when the stored value is nullish", () => {
       const map = new Map<string, string | null>([["a", null]]);
 
