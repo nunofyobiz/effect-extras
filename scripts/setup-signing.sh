@@ -27,8 +27,9 @@
 # What it does NOT do:
 #   - Other branches (main, feature/*, task/*, …): exits early and leaves their
 #     existing identity and signing configuration untouched. ampm uses task/* and
-#     provides its current ampm-agent identity through Git environment variables;
-#     those commits are unsigned unless ampm itself configures signing.
+#     provides both author and committer as `ampm-agent <agent@ampm.local>` through
+#     Git environment variables; those commits are unsigned unless ampm itself
+#     configures signing.
 #   - Other worktrees / clones: per-worktree config is scoped to this worktree.
 #   - The human's personal git config: never modified.
 #
