@@ -48,13 +48,21 @@ describe("Struct utils", () => {
     });
 
     test("narrows an optional value without retaining undefined", () => {
-      const value: string | undefined = "Ada";
+      const value: string | undefined = Math.random() > 2 ? undefined : "Ada";
       const result: Partial<Record<"name", string>> = defined("name", value);
       expect(result).toStrictEqual({ name: "Ada" });
     });
   });
 
   describe("filterDefined", () => {
+    test("empty input", () => {
+      const input = {};
+      const result = filterDefined(input);
+
+      expect(result).toStrictEqual({});
+      expect(result).not.toBe(input);
+    });
+
     test("preserves order and omits undefined without mutating the input", () => {
       const input = { b: 0, a: undefined, c: "", d: false, e: null };
       const result = filterDefined(input);

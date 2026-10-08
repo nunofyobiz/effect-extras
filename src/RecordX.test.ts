@@ -210,6 +210,13 @@ describe("Record utils", () => {
       });
       expect(result[symbol]).toStrictEqual({ id: symbol, value: 5 });
       expect(result).not.toBe(values);
+      expect(values).toStrictEqual([
+        { id: "a", value: 1 },
+        { id: "b", value: 2 },
+        { id: "a", value: 3 },
+        { id: "__proto__", value: 4 },
+        { id: symbol, value: 5 },
+      ]);
     });
 
     test("returns a fresh empty record", () => {
