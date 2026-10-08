@@ -3,7 +3,8 @@
  *
  * @since 0.0.0
  */
-import { Function, Schema } from "effect";
+import { Schema } from "effect";
+import { dual } from "effect/Function";
 
 /**
  * Decodes a `FormData` into a typed value using a `Schema`, throwing on
@@ -47,7 +48,7 @@ export const decodeSync: {
   <S extends Schema.Top & { readonly DecodingServices: never }>(
     schema: S,
   ): (formData: FormData) => S["Type"];
-} = Function.dual(
+} = dual(
   2,
   <S extends Schema.Top & { readonly DecodingServices: never }>(
     formData: FormData,
