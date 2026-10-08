@@ -1,11 +1,13 @@
 /**
  * The `WarnResult` data type — a result that may carry a success value and/or
- * warnings, where both sides are optional but never both absent.
+ * warnings, where both sides are optional but never both absent. It is
+ * `InclusiveOr` relabeled for this use case: warnings are left and success is
+ * right. Its derived operations deliberately delegate to `InclusiveOr`.
  *
  * @since 0.0.0
  */
 import { Data, Effect, Option, pipe } from "effect";
-import { dual } from "effect/Function";
+import { constUndefined, dual } from "effect/Function";
 import * as InclusiveOr from "./InclusiveOr.js";
 
 /**
@@ -19,6 +21,10 @@ import * as InclusiveOr from "./InclusiveOr.js";
  * `SuccessWithWarnings` (both). Reach for it when an operation can succeed, warn,
  * or do both at once — e.g. a parse that yields a value _and_ a list of warnings,
  * or that only produces warnings.
+ *
+ * `WarnResult` is `InclusiveOr` with use-case names: warnings are left and
+ * success is right. Its derived operations delegate through that bridge by design,
+ * keeping their behavior identical.
  *
  * @example
  * ```ts
@@ -494,7 +500,7 @@ export const fromNullables = <A, W>({
   success?: A | null | undefined;
   orElse?: () => WarnResult<A, W>;
 }): WarnResult<A, W> =>
-  pipe(optionFromNullables({ warnings, success }), Option.getOrElse(orElse));
+  Option.getOrElse(optionFromNullables({ warnings, success }), orElse);
 
 /**
  * Folds a `WarnResult` from the warnings' perspective, collapsing the three tags
@@ -669,8 +675,8 @@ export const orElse =
  * @since 0.0.0
  */
 export const orUndefined = orElse({
-  orElseWarnings: () => undefined,
-  orElseSuccess: () => undefined,
+  orElseWarnings: constUndefined,
+  orElseSuccess: constUndefined,
 });
 
 /**
@@ -734,7 +740,7 @@ export const warningsOrElse =
  * @category getters
  * @since 0.0.0
  */
-export const warningsOrUndefined = warningsOrElse(() => undefined);
+export const warningsOrUndefined = warningsOrElse(constUndefined);
 
 /**
  * Extracts the `success` value of a `WarnResult`, falling back to `orElseReturn`
@@ -792,7 +798,7 @@ export const successOrElse =
  * @category getters
  * @since 0.0.0
  */
-export const successOrUndefined = successOrElse(() => undefined);
+export const successOrUndefined = successOrElse(constUndefined);
 
 /**
  * Extracts the `success` value of a `WarnResult` as an `Option`.
@@ -941,6 +947,7 @@ export const mapBothEffect =
     pipe(
       toInclusiveOr(warnResult),
       InclusiveOr.mapBothEffect({ mapLeft: mapWarnings, mapRight: mapSuccess }),
+      // The lambda preserves the bridge's variant-specific overload inference.
       Effect.map((io) => fromInclusiveOr(io)),
     );
 
@@ -1063,6 +1070,7 @@ export const mapWarningsEffect =
     pipe(
       toInclusiveOr(warnResult),
       InclusiveOr.mapLeftEffect(mapWarnings),
+      // The lambda preserves the bridge's variant-specific overload inference.
       Effect.map((io) => fromInclusiveOr(io)),
     );
 
@@ -1109,6 +1117,7 @@ export const flatMapWarningsEffect =
       InclusiveOr.flatMapLeftEffect((warnings: W1) =>
         Effect.map(mapWarnings(warnings), toInclusiveOr),
       ),
+      // The lambda preserves the bridge's variant-specific overload inference.
       Effect.map((io) => fromInclusiveOr(io)),
     );
 
@@ -1226,6 +1235,7 @@ export const mapSuccessEffect =
     pipe(
       toInclusiveOr(warnResult),
       InclusiveOr.mapRightEffect(mapSuccess),
+      // The lambda preserves the bridge's variant-specific overload inference.
       Effect.map((io) => fromInclusiveOr(io)),
     );
 
@@ -1271,6 +1281,7 @@ export const flatMapSuccessEffect =
       InclusiveOr.flatMapRightEffect((success: A1) =>
         Effect.map(mapSuccess(success), toInclusiveOr),
       ),
+      // The lambda preserves the bridge's variant-specific overload inference.
       Effect.map((io) => fromInclusiveOr(io)),
     );
 

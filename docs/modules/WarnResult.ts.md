@@ -7,7 +7,9 @@ parent: Modules
 ## WarnResult overview
 
 The `WarnResult` data type — a result that may carry a success value and/or
-warnings, where both sides are optional but never both absent.
+warnings, where both sides are optional but never both absent. It is
+`InclusiveOr` relabeled for this use case: warnings are left and success is
+right. Its derived operations deliberately delegate to `InclusiveOr`.
 
 Added in v0.0.0
 
@@ -818,6 +820,10 @@ be present independently. It is a tagged enum with three constructors:
 `SuccessWithWarnings` (both). Reach for it when an operation can succeed, warn,
 or do both at once — e.g. a parse that yields a value _and_ a list of warnings,
 or that only produces warnings.
+
+`WarnResult` is `InclusiveOr` with use-case names: warnings are left and
+success is right. Its derived operations delegate through that bridge by design,
+keeping their behavior identical.
 
 **Signature**
 
