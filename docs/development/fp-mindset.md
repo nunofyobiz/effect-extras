@@ -17,7 +17,10 @@ logic, ask in order:
 2. **Does an existing `*X` module already do it?** (See "Check existing utilities first" below.)
 3. **Can the logic be a generic utility another call site could reuse?**
 
-If yes to any: use or extract it.
+If Effect or an existing module covers it, use that. Otherwise, keep a new internal utility local
+until multiple callers need it. Consider exporting a helper only after it clears the
+[canonical admission test](./what-belongs-here.md): a useful generic name or clear expectation of
+cross-project reuse can justify a public helper before those callers are visible here.
 
 ## Extracting from a pipe
 
@@ -27,8 +30,13 @@ utility waiting to be named:
 1. **Name it in the abstract** — strip the domain nouns; describe what the steps do to the data shape
    ("filter to present items, then group by key").
 2. **Check Effect and the `*X` modules** — does an equivalent exist? If so, use it.
-3. **If not, extract it** — a generic, `dual`-compatible function in the right `*X` module; replace
-   the inline steps with one call; add exhaustive tests.
+3. **Choose its scope** — an internal extraction stays local until multiple callers need it. An
+   exported helper must clear the [canonical admission test](./what-belongs-here.md): one generic
+   data manipulation over type parameters such as `<A>` and `<B>` in the module the type calls for.
+   Its useful name or expected cross-project reuse can justify exporting it before those callers are
+   visible here. If it takes data plus other arguments, use `dual` with the data-last overload first
+   and the data-first overload second. Replace the inline steps with one call and add exhaustive
+   tests.
 
 This is how the utility layer grows: not by upfront design, but by recognizing structure already
 present in a pipe and giving it a name. (Not in tension with "don't re-implement Effect's control-flow
@@ -38,11 +46,13 @@ which are the point of the repo.)
 ## Where utilities live
 
 - **`effect`** (the library) — the first place to look. If `Array.foo` already does it, use it.
-- **This package** — the shared home for generic Effect-extension `*X` modules. A helper belongs here
-  only if it clears the [What belongs here](./what-belongs-here.md) bar (generic, pure, no domain
-  knowledge).
-- A helper used by only one consumer can start local to that consumer and graduate here the moment a
-  **second, unrelated** consumer wants it.
+- **This package** — the shared home for generic extensions: `*X` modules for Effect modules or for
+  platform or language types Effect does not cover, and modules named for any data type this package
+  owns. A helper belongs here only if it clears the [What belongs here](./what-belongs-here.md) bar.
+- An internal helper stays local until multiple callers need it. For a public helper, a **second,
+  unrelated** consumer is strong evidence that it belongs here; a call site in a separate, unrelated
+  consuming repository counts as that second call site. A useful generic name or clear expectation
+  of reuse across unrelated consumers can also justify exporting it sooner.
 
 ## Check existing utilities first
 
@@ -54,12 +64,18 @@ Before writing a new helper, check whether one of the existing modules already c
 
 ## Designing a good utility
 
-1. **Generic type parameters** — operate on `<A>`, not concrete types.
+1. **Generic type parameters** — operate on `<A>`, `<B>`, and other type parameters, not concrete
+   types.
 2. **Pure functions** — no side effects, no mutations.
-3. **Support `dual`** when the utility takes a pipeable data argument.
-4. **Follow the module/barrel pattern** — a flat `src/FooX.ts` (+ `src/FooX.test.ts`) + an
-   `export * as FooX from "./FooX.js";` line in `src/index.ts`.
-5. **Exhaustive test coverage** — every public function, every branch, edge cases (empty,
+3. **Use plain Effect-aligned names** — reuse Effect's name for the same operation; otherwise use a
+   distinct plain name, never functional-programming theory jargon. `OptionX.inspectSome` is an
+   observer, not `tap`.
+4. **Use `dual` for data plus other arguments** — declare the data-last overload first, then the
+   data-first overload.
+5. **Follow the module/barrel pattern** — a flat `src/<module>.ts` (+ `src/<module>.test.ts`) + an
+   `export * as <module> from "./<module>.js";` line in `src/index.ts`. Choose the module name using
+   the [canonical placement rule](./what-belongs-here.md#names-and-modules).
+6. **Exhaustive test coverage** — every public function, every branch, edge cases (empty,
    single-element, boundary), and type-level correctness where the utility's whole point is type
    narrowing. Non-negotiable: these helpers are consumed by every layer above them, they outlive the
    surrounding code, and their tests are the only spec they have.

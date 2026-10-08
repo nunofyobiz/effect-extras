@@ -46,13 +46,15 @@ if (Number.isNumber(n)) { ... } //            not: typeof n === "number"
 ```
 
 A compound predicate worth reusing (an `isNonEmptyString` combining `isNotNullish`, `isString`, and
-`String.isNonEmpty`) is exactly what `PredicateX` is for — create it the first time a second call
-site wants it.
+`String.isNonEmpty`) belongs in `PredicateX` when it clears the
+[canonical admission test](./what-belongs-here.md). A second call site is strong evidence, while a
+useful generic name or clear expectation of cross-project reuse can also justify exporting it.
 
 ## Dual functions
 
-When a function supports both piped and direct call styles, use `dual` from `effect/Function` (not
-`Function.dual()`). Declare the **data-last** (piped) overload first, then **data-first**:
+When a new or changed helper takes a data argument plus other arguments, use `dual` from
+`effect/Function` (not `Function.dual()`). Declare the **data-last** (piped) overload first, then
+**data-first**:
 
 ```ts
 import { dual } from "effect/Function";
@@ -66,8 +68,9 @@ export const withPrefix = dual<
 );
 ```
 
-Most helpers here that take a "data" argument are `dual` — that's what lets them sit naturally in a
-consumer's `pipe` chain _and_ be called directly.
+This lets helpers sit naturally in a consumer's `pipe` chain _and_ be called directly. See
+[What belongs here](./what-belongs-here.md#names-and-modules) for whether a helper belongs, where it
+lives, and how to name it.
 
 ## Data-first vs `pipe`
 
@@ -186,5 +189,6 @@ const sorted = Array.sort(
 | `Array.sortBy(o1, o2, …)`           | Sort by multiple orders combined      |
 
 Specialized order helpers — ranking enum-like values (`OrderX.rankedEnum`) or pushing nulls last —
-live in `OrderX` / `NonNullableX`. That's this repo's job in miniature: the moment you reach for one
-inline, it belongs in a module instead.
+belong in `OrderX` / `NonNullableX` only when they clear the
+[canonical admission test](./what-belongs-here.md). Leave a one-off inline; an inline use alone is
+not enough evidence to add a public helper.
