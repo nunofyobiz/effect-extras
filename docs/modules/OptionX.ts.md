@@ -15,7 +15,7 @@ Added in v0.0.0
 <h2 class="text-delta">Table of contents</h2>
 
 - [combinators](#combinators)
-  - [tupleOf](#tupleof)
+  - [~~tupleOf~~](#tupleof)
 - [constructors](#constructors)
   - [fromNullableOption](#fromnullableoption)
 - [mapping](#mapping)
@@ -29,7 +29,7 @@ Added in v0.0.0
 
 # combinators
 
-## tupleOf
+## ~~tupleOf~~
 
 Combines two `Option`s into an `Option` of a tuple, succeeding only when both
 are `Some`.
@@ -47,17 +47,13 @@ export declare const tupleOf: (<B>(b: Option.Option<B>) => <A>(a: Option.Option<
 **Example**
 
 ```ts
-import { Option, pipe } from "effect"
-import { OptionX } from "@nunofyobiz/effect-extras"
+import { Option } from "effect"
 
 // Both Some — succeeds with the pair
-assert.deepStrictEqual(OptionX.tupleOf(Option.some(1), Option.some("a")), Option.some([1, "a"]))
+assert.deepStrictEqual(Option.product(Option.some(1), Option.some("a")), Option.some([1, "a"]))
 
 // Either None collapses to None
-assert.deepStrictEqual(OptionX.tupleOf(Option.some(1), Option.none()), Option.none())
-
-// Data-last (piped): the piped Option fills the first tuple slot
-assert.deepStrictEqual(pipe(Option.some(1), OptionX.tupleOf(Option.some("a"))), Option.some([1, "a"]))
+assert.deepStrictEqual(Option.product(Option.some(1), Option.none()), Option.none())
 ```
 
 Added in v0.0.0
