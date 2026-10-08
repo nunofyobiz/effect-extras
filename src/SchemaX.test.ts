@@ -1,5 +1,5 @@
 import { Effect, Result, Schema } from "effect";
-import { describe, expect, test } from "vitest";
+import { describe, expect, expectTypeOf, test } from "vitest";
 import { it } from "@effect/vitest";
 import {
   IntFromString,
@@ -449,6 +449,13 @@ describe("Schema utils", () => {
       }),
     );
 
+    it.effect("picks no fields into an empty struct", () =>
+      Effect.gen(function* () {
+        const Picked = pick(Source);
+        expect(yield* Schema.decodeEffect(Picked)({})).toStrictEqual({});
+      }),
+    );
+
     it.effect("drops unpicked fields from the decoded type", () =>
       Effect.gen(function* () {
         const Picked = pick(Source, "a");
@@ -484,6 +491,12 @@ describe("Schema utils", () => {
 
     test("type narrows correctly on the picked schema", () => {
       const Picked = pick(Source, "a", "b");
+      expectTypeOf(Picked).toEqualTypeOf<
+        Schema.Struct<{
+          readonly a: typeof Schema.String;
+          readonly b: typeof Schema.Number;
+        }>
+      >();
       // Compile-time assertion: Picked should be Schema.Struct<{a, b}>
       // Runtime assertion via .fields:
       expect(Object.keys(Picked.fields).sort()).toStrictEqual(["a", "b"]);
@@ -515,6 +528,15 @@ describe("Schema utils", () => {
           a: "hello",
         });
         expect(result).toStrictEqual({ a: "hello" });
+      }),
+    );
+
+    it.effect("omits no fields", () =>
+      Effect.gen(function* () {
+        const Omitted = omit(Source);
+        expect(
+          yield* Schema.decodeEffect(Omitted)({ a: "hello", b: 42, c: true }),
+        ).toStrictEqual({ a: "hello", b: 42, c: true });
       }),
     );
 
@@ -551,6 +573,12 @@ describe("Schema utils", () => {
 
     test("type narrows correctly on the omitted schema", () => {
       const Omitted = omit(Source, "c");
+      expectTypeOf(Omitted).toEqualTypeOf<
+        Schema.Struct<{
+          readonly a: typeof Schema.String;
+          readonly b: typeof Schema.Number;
+        }>
+      >();
       expect(Object.keys(Omitted.fields).sort()).toStrictEqual(["a", "b"]);
     });
 
@@ -598,6 +626,22 @@ describe("Schema utils", () => {
       }),
     );
 
+    it.effect("accepts explicit undefined and existing optional fields", () =>
+      Effect.gen(function* () {
+        const OptionalSource = Schema.Struct({
+          optional: Schema.optional(Schema.String),
+          optionalKey: Schema.optionalKey(Schema.Number),
+        });
+        const Partial = partial(OptionalSource);
+        expect(
+          yield* Schema.decodeEffect(Partial)({ optional: undefined }),
+        ).toStrictEqual({
+          optional: undefined,
+        });
+        expect(yield* Schema.decodeEffect(Partial)({})).toStrictEqual({});
+      }),
+    );
+
     it.effect("preserves field schema (including refinements)", () =>
       Effect.gen(function* () {
         const RefinedSource = Schema.Struct({
@@ -619,6 +663,13 @@ describe("Schema utils", () => {
 
     test("type-level: all keys are present in fields", () => {
       const Partial = partial(Source);
+      expectTypeOf(Partial).toEqualTypeOf<
+        Schema.Struct<{
+          readonly a: Schema.optional<typeof Schema.String>;
+          readonly b: Schema.optional<typeof Schema.Number>;
+          readonly c: Schema.optional<typeof Schema.Boolean>;
+        }>
+      >();
       expect(Object.keys(Partial.fields).sort()).toStrictEqual(["a", "b", "c"]);
     });
 
@@ -626,6 +677,46 @@ describe("Schema utils", () => {
       const Empty = Schema.Struct({});
       const Partial = partial(Empty);
       expect(Object.keys(Partial.fields)).toStrictEqual([]);
+    });
+
+    test("keeps symbol-keyed fields through pick, omit and partial", () => {
+      const key = Symbol("field");
+      const WithSymbol = Schema.Struct({
+        text: Schema.String,
+        [key]: Schema.Number,
+      });
+
+      expect(Reflect.ownKeys(pick(WithSymbol, "text").fields)).toStrictEqual([
+        "text",
+      ]);
+      expect(Reflect.ownKeys(omit(WithSymbol).fields)).toStrictEqual([
+        "text",
+        key,
+      ]);
+      expect(Reflect.ownKeys(partial(WithSymbol).fields)).toStrictEqual([
+        "text",
+        key,
+      ]);
+    });
+
+    it.effect("makes a symbol-keyed field optional", () => {
+      const key = Symbol("field");
+      const WithSymbol = Schema.Struct({
+        text: Schema.String,
+        [key]: Schema.Number,
+      });
+      const Partial = partial(WithSymbol);
+
+      return Effect.gen(function* () {
+        const decoded = yield* Schema.decodeEffect(Partial)({ text: "hi" });
+        expect(decoded).toStrictEqual({ text: "hi" });
+
+        const withSymbol = yield* Schema.decodeEffect(Partial)({
+          text: "hi",
+          [key]: 1,
+        });
+        expect(withSymbol).toStrictEqual({ text: "hi", [key]: 1 });
+      });
     });
   });
 
@@ -674,6 +765,12 @@ describe("Schema utils", () => {
 
     test("type-level: only the picked keys are present in fields", () => {
       const Picked = pickPartial(Source, "a", "c");
+      expectTypeOf(Picked).toEqualTypeOf<
+        Schema.Struct<{
+          a: Schema.optional<typeof Schema.String>;
+          c: Schema.optional<typeof Schema.Boolean>;
+        }>
+      >();
       expect(Object.keys(Picked.fields).sort()).toStrictEqual(["a", "c"]);
     });
 
