@@ -41,7 +41,7 @@ without wrapping each call site.
 **Signature**
 
 ```ts
-export declare const lift: <A, B>(map: (a: A) => B) => (a: A | null | undefined) => B | null | undefined
+export declare const lift: <A, B>(function_: (a: A) => B) => (a: A | null | undefined) => B | null | undefined
 ```
 
 **Example**

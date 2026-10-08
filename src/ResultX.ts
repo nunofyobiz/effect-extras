@@ -4,6 +4,7 @@
  * @since 0.0.0
  */
 import { Option, Result } from "effect";
+import { constVoid } from "effect/Function";
 
 /**
  * Lifts an `Option` into a `Result` with a `void` failure: `Some(value)` becomes
@@ -23,8 +24,8 @@ import { Option, Result } from "effect";
  * Array.filterMap(items, (item) => ResultX.fromOption(maybeTransform(item)))
  * ```
  *
- * Effect ships `Result.fromOption(option, onNone)` which requires a non-`void`
- * failure value; this helper specializes to the common "drop the item, no error
+ * Effect ships `Result.fromOption(option, onNone)`, which requires an `onNone`
+ * thunk. This helper specializes it to the common "drop the item, no error
  * needed" case used by `filterMap`.
  *
  * @example
@@ -47,5 +48,4 @@ import { Option, Result } from "effect";
  */
 export const fromOption = <A>(
   option: Option.Option<A>,
-): Result.Result<A, void> =>
-  Option.isSome(option) ? Result.succeed(option.value) : Result.failVoid;
+): Result.Result<A, void> => Result.fromOption(option, constVoid);

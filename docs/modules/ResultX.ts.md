@@ -40,8 +40,8 @@ declare const maybeTransform: (item: number) => import("effect").Option.Option<s
 Array.filterMap(items, (item) => ResultX.fromOption(maybeTransform(item)))
 ```
 
-Effect ships `Result.fromOption(option, onNone)` which requires a non-`void`
-failure value; this helper specializes to the common "drop the item, no error
+Effect ships `Result.fromOption(option, onNone)`, which requires an `onNone`
+thunk. This helper specializes it to the common "drop the item, no error
 needed" case used by `filterMap`.
 
 **Signature**

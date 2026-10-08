@@ -86,9 +86,8 @@ Refines an `unknown` value to a non-empty `string`, returning `true` only when
 the value is present, is a `string`, and has at least one character.
 
 This is the compound guard the repo's conventions call for: it folds
-`Predicate.isNotNullish`, `Predicate.isString`, and `String.isNonEmpty` into a
-single reusable refinement so call sites get `value is string` narrowing
-without restating the three checks.
+`Predicate.isString` and `String.isNonEmpty` into a single reusable refinement
+so call sites get `value is string` narrowing without restating the checks.
 
 **Signature**
 

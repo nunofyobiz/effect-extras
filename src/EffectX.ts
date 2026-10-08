@@ -3,7 +3,7 @@
  *
  * @since 0.0.0
  */
-import { Cause, Duration, Effect, Option, Predicate, pipe } from "effect";
+import { Cause, Duration, Effect, Option, Predicate } from "effect";
 import { dual } from "effect/Function";
 
 /**
@@ -63,9 +63,7 @@ export const flattenOption = dual<
     effect: Effect.Effect<Option.Option<A>, E1, R>,
     onNone: () => E2,
   ): Effect.Effect<A, E1 | E2, R> =>
-    Effect.flatMap(effect, (option) =>
-      pipe(Effect.fromOption(option), Effect.mapError(onNone)),
-    ),
+    Effect.flatMap(effect, (option) => Effect.fromOption(option, onNone)),
 );
 
 /**

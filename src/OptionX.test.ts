@@ -145,6 +145,18 @@ describe("Option utils", () => {
     test("undefined", () => {
       expect(fromNullableOption(undefined)).toStrictEqual(Option.none());
     });
+
+    test("preserves Some values that are falsy", () => {
+      const zero = Option.some(0);
+      const emptyString = Option.some("");
+      const falseValue = Option.some(false);
+      const notANumber = Option.some(Number.NaN);
+
+      expect(fromNullableOption(zero)).toBe(zero);
+      expect(fromNullableOption(emptyString)).toBe(emptyString);
+      expect(fromNullableOption(falseValue)).toBe(falseValue);
+      expect(fromNullableOption(notANumber)).toBe(notANumber);
+    });
   });
 
   describe("mapSomeOrNull", () => {

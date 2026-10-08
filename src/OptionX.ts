@@ -3,8 +3,8 @@
  *
  * @since 0.0.0
  */
-import { Option, Predicate, pipe } from "effect";
-import { dual } from "effect/Function";
+import { Option, Predicate } from "effect";
+import { constVoid, dual } from "effect/Function";
 
 /**
  * Combines two `Option`s into an `Option` of a tuple, succeeding only when both
@@ -71,15 +71,7 @@ export const ifSome = dual<
   <A>(ifSome: (value: A) => void) => (self: Option.Option<A>) => void,
   <A>(self: Option.Option<A>, ifSome: (value: A) => void) => void
 >(2, <A>(self: Option.Option<A>, ifSome: (value: A) => void): void => {
-  Option.match(self, {
-    onSome: (value) => {
-      ifSome(value);
-      // Don't return anything
-    },
-    onNone: () => {
-      // Do nothing
-    },
-  });
+  Option.match(self, { onNone: constVoid, onSome: ifSome });
 });
 
 /**
@@ -188,7 +180,7 @@ export const mapSomeOrNull = dual<
   <A, B>(map: (a: A) => B) => (self: Option.Option<A>) => B | null,
   <A, B>(self: Option.Option<A>, map: (a: A) => B) => B | null
 >(2, <A, B>(self: Option.Option<A>, map: (a: A) => B): B | null =>
-  pipe(self, Option.map(map), Option.getOrNull),
+  Option.getOrNull(Option.map(self, map)),
 );
 
 /**
@@ -231,5 +223,5 @@ export const mapSomeOrUndefined = dual<
   <A, B>(map: (a: A) => B) => (self: Option.Option<A>) => B | undefined,
   <A, B>(self: Option.Option<A>, map: (a: A) => B) => B | undefined
 >(2, <A, B>(self: Option.Option<A>, map: (a: A) => B): B | undefined =>
-  pipe(self, Option.map(map), Option.getOrUndefined),
+  Option.getOrUndefined(Option.map(self, map)),
 );

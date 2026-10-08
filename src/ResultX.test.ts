@@ -50,5 +50,16 @@ describe("Result utils", () => {
     test("none → not isSuccess", () => {
       expect(Result.isSuccess(fromOption(Option.none()))).toBe(false);
     });
+
+    test("none → fails with undefined", () => {
+      const result = fromOption(Option.none());
+
+      expect(Result.isFailure(result)).toBe(true);
+      expect(
+        Result.getFailure(result).pipe(
+          Option.getOrThrowWith(() => new Error("expected Failure")),
+        ),
+      ).toBe(undefined);
+    });
   });
 });

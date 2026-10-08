@@ -47,6 +47,30 @@ describe("Effect utils", () => {
         expect(result).toStrictEqual(Result.fail("Error"));
       }),
     );
+
+    it.effect("evaluates onNone only for each executed None", () =>
+      Effect.gen(function* () {
+        let callCount = 0;
+        const onNone = () => {
+          callCount = callCount + 1;
+          return "missing";
+        };
+        const some = flattenOption(Effect.succeed(Option.some(1)), onNone);
+        const failed = flattenOption(Effect.fail("source error"), onNone);
+        const none = flattenOption(
+          Effect.succeed(Option.none<number>()),
+          onNone,
+        );
+
+        yield* some.pipe(Effect.result);
+        yield* failed.pipe(Effect.result);
+        expect(callCount).toBe(0);
+
+        yield* none.pipe(Effect.result);
+        yield* none.pipe(Effect.result);
+        expect(callCount).toBe(2);
+      }),
+    );
   });
 
   describe("fromOptionOrElse", () => {
