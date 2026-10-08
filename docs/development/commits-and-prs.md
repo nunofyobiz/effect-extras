@@ -1,8 +1,9 @@
 # Commits and PRs
 
-- **Atomic commits** — one cohesive change each; the package builds green on every commit.
+- **Atomic commits** — one cohesive change each; change-relevant checks selected from the diff pass
+  on that commit alone, and a reviewer can follow it in one sitting.
 - On an **unmerged feature branch**, amending / squashing / reordering is standing permission — keep the history clean. Update an open PR with `git push --force-with-lease` (never bare `--force`). Once a commit reaches `main`, it's history.
-- Run `pnpm check-all` before pushing. PR title is itself a Conventional Commit.
+- Gather focused evidence before pushing; run `pnpm check-all` before claiming a task done. PR title is itself a Conventional Commit.
 - `.agent-ops/` is gitignored — use it for agent scratch files that shouldn't be committed (e.g. a PR body passed to `gh pr create --body-file`).
 - Skills: [create-commit](../../.agents/skills/create-commit/SKILL.md), [verify-commit](../../.agents/skills/verify-commit/SKILL.md), [push-pr](../../.agents/skills/push-pr/SKILL.md), and [rebase-main](../../.agents/skills/rebase-main/SKILL.md).
 

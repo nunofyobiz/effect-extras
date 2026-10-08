@@ -63,8 +63,10 @@ The example still has to type-check under docgen and assert its result — a con
 license to drop the assertion.
 
 **Concrete data is not domain logic.** The example illustrates a generic helper solving a recognisable
-problem; the helper itself stays generic over `<A>` (or `<A>`, `<B>`, …). Choosing `cart: ReadonlyArray<{ readonly name: string; readonly price: number }>` for an `@example` does not make `ArrayX.sumBy`
-domain-specific — the signature never mentions carts. This does not conflict with
+problem; the helper itself stays generic over `<A>` (or `<A>`, `<B>`, …). Choosing
+`cart: ReadonlyArray<{ readonly name: string; readonly price: number }>` for an `@example` does not
+make `ArrayX.compactNullable` domain-specific — the signature never mentions carts. This does not
+conflict with
 [what belongs here](./what-belongs-here.md)'s no-domain-logic rule, which is about the helper's
 signature and behavior, not the nouns used to illustrate it.
 
@@ -85,7 +87,7 @@ signature and behavior, not the nouns used to illustrate it.
 // After — plain language, an everyday shape, and the comment explains the transformation
 /**
  * Keeps only the entries of `record` whose value is defined, dropping the rest. Useful for building
- * an object to spread into a props list or a `PATCH` body, where an `undefined` value should be
+ * an object to spread into an options object or a `PATCH` body, where an `undefined` value should be
  * omitted rather than sent through as `undefined`.
  *
  * @example

@@ -124,6 +124,46 @@ Result.match(parsed, {
 });
 ```
 
+## Schema utilities — SchemaX fills v4 gaps
+
+v4 removed some convenience methods from `Schema.Struct`. `SchemaX` (from this package) provides
+replacements:
+
+```ts
+SchemaX.pick(Source, "a", "b"); // v3 had Source.pick("a", "b")
+SchemaX.omit(Source, "c"); // v3 had Source.omit("c")
+SchemaX.partial(Source); // v3 had Schema.partial(Source)
+```
+
+These are the canonical way to subset or partial-ize a `Schema.Struct` in this codebase.
+
+> Provenance: adapted from StoryCut's `docs/architecture/effect-patterns.md` "Schema utilities —
+> SchemaX fills v4 gaps". Dropped the CRUD-repository sentence (app-specific) and `pickPartial`-less
+> wording to match this package's actual `SchemaX.pick` / `omit` / `partial` signatures, checked
+> against `src/SchemaX.ts` and `effect@4.0.2`.
+
+## Effect operator renames (v3 → v4)
+
+| v3                                         | v4                                                                                          |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `Effect.catchAll`                          | `Effect.catch`                                                                              |
+| `Effect.catchAllCause`                     | `Effect.catchCause`                                                                         |
+| `Effect.catchSome`                         | `Effect.catchFilter`                                                                        |
+| `Effect.tapBoth({ onSuccess, onFailure })` | `Effect.tap(onSuccess)` + `Effect.tapError(onFailure)` (`tapBoth` removed)                  |
+| `Effect.fork`                              | `Effect.forkChild`                                                                          |
+| `Effect.either`                            | `Effect.result`                                                                             |
+| `Cause.TimeoutException`                   | `Cause.TimeoutError`                                                                        |
+| `cause._tag === "Fail"`                    | `cause.reasons.find((r) => r._tag === "Fail")` (`Cause` holds a flat `reasons` array in v4) |
+
+`Effect.catchTag` now takes an array as the first argument when matching multiple tags:
+`Effect.catchTag(["TagA", "TagB"], handler)` (v3 was variadic).
+
+> Provenance: adapted from StoryCut's `docs/architecture/effect-patterns.md` "Effect operator renames
+> (v3 → v4)". Every row checked against `node_modules/effect@4.0.2`'s `Effect.d.ts` and `Cause.d.ts`.
+> Dropped `Effect.tryMapPromise` — its v4 replacement is a multi-line `Effect.flatMap` + `tryPromise`
+> expression, not a one-to-one rename worth a table row — and the Next.js-specific rows StoryCut's
+> source doesn't carry in this generic section anyway.
+
 ## Quick reference
 
 | Instead of                        | Use                                        |
