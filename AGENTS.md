@@ -578,35 +578,42 @@ don't bypass with `--no-verify`. CI re-runs commitlint on PRs as a backstop.
 
 ### Commit signing
 
-**Agent commits in this repo are authored as a distinct "Claude Code" identity and signed** with a
-dedicated SSH key, so they land under a separate author with GitHub's green **Verified** badge — kept
-apart from the human contributor's normal name and key. You (the agent) don't decide any of this —
-git does it because the agent identity is configured for your worktree, and
-[`scripts/setup-signing.sh`](./scripts/setup-signing.sh) keeps it in place. You should never need a
-reminder.
+Local Claude Code commits on `claude/*` or `agent/*` branches can use a distinct `Claude Code
+(<contributor>)` identity and SSH signature. This is not a rule for every agent or every branch:
+[`scripts/setup-signing.sh`](./scripts/setup-signing.sh), run by the `SessionStart` hook in
+[`.claude/settings.json`](./.claude/settings.json), only configures those branches and only when the
+machine has `~/.gitconfig.claude`.
 
-How it stays configured without anyone remembering: the `SessionStart` hook in
-[`.claude/settings.json`](./.claude/settings.json) runs `bash scripts/setup-signing.sh` at the start
-of every agent session. **The branch name gates it**: the script only acts on `claude/*` or `agent/*`
-branches, where it copies the agent identity (`user.name`, `user.email`, `user.signingkey`,
-`gpg.format`, `gpg.ssh.allowedSignersFile`, `commit.gpgsign=true`) from `~/.gitconfig.claude` into the
-**worktree** config (via `extensions.worktreeConfig`) — which sits above local `.git/config`, so it
-overrides the human identity + key only inside this agent worktree. On any other branch name —
-`main`, `feature/…`, or another orchestrator's prefix such as `task/*` — it exits early and does
-nothing; commits there use the normal (human) identity and go unsigned by this mechanism. That's
-expected, not a fault to fix by re-running the script. It's idempotent; if you ever see an unsigned
-commit on a `claude/*`/`agent/*` branch, the wrong author, or git complaining about
-`user.signingkey`, run `bash scripts/setup-signing.sh` directly — it's safe any time.
+For an eligible local Claude Code session, the script copies `user.name`, `user.email`,
+`user.signingkey`, `gpg.format`, `gpg.ssh.allowedSignersFile`, and `commit.gpgsign=true` from
+`~/.gitconfig.claude` into the **worktree** config (via `extensions.worktreeConfig`). That config sits
+above local `.git/config`, so it replaces the contributor's usual identity and key in that worktree.
+The resulting commits are authored as `Claude Code (<contributor>)` using the contributor's normal
+email and signed with the dedicated SSH key; after its public key is registered with GitHub, they show
+as **Verified**. No identity or key material is baked into the script. If the file is absent, the
+script prints a hint and exits without blocking the session, leaving eligible local commits with the
+existing identity and unsigned.
 
-This adopts StoryCut's model: the **author** becomes `Claude Code (<contributor>)` — same email as
-your normal commits (typically the GitHub noreply form), only the name differs — distinguishing agent
-commits from yours without needing a separate verified email. No identity or key material is baked
-into the script; it all comes from `~/.gitconfig.claude`. If that file is missing the script prints a
-hint and exits 0 (never blocking a session or CI), so the only consequence of skipping setup is
-normal-author, unsigned commits.
+ampm works differently. It uses `task/*` branches and sets `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`,
+`GIT_COMMITTER_NAME`, and `GIT_COMMITTER_EMAIL` in its environment. Currently that produces commits
+whose author and committer are `ampm-agent <agent@ampm.local>` and which have no signature. This is
+expected: the script exits before changing `task/*`, and ampm's image has no `~/.gitconfig.claude`.
+Adding `task/*` to the script gate would not change this, because Git environment variables take
+precedence over the worktree configuration the script writes. Signing ampm commits, if wanted, must
+be configured in ampm itself with its own signing key and Git configuration, not in this repository's
+script. You can inspect the current main-history behavior with:
 
-**One-time machine setup** (per machine, for a new contributor — skip it if your agent commits
-already show the Claude author + Verified):
+```sh
+git log --author=ampm-agent --format='%an <%ae> | %cn <%ce> | %G?'
+```
+
+On other branch names, including `main` and `feature/*`, the script leaves the existing identity and
+signing configuration untouched. Re-running it does not correct an ampm commit. It is idempotent for
+eligible local Claude Code worktrees; if one has an unsigned commit, the wrong author, or a
+`user.signingkey` error, run `bash scripts/setup-signing.sh` directly.
+
+**One-time local Claude Code machine setup** (per machine, for a new contributor — skip it if your
+eligible local commits already show the Claude author + Verified):
 
 1. Generate a passwordless ed25519 signing key:
    ```sh
@@ -640,7 +647,7 @@ already show the Claude author + Verified):
    bash scripts/setup-signing.sh
    ```
 
-Verify with `git config --get user.name` (→ `Claude Code (<your-name>)`),
+For an eligible local Claude Code worktree, verify with `git config --get user.name` (→ `Claude Code (<your-name>)`),
 `git config --get commit.gpgsign` (→ `true`), and `git config --get user.signingkey`
 (→ `~/.ssh/git_signing_claude.pub`); the next commit's PR should show the Claude author and
 **Verified**.
@@ -672,8 +679,7 @@ Flow: `pnpm changeset` (in the same PR) → merge to `main`. The **Release** wor
 `GITHUB_TOKEN` — then opens a **"Version Packages"** PR that bumps the version and rolls up the
 changelog. Because it is App-authored, that PR triggers CI like any other PR; its bump commit is
 recreated through the **Git Data API** so it lands **Verified** (a bot cannot hold an SSH key, so it
-earns the same signed-`main` bar the [Commit signing](#commit-signing) section sets for agent commits,
-via a different mechanism). The workflow attempts to enable auto-merge as a convenience, but whoever
+uses a mechanism separate from local Claude Code commit signing). The workflow attempts to enable auto-merge as a convenience, but whoever
 cuts the release must ensure the shared `changeset-release/main` PR merges after its required CI is
 green. ampm's deploy seat does this using the [release verification checklist](.ampm/steps/deploy.md).
 Its merge re-triggers the workflow, which publishes to npm via **OIDC trusted publishing** with
