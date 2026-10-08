@@ -15,28 +15,23 @@ import { dual } from "effect/Function";
  *
  * @example
  * ```ts
- * import { Option, pipe } from "effect"
- * import { OptionX } from "@nunofyobiz/effect-extras"
+ * import { Option } from "effect"
  *
  * // Both Some — succeeds with the pair
  * assert.deepStrictEqual(
- *   OptionX.tupleOf(Option.some(1), Option.some("a")),
+ *   Option.product(Option.some(1), Option.some("a")),
  *   Option.some([1, "a"]),
  * )
  *
  * // Either None collapses to None
  * assert.deepStrictEqual(
- *   OptionX.tupleOf(Option.some(1), Option.none()),
+ *   Option.product(Option.some(1), Option.none()),
  *   Option.none(),
  * )
  *
- * // Data-last (piped): the piped Option fills the first tuple slot
- * assert.deepStrictEqual(
- *   pipe(Option.some(1), OptionX.tupleOf(Option.some("a"))),
- *   Option.some([1, "a"]),
- * )
  * ```
  *
+ * @deprecated Use `Option.product` instead.
  * @category combinators
  * @since 0.0.0
  */
@@ -46,7 +41,7 @@ export const tupleOf = dual<
 >(
   2,
   <A, B>(a: Option.Option<A>, b: Option.Option<B>): Option.Option<[A, B]> =>
-    Option.flatMap(a, (a) => Option.map(b, (b) => [a, b])),
+    Option.product(a, b),
 );
 
 /**

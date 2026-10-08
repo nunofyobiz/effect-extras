@@ -72,35 +72,23 @@ export const flattenOption = dual<
  * Converts an `Option` to an `Effect`, mapping the `None` case to a caller-chosen
  * error via the `onNone` thunk.
  *
- * Equivalent to `Effect.mapError(Effect.fromOption(option), onNone)`: it bridges
- * the `NoSuchElementError` that `Effect.fromOption` produces to the caller's own
- * error type, so callers never have to handle `NoSuchElementError`. This fills
- * the v4 gap where `Effect.mapError` no longer accepts an `Option` directly —
- * instead of
- * `pipe(option, Effect.fromOption, Effect.mapError(() => new MyError()))`, write
- * `pipe(option, EffectX.fromOptionOrElse(() => new MyError()))`. The `onNone`
- * thunk runs only when the `Option` is `None`.
- *
  * @example
  * ```ts
- * import { Effect, Option, Result, pipe } from "effect"
- * import { EffectX } from "@nunofyobiz/effect-extras"
+ * import { Effect, Option, Result } from "effect"
  *
- * // data-first
- * const some = EffectX.fromOptionOrElse(Option.some(42), () => "missing")
+ * const some = Effect.fromOption(Option.some(42), () => "missing")
  * assert.deepStrictEqual(Effect.runSync(Effect.result(some)), Result.succeed(42))
  *
- * // data-last (piped) — None maps to the chosen error
- * const none = pipe(
- *   Option.none<number>(),
- *   EffectX.fromOptionOrElse(() => "missing"),
- * )
+ * const none = Effect.fromOption(Option.none<number>(), () => "missing")
  * assert.deepStrictEqual(
  *   Effect.runSync(Effect.result(none)),
  *   Result.fail("missing"),
  * )
  * ```
  *
+ * @deprecated Use `Effect.fromOption(option, onNone)` instead. Starting with this
+ * release, `onNone` runs once when constructing a `None` effect, rather than on
+ * every execution.
  * @category conversions
  * @since 0.0.0
  */
@@ -110,7 +98,7 @@ export const fromOptionOrElse: {
 } = dual(
   2,
   <A, E>(option: Option.Option<A>, onNone: () => E): Effect.Effect<A, E> =>
-    pipe(Effect.fromOption(option), Effect.mapError(onNone)),
+    Effect.fromOption(option, onNone),
 );
 
 /**

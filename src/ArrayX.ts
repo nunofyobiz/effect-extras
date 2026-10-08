@@ -3,18 +3,8 @@
  *
  * @since 0.0.0
  */
-import {
-  Array,
-  Equivalence,
-  Option,
-  Order,
-  Predicate,
-  Record,
-  pipe,
-} from "effect";
+import { Array, Equivalence, Option, Order, Predicate, pipe } from "effect";
 import { dual, identity } from "effect/Function";
-import * as RecordX from "./RecordX.js";
-import * as ResultX from "./ResultX.js";
 
 /**
  * Returns a shallow copy of `array` between `start` (inclusive) and `end`
@@ -442,46 +432,30 @@ export const takeLastWhere = dual<
  *
  * @example
  * ```ts
- * import { ArrayX } from "@nunofyobiz/effect-extras"
+ * import { Array } from "effect"
  *
  * const parity = (n: number) => (n % 2 === 0 ? "even" : "odd")
  *
- * assert.deepStrictEqual(ArrayX.categorize([1, 2, 3, 4], parity), {
+ * assert.deepStrictEqual(Array.groupBy([1, 2, 3, 4], parity), {
  *   odd: [1, 3],
  *   even: [2, 4],
  * })
  * ```
  *
+ * @deprecated Use `Array.groupBy` instead.
  * @category folding
  * @since 0.0.0
  */
-export const categorize = <A, C extends string>(
+export function categorize<A, C extends string>(
   items: Iterable<A>,
   categorize: (a: A) => C,
-): Partial<Record<C, A[]>> =>
-  Array.reduce(
-    items,
-
-    // Start with an empty record of categorized items. `Record.empty()`
-    // returns a `NonLiteralKey<C>`-keyed record, which is structurally
-    // equivalent to `Partial<Record<C, A[]>>`; the cast tells TypeScript
-    // we'll be writing typed keys back via the reducer below.
-    Record.empty<C, A[]>() as Record<C, A[]>,
-
-    // For each item, add it to the appropriate category
-    (categorizedItems, item: A) =>
-      RecordX.upsert(
-        categorizedItems,
-        categorize(item), // This is the next item's category
-        Option.match({
-          // This is the first item in this category, so create a new array
-          onNone: () => Array.of(item),
-
-          // Append the item to the existing array
-          onSome: Array.append(item),
-        }),
-      ),
-  );
+): Partial<Record<C, A[]>>;
+export function categorize<A>(
+  items: Iterable<A>,
+  categorize: (a: A) => string,
+): Partial<Record<string, A[]>> {
+  return Array.groupBy(items, categorize);
+}
 
 /**
  * Removes all `null` and `undefined` elements from `array`, narrowing the
@@ -587,15 +561,16 @@ export const filterTail = dual<
  *
  * @example
  * ```ts
- * import { ArrayX } from "@nunofyobiz/effect-extras"
+ * import { Array } from "effect"
  *
  * // Keep only the even numbers, mapped to their halves
  * assert.deepStrictEqual(
- *   ArrayX.filterMapNullable([1, 2, 3, 4], (n) => (n % 2 === 0 ? n / 2 : null)),
+ *   Array.flatMapNullishOr([1, 2, 3, 4], (n) => (n % 2 === 0 ? n / 2 : null)),
  *   [1, 2],
  * )
  * ```
  *
+ * @deprecated Use `Array.flatMapNullishOr` instead.
  * @category filtering
  * @since 0.0.0
  */
@@ -603,12 +578,7 @@ export const filterMapNullable = dual<
   <A, B>(f: (a: A) => B | null) => (array: A[]) => NonNullable<B>[],
   <A, B>(array: A[], f: (a: A) => B | null) => NonNullable<B>[]
 >(2, <A, B>(array: A[], f: (a: A) => B | null): NonNullable<B>[] =>
-  pipe(
-    array,
-    Array.filterMap((value) =>
-      pipe(f(value), Option.fromNullishOr, ResultX.fromOption),
-    ),
-  ),
+  Array.flatMapNullishOr(array, f),
 );
 
 /**

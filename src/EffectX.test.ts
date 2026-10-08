@@ -55,6 +55,21 @@ describe("Effect utils", () => {
     }> {}
 
     describe("data-first form", () => {
+      it.effect("None evaluates onNone once when the effect is built", () =>
+        Effect.gen(function* () {
+          let callCount = 0;
+          const effect = fromOptionOrElse(Option.none<string>(), () => {
+            callCount = callCount + 1;
+            return "missing";
+          });
+
+          expect(callCount).toBe(1);
+          yield* effect.pipe(Effect.result);
+          yield* effect.pipe(Effect.result);
+          expect(callCount).toBe(1);
+        }),
+      );
+
       it.effect("Some(value) → succeeds with the value", () =>
         Effect.gen(function* () {
           const result = yield* fromOptionOrElse(

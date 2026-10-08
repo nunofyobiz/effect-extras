@@ -19,10 +19,10 @@ Added in v0.0.0
 - [filtering](#filtering)
   - [compactNullable](#compactnullable)
   - [filterHead](#filterhead)
-  - [filterMapNullable](#filtermapnullable)
+  - [~~filterMapNullable~~](#filtermapnullable)
   - [filterTail](#filtertail)
 - [folding](#folding)
-  - [categorize](#categorize)
+  - [~~categorize~~](#categorize)
   - [chunkBy](#chunkby)
   - [mapRightAccum](#maprightaccum)
 - [getters](#getters)
@@ -139,7 +139,7 @@ assert.deepStrictEqual(ArrayX.filterHead(["a", 1, 2, "b"], Predicate.isNumber), 
 
 Added in v0.0.0
 
-## filterMapNullable
+## ~~filterMapNullable~~
 
 Maps `f` over `array` and drops every result that is `null` or `undefined`,
 narrowing the element type to `NonNullable<B>`.
@@ -159,11 +159,11 @@ export declare const filterMapNullable: (<A, B>(f: (a: A) => B | null) => (array
 **Example**
 
 ```ts
-import { ArrayX } from "@nunofyobiz/effect-extras"
+import { Array } from "effect"
 
 // Keep only the even numbers, mapped to their halves
 assert.deepStrictEqual(
-  ArrayX.filterMapNullable([1, 2, 3, 4], (n) => (n % 2 === 0 ? n / 2 : null)),
+  Array.flatMapNullishOr([1, 2, 3, 4], (n) => (n % 2 === 0 ? n / 2 : null)),
   [1, 2]
 )
 ```
@@ -201,7 +201,7 @@ Added in v0.0.0
 
 # folding
 
-## categorize
+## ~~categorize~~
 
 Groups `items` into a partial record keyed by the category each item maps to
 via `categorize`.
@@ -214,20 +214,20 @@ one item are present.
 **Signature**
 
 ```ts
-export declare const categorize: <A, C extends string>(
+export declare function categorize<A, C extends string>(
   items: Iterable<A>,
   categorize: (a: A) => C
-) => Partial<Record<C, A[]>>
+): Partial<Record<C, A[]>>
 ```
 
 **Example**
 
 ```ts
-import { ArrayX } from "@nunofyobiz/effect-extras"
+import { Array } from "effect"
 
 const parity = (n: number) => (n % 2 === 0 ? "even" : "odd")
 
-assert.deepStrictEqual(ArrayX.categorize([1, 2, 3, 4], parity), {
+assert.deepStrictEqual(Array.groupBy([1, 2, 3, 4], parity), {
   odd: [1, 3],
   even: [2, 4]
 })
