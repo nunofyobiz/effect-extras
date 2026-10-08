@@ -17,7 +17,10 @@ logic, ask in order:
 2. **Does an existing `*X` module already do it?** (See "Check existing utilities first" below.)
 3. **Can the logic be a generic utility another call site could reuse?**
 
-If yes to any: use or extract it.
+If Effect or an existing module covers it, use that. Otherwise, keep a new internal utility local
+until multiple callers need it. Consider exporting a helper only after it clears the
+[canonical admission test](./what-belongs-here.md): a useful generic name or clear expectation of
+cross-project reuse can justify a public helper before those callers are visible here.
 
 ## Extracting from a pipe
 
@@ -27,10 +30,13 @@ utility waiting to be named:
 1. **Name it in the abstract** — strip the domain nouns; describe what the steps do to the data shape
    ("filter to present items, then group by key").
 2. **Check Effect and the `*X` modules** — does an equivalent exist? If so, use it.
-3. **If not, extract it** — one generic data manipulation over type parameters such as `<A>` and
-   `<B>` in the module the type calls for. If it takes data plus other arguments, use `dual` with the
-   data-last overload first and the data-first overload second. Replace the inline steps with one call
-   and add exhaustive tests.
+3. **Choose its scope** — an internal extraction stays local until multiple callers need it. An
+   exported helper must clear the [canonical admission test](./what-belongs-here.md): one generic
+   data manipulation over type parameters such as `<A>` and `<B>` in the module the type calls for.
+   Its useful name or expected cross-project reuse can justify exporting it before those callers are
+   visible here. If it takes data plus other arguments, use `dual` with the data-last overload first
+   and the data-first overload second. Replace the inline steps with one call and add exhaustive
+   tests.
 
 This is how the utility layer grows: not by upfront design, but by recognizing structure already
 present in a pipe and giving it a name. (Not in tension with "don't re-implement Effect's control-flow
@@ -43,9 +49,10 @@ which are the point of the repo.)
 - **This package** — the shared home for generic extensions: `*X` modules for Effect modules or for
   platform or language types Effect does not cover, and modules named for any data type this package
   owns. A helper belongs here only if it clears the [What belongs here](./what-belongs-here.md) bar.
-- A helper used by only one consumer can start local to that consumer and graduate here the moment a
-  **second, unrelated** consumer wants it. A call site in a separate, unrelated consuming repository
-  counts as that second call site.
+- An internal helper stays local until multiple callers need it. For a public helper, a **second,
+  unrelated** consumer is strong evidence that it belongs here; a call site in a separate, unrelated
+  consuming repository counts as that second call site. A useful generic name or clear expectation
+  of reuse across unrelated consumers can also justify exporting it sooner.
 
 ## Check existing utilities first
 
