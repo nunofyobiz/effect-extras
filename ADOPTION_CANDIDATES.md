@@ -117,9 +117,9 @@ export const sortByPriority: {
   user-configured lists, while the candidate accepts only values, keys, and an `Order`. The sole
   source call already builds the same two-level order by hand and has no product-specific behavior.
 
-| Repository          | File                                 | Enclosing/source symbol   | Occurrences |
-| ------------------- | ------------------------------------ | ------------------------- | ----------: |
-| `StoryCut/StoryCut` | `domain/models/Timeline/Timeline.ts` | `sortElementsForTimeline` |           1 |
+| Repository          | File                                 | Enclosing/source symbol      | Occurrences |
+| ------------------- | ------------------------------------ | ---------------------------- | ----------: |
+| `StoryCut/StoryCut` | `domain/models/Timeline/Timeline.ts` | `fuzzyOrderTimelineElements` |           1 |
 
 Usage total: 1 repository, 1 file, 1 call site.
 
@@ -144,10 +144,10 @@ kept here rather than represented as a new adoption.
 
 ### Effect and package checks behind the rejected rows
 
-- `Array.groupBy` covers `categorize`; `Array.filterMap` covers the nullable transform after
-  converting the callback result to Effect's `Result` form. Both are in `effect/Array` at 4.0.2;
-  current `ArrayX.categorize` and `ArrayX.filterMapNullable` are explicitly deprecated in favour
-  of those exports.
+- `Array.groupBy` covers `categorize`; `Array.flatMapNullishOr` covers the nullable transform
+  directly, mapping each element and dropping `null`/`undefined` results. Both are in
+  `effect/Array` at 4.0.2; current `ArrayX.categorize` and `ArrayX.filterMapNullable` carry
+  `@deprecated` annotations naming those exact exports as the replacement.
 - `Array.groupWith` was checked for adjacent grouping but does not carry a computed group value;
   `ArrayX.chunkBy` is still the package's labelled, empty-input behavior.
 - `Array.findFirstWithIndex`, `Array.findFirstIndex`, `Array.mapAccum`, `Array.sort`, and
