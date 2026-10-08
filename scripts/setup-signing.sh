@@ -35,7 +35,7 @@
 #
 # No identity or key material is baked into this script — everything is read from
 # the contributor's local ~/.gitconfig.claude. One-time machine setup (creating
-# that file + the key) is documented in AGENTS.md › Commit signing.
+# that file + the key) is documented in docs/development/commits-and-prs.md › Commit signing.
 
 set -euo pipefail
 
@@ -55,7 +55,7 @@ identity_file="$HOME/.gitconfig.claude"
 if [[ ! -f "$identity_file" ]]; then
   echo "effect-extras: ~/.gitconfig.claude not found — agent commits will use your"
   echo "               normal identity and be UNSIGNED. One-time setup is in"
-  echo "               AGENTS.md › Commit signing."
+  echo "               docs/development/commits-and-prs.md › Commit signing."
   exit 0
 fi
 

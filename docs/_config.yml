@@ -1,5 +1,8 @@
 remote_theme: mikearnaldi/just-the-docs
 
+exclude:
+  - development
+
 # Enable or disable the site search
 search_enabled: true
 
