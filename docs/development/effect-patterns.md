@@ -51,8 +51,9 @@ site wants it.
 
 ## Dual functions
 
-When a function supports both piped and direct call styles, use `dual` from `effect/Function` (not
-`Function.dual()`). Declare the **data-last** (piped) overload first, then **data-first**:
+When a new or changed helper takes a data argument plus other arguments, use `dual` from
+`effect/Function` (not `Function.dual()`). Declare the **data-last** (piped) overload first, then
+**data-first**:
 
 ```ts
 import { dual } from "effect/Function";
@@ -66,8 +67,9 @@ export const withPrefix = dual<
 );
 ```
 
-Most helpers here that take a "data" argument are `dual` — that's what lets them sit naturally in a
-consumer's `pipe` chain _and_ be called directly.
+This lets helpers sit naturally in a consumer's `pipe` chain _and_ be called directly. See
+[What belongs here](./what-belongs-here.md#names-and-modules) for whether a helper belongs, where it
+lives, and how to name it.
 
 ## Data-first vs `pipe`
 

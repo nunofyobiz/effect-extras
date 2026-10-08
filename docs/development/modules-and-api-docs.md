@@ -24,9 +24,12 @@ src/
   `src/` file references `@nunofyobiz/effect-extras`.
 - A module that needs another module's helpers imports it as a **namespace** (`import * as RecordX
 from "./RecordX.js"` → `RecordX.foo`), mirroring how a consumer would.
-- Adding a module = new `src/FooX.ts` (+ `src/FooX.test.ts`) + one `export * as FooX from "./FooX.js";`
-  line in `src/index.ts`. The subpath export and size budget are wildcard/automatic — no per-module
-  wiring in `package.json` or `.size-limit.json` (see [tree-shaking and packaging](./tree-shaking-and-packaging.md)).
+- Adding a module = new `src/<module>.ts` (+ `src/<module>.test.ts`) + one
+  `export * as <module> from "./<module>.js";` line in `src/index.ts`. Choose `<module>` using the
+  [canonical naming test](./what-belongs-here.md#names-and-modules): `*X` for an Effect, platform, or
+  language type extension; no `X` for a data type this package owns. The subpath export and size
+  budget are wildcard/automatic — no per-module wiring in `package.json` or `.size-limit.json` (see
+  [tree-shaking and packaging](./tree-shaking-and-packaging.md)).
 
 ## JSDoc & API docs
 
