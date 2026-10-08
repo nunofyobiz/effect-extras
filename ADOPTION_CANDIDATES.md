@@ -37,7 +37,7 @@ jargon. `tap`, `contramap`, `mapLeft`, and `mapRight` are not proposed.
 
 ## Adopted candidates
 
-### `MapX` — 2 source repositories, 11 call sites
+### `MapX` — 2 source repositories, 14 call sites
 
 #### `positions`
 
@@ -62,21 +62,24 @@ export const positions: {
   ordering code and a separate media application. It packages a repeated index-aware map pattern,
   not a control-flow combinator.
 
-| Repository          | File                                                   | Enclosing/source symbol                               | Occurrences |
-| ------------------- | ------------------------------------------------------ | ----------------------------------------------------- | ----------: |
-| `nunofyobiz/ampm`   | `packages/web/lib/branch-choice.ts`                    | `moveAsksBranchChoice`                                |           1 |
-| `nunofyobiz/ampm`   | `packages/web/app/(app)/[workspaceId]/inbox-server.ts` | `prefetchedOpenPane`                                  |           1 |
-| `nunofyobiz/ampm`   | `packages/web/lib/approval-decision.ts`                | `backwardTargets`                                     |           1 |
-| `nunofyobiz/ampm`   | `packages/web/components/move-actions.tsx`             | `MoveActions` lifecycle comparison                    |           1 |
-| `nunofyobiz/ampm`   | `packages/web/components/factory.tsx`                  | `Factory` lifecycle comparison                        |           1 |
-| `nunofyobiz/ampm`   | `packages/web/components/inbox.tsx`                    | `Inbox` lifecycle comparison                          |           1 |
-| `nunofyobiz/ampm`   | `packages/web/components/roadmap.tsx`                  | `Roadmap` lifecycle comparison                        |           1 |
-| `nunofyobiz/ampm`   | `packages/web/components/approval-standalone.tsx`      | `ApprovalStandalone` lifecycle comparison             |           1 |
-| `nunofyobiz/ampm`   | `packages/core/src/domain/FollowUpDedup.ts`            | `deduplicateFollowUps`                                |           1 |
-| `nunofyobiz/ampm`   | `packages/core/src/domain/ProposalGrouping.ts`         | proposal ordering                                     |           1 |
-| `StoryCut/StoryCut` | `domain/models/Timeline/Timeline.ts`                   | `sortElementsForTimeline` via `FuzzyOrdering.orderOf` |           1 |
+| Repository          | File                                                   | Enclosing/source symbol                   | Occurrences |
+| ------------------- | ------------------------------------------------------ | ----------------------------------------- | ----------: |
+| `nunofyobiz/ampm`   | `packages/web/lib/branch-choice.ts`                    | `moveAsksBranchChoice`                    |           1 |
+| `nunofyobiz/ampm`   | `packages/web/app/(app)/[workspaceId]/inbox-server.ts` | `prefetchedOpenPane`                      |           1 |
+| `nunofyobiz/ampm`   | `packages/web/lib/approval-decision.ts`                | `backwardTargets`                         |           1 |
+| `nunofyobiz/ampm`   | `packages/web/components/move-actions.tsx`             | `MoveActions` lifecycle comparison        |           1 |
+| `nunofyobiz/ampm`   | `packages/web/components/factory.tsx`                  | `Factory` lifecycle comparison            |           1 |
+| `nunofyobiz/ampm`   | `packages/web/components/inbox.tsx`                    | `Inbox` lifecycle comparison              |           1 |
+| `nunofyobiz/ampm`   | `packages/web/components/roadmap.tsx`                  | `Roadmap` lifecycle comparison            |           1 |
+| `nunofyobiz/ampm`   | `packages/web/components/approval-standalone.tsx`      | `ApprovalStandalone` lifecycle comparison |           1 |
+| `nunofyobiz/ampm`   | `packages/core/src/domain/FollowUpDedup.ts`            | `deduplicateFollowUps`                    |           1 |
+| `nunofyobiz/ampm`   | `packages/core/src/domain/ProposalGrouping.ts`         | proposal ordering                         |           1 |
+| `nunofyobiz/ampm`   | `packages/core/src/domain/WorkspaceModel.ts`           | `mergeRows`                               |           1 |
+| `StoryCut/StoryCut` | `domain/models/Timeline/Timeline.ts`                   | `fuzzyOrderedTimelineTrackIndexes`        |           1 |
+| `StoryCut/StoryCut` | `domain/models/Timeline/Timeline.ts`                   | `fuzzyOrderedTimeBucketIndexes`           |           1 |
+| `StoryCut/StoryCut` | `lib/FuzzyOrdering/FuzzyOrdering.ts`                   | `order`                                   |           1 |
 
-Usage total: 2 repositories, 11 files, 11 call sites.
+Usage total: 2 repositories, 13 files, 14 call sites.
 
 ### `ArrayX` — 1 source repository, 1 call site
 
@@ -163,5 +166,5 @@ implementation task. This survey changes no source, generated documentation, pac
 changeset.
 
 The two adopted APIs are intentionally not merged: `positions` is a reusable lookup constructor
-with eleven source uses, while `sortByPriority` is the array-level composition that additionally
+with fourteen source uses, while `sortByPriority` is the array-level composition that additionally
 owns ordering and fallback semantics.
