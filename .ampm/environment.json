@@ -7,6 +7,9 @@
         "dockerfile": ".ampm/agent.Dockerfile",
         "context": "."
       },
+      "resources": {
+        "minimumMemoryMiB": 2048
+      },
       "checks": [
         {
           "name": "pnpm",
