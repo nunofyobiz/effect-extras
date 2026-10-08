@@ -25,8 +25,11 @@
 #   inside this agent worktree.
 #
 # What it does NOT do:
-#   - Non-agent branches (main, feature/*, …): exits early, so the human's normal
-#     identity applies untouched.
+#   - Other branches (main, feature/*, task/*, …): exits early and leaves their
+#     existing identity and signing configuration untouched. ampm uses task/* and
+#     provides both author and committer as `ampm-agent <agent@ampm.local>` through
+#     Git environment variables; those commits are unsigned unless ampm itself
+#     configures signing.
 #   - Other worktrees / clones: per-worktree config is scoped to this worktree.
 #   - The human's personal git config: never modified.
 #
@@ -39,7 +42,7 @@ set -euo pipefail
 # Not in a git work tree (e.g. a published tarball running its own scripts)? Nothing to do.
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 
-# Only configure inside an agent worktree; elsewhere the human's identity applies.
+# Only configure eligible local Claude Code worktrees; elsewhere existing identity applies.
 branch=$(git branch --show-current 2>/dev/null || true)
 if [[ "$branch" != claude/* && "$branch" != agent/* ]]; then
   exit 0
