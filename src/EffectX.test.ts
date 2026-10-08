@@ -420,11 +420,9 @@ describe("Effect utils", () => {
         yield* TestClock.adjust("600 millis");
         const pollAfterTimeout = Option.fromNullishOr(fiber.pollUnsafe());
         expect(pollAfterTimeout._tag).toBe("Some");
-        // V4 note: this used to be 11 (immediate + 10 sleeps) under v3's
-        // `Effect.timeoutFail`. v4's `Effect.timeout` interrupts at exactly
-        // the deadline, so the 11th tick is preempted and we see 10 calls
-        // (immediate + 9 sleeps). The timeout behavior is the same; the
-        // final tick was a coincidental side effect of v3's scheduling.
+        // `Effect.timeout` interrupts at the deadline, so the final delay
+        // preempts the next evaluation. There are ten calls: one immediate
+        // evaluation followed by nine evaluations after delay ticks.
         expect(mockThunk).toHaveBeenCalledTimes(10);
         expect(mockThunk).toHaveBeenNthCalledWith(7);
         expect(mockThunk).toHaveBeenNthCalledWith(8);

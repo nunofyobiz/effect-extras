@@ -26,9 +26,9 @@ Added in v0.0.0
 Lifts an `Option` into a `Result` with a `void` failure: `Some(value)` becomes
 `Result.succeed(value)` and `None` becomes `Result.failVoid`.
 
-Useful in v4 where `Array.filterMap` and `Record.filterMap` expect
-`Result`-returning predicates (a `Success` keeps the value, a `Failure` drops
-it); in v3 those APIs accepted `Option`-returning predicates directly:
+Useful with `Array.filterMap` and `Record.filterMap`, which use
+`Result`-returning predicates: a `Success` keeps the value and a `Failure`
+drops it.
 
 ```ts
 import { Array } from "effect"
@@ -37,8 +37,6 @@ import { ResultX } from "@nunofyobiz/effect-extras"
 declare const items: ReadonlyArray<number>
 declare const maybeTransform: (item: number) => import("effect").Option.Option<string>
 
-// v3: Array.filterMap(items, (item) => maybeTransform(item))
-// v4:
 Array.filterMap(items, (item) => ResultX.fromOption(maybeTransform(item)))
 ```
 

@@ -391,10 +391,9 @@ Added in v0.0.0
 Modifies the value at `key` in `self` with `f`, leaving the record unchanged
 if the key doesn't exist.
 
-v4's `Record.modify` returns `Option<Record>` — `None` when the key is
-absent. This helper picks the "do nothing if absent" semantics that v3's
-`Record.modify` had implicitly, and that most call sites assume. The modifier
-is never invoked when the key is missing.
+`Record.modify` returns `Option<Record>` — `None` when the key is absent.
+This helper provides the common "do nothing if absent" semantics. The
+modifier is never invoked when the key is missing.
 
 **Signature**
 
