@@ -17,6 +17,12 @@ describe("String utils", () => {
     test("data-first form", () => {
       expect(prepend("pray", "eat")).toBe("eatpray");
     });
+
+    test("preserves empty and whitespace-only inputs and prefixes", () => {
+      expect(prepend("", "")).toBe("");
+      expect(prepend("", "start")).toBe("start");
+      expect(prepend("  ", "\t")).toBe("\t  ");
+    });
   });
 
   describe("surround", () => {
@@ -26,6 +32,13 @@ describe("String utils", () => {
 
     test("data-first form", () => {
       expect(surround("pray", "eat", "love")).toBe("eatpraylove");
+    });
+
+    test("preserves empty and whitespace-only inputs and boundaries", () => {
+      expect(surround("", "", "")).toBe("");
+      expect(surround("", "[", "]")).toBe("[]");
+      expect(surround("  ", "\t", " ")).toBe("\t   ");
+      expect(surround("value", "", "")).toBe("value");
     });
   });
 
@@ -41,6 +54,15 @@ describe("String utils", () => {
     test("data-first form", () => {
       expect(ensurePrepend("pray", "eat")).toBe("eatpray");
       expect(ensurePrepend("eatpray", "eat")).toBe("eatpray");
+    });
+
+    test("handles empty, whitespace-only, and non-leading prefixes", () => {
+      expect(ensurePrepend("value", "")).toBe("value");
+      expect(ensurePrepend("", "start")).toBe("start");
+      expect(ensurePrepend("  ", "\t")).toBe("\t  ");
+      expect(ensurePrepend("\tvalue", "\t")).toBe("\tvalue");
+      expect(ensurePrepend("start", "start")).toBe("start");
+      expect(ensurePrepend("value-start", "start")).toBe("startvalue-start");
     });
   });
 
@@ -67,6 +89,14 @@ describe("String utils", () => {
         "a\nX\nY\nc",
       );
     });
+
+    test("preserves empty lines and naturally clamps out-of-range indices", () => {
+      expect(replaceLineRange("", 0, 0, ["X"])).toBe("X");
+      expect(replaceLineRange("\n", 0, 0, ["X"])).toBe("X\n");
+      expect(replaceLineRange("a\n", 1, 1, ["X"])).toBe("a\nX");
+      expect(replaceLineRange("a\nb", 1, 1, ["X"])).toBe("a\nX");
+      expect(replaceLineRange("a\nb", 2, 2, ["X"])).toBe("a\nb\nX");
+    });
   });
 
   describe("insertBeforeLine", () => {
@@ -84,6 +114,14 @@ describe("String utils", () => {
 
     test("inserts multiple lines", () => {
       expect(insertBeforeLine("a\nb", 1, ["X", "Y"])).toBe("a\nX\nY\nb");
+    });
+
+    test("preserves empty lines and naturally clamps out-of-range indices", () => {
+      expect(insertBeforeLine("", 0, ["X"])).toBe("X\n");
+      expect(insertBeforeLine("\n", 1, ["X"])).toBe("\nX\n");
+      expect(insertBeforeLine("a\n", 1, ["X"])).toBe("a\nX\n");
+      expect(insertBeforeLine("a\nb", 1, ["X"])).toBe("a\nX\nb");
+      expect(insertBeforeLine("a\nb", 2, ["X"])).toBe("a\nb\nX");
     });
   });
 });
