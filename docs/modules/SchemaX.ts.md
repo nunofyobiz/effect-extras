@@ -102,9 +102,8 @@ Added in v0.0.0
 
 Returns a new `Schema.Struct` with the named `keys` of `schema` removed.
 
-The complement of {@link pick}, restoring the v3 ergonomics of
-`mySchema.omit("a")` that v4 dropped from `Schema.Struct` instances. Every
-surviving field keeps its original schema, including any refinements.
+The complement of {@link pick}. Every surviving field keeps its original
+schema, including any refinements.
 
 **Signature**
 
@@ -143,10 +142,9 @@ Added in v0.0.0
 Returns a new `Schema.Struct` in which every field of `schema` is made
 optional.
 
-Restores the v3 `Schema.partial(mySchema)` behaviour that v4 removed, by
-wrapping each field in `Schema.optional`. A decoded value may therefore omit
-any field; fields that _are_ present still have to satisfy their original
-schema, refinements included.
+Wraps each field in `Schema.optional`. A decoded value may therefore omit any
+field; fields that _are_ present still have to satisfy their original schema,
+refinements included.
 
 **Signature**
 
@@ -178,10 +176,7 @@ Added in v0.0.0
 
 Returns a new `Schema.Struct` containing only the named `keys` of `schema`.
 
-Restores the v3 ergonomics of `mySchema.pick("a", "b")` — v4 removed the
-`.pick(...)` method from `Schema.Struct` instances, so this rebuilds it on top
-of v4's `mapFields` primitive. Each picked field keeps its original schema,
-including any refinements.
+Each picked field keeps its original schema, including any refinements.
 
 **Signature**
 

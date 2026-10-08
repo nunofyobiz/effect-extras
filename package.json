@@ -75,18 +75,18 @@
     "@commitlint/types": "20.5.0",
     "@effect/docgen": "0.5.2",
     "@effect/language-service": "0.86.2",
-    "@effect/vitest": "4.0.0-rc.111",
+    "@effect/vitest": "4.0.2",
     "@eslint-community/eslint-plugin-eslint-comments": "4.7.2",
     "@eslint/compat": "2.0.5",
     "@eslint/js": "10.0.1",
     "@size-limit/preset-small-lib": "12.1.0",
     "@types/node": "24.12.2",
     "@typescript-eslint/parser": "8.60.0",
-    "@vitest/coverage-v8": "4.1.7",
+    "@vitest/coverage-v8": "5.0.3",
     "@vitest/eslint-plugin": "1.6.18",
     "babel-plugin-annotate-pure-calls": "0.5.0",
     "commitlint": "20.5.3",
-    "effect": "4.0.0-rc.111",
+    "effect": "4.0.2",
     "eslint": "10.2.1",
     "eslint-config-prettier": "10.1.8",
     "eslint-import-resolver-typescript": "4.4.4",
@@ -103,7 +103,7 @@
     "tsx": "4.22.4",
     "typescript": "6.0.3",
     "typescript-eslint": "8.60.0",
-    "vitest": "4.1.7"
+    "vitest": "5.0.3"
   },
   "peerDependencies": {
     "effect": "^4.0.0-rc.111"
