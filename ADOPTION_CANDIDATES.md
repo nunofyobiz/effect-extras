@@ -419,7 +419,7 @@ export const byPriority = <A, K>(
   `tasks-table.tsx` `comparatorFor` both fall back to `0` (unlisted sorts FIRST), and
   `branch-choice.ts` `moveAsksBranchChoice` and `approval-decision.ts` `backwardTargets` both bail
   out entirely when either side is unlisted (neither one sorts at all). Those four sites build a
-  position map (counted under `MapX.positions` above) and then do their own ad hoc, mutually
+  position map (counted under `MapX.indexes` above) and then do their own ad hoc, mutually
   inconsistent thing with it — they are not further evidence for `byPriority`, which is why they
   are rejected separately rather than folded in here.
 
