@@ -592,6 +592,20 @@ describe("Array utils", () => {
       ]);
     });
 
+    test("asymmetric equivalence proves the result is order-sensitive: swapping the comparator's argument order would change the grouping", () => {
+      const groupIsAtMostOneBelowCurrent: Equivalence.Equivalence<number> = (
+        firstGroup,
+        current,
+      ) => current - firstGroup >= 0 && current - firstGroup <= 1;
+
+      expect(
+        chunkBy([1, 2, 3], (n) => n, groupIsAtMostOneBelowCurrent),
+      ).toStrictEqual([
+        { group: 1, values: [1, 2] },
+        { group: 3, values: [3] },
+      ]);
+    });
+
     test("the chunk projection is called exactly once per item, in input order", () => {
       const calls: number[] = [];
       const chunk = (n: number) => {
