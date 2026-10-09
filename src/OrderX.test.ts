@@ -51,5 +51,33 @@ describe("Order utils", () => {
         "top",
       ]);
     });
+
+    test("pins today's NaN-rank and equal-infinite-rank results, which differ from Order.mapInput(Order.Number, ...)", () => {
+      const order = rankedEnum({
+        nanA: Number.NaN,
+        nanB: Number.NaN,
+        finite: 1,
+        pos: Number.POSITIVE_INFINITY,
+        neg: Number.NEGATIVE_INFINITY,
+      });
+
+      // A NaN rank on either side gives -1, not the +1 that Order.mapInput(Order.Number, ...) gives for (finite, nan).
+      expect(order("nanA", "finite")).toBe(-1);
+      expect(order("finite", "nanA")).toBe(-1);
+
+      // Two NaN ranks, and a NaN-ranked value compared with itself, give -1, not the 0 that Order.mapInput(Order.Number, ...) gives.
+      expect(order("nanA", "nanB")).toBe(-1);
+      expect(order("nanA", "nanA")).toBe(-1);
+
+      // Equal infinite ranks give -1, not the 0 that Order.mapInput(Order.Number, ...) gives.
+      expect(order("pos", "pos")).toBe(-1);
+      expect(order("neg", "neg")).toBe(-1);
+
+      // Unequal infinite and finite ranks give the ordinary sign.
+      expect(order("pos", "finite")).toBe(1);
+      expect(order("finite", "pos")).toBe(-1);
+      expect(order("neg", "finite")).toBe(-1);
+      expect(order("pos", "neg")).toBe(1);
+    });
   });
 });
