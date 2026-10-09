@@ -305,13 +305,7 @@ export const pick = <
   schema: Schema.Struct<Fields>,
   ...keys: Keys
 ): Schema.Struct<Pick<Fields, Keys[number]>> =>
-  schema.mapFields(
-    (fields) =>
-      Struct.pick(fields, keys as readonly (keyof Fields)[]) as Pick<
-        Fields,
-        Keys[number]
-      >,
-  );
+  schema.mapFields((fields) => Struct.pick(fields, keys));
 
 /**
  * Returns a new `Schema.Struct` with the named `keys` of `schema` removed.
@@ -348,13 +342,7 @@ export const omit = <
   schema: Schema.Struct<Fields>,
   ...keys: Keys
 ): Schema.Struct<Omit<Fields, Keys[number]>> =>
-  schema.mapFields(
-    (fields) =>
-      Struct.omit(fields, keys as readonly (keyof Fields)[]) as Omit<
-        Fields,
-        Keys[number]
-      >,
-  );
+  schema.mapFields((fields) => Struct.omit(fields, keys));
 
 /**
  * Returns a new `Schema.Struct` in which every field of `schema` is made
@@ -388,13 +376,7 @@ export const omit = <
 export const partial = <Fields extends Schema.Struct.Fields>(
   schema: Schema.Struct<Fields>,
 ): Schema.Struct<{ [K in keyof Fields]: Schema.optional<Fields[K]> }> =>
-  schema.mapFields((fields) => {
-    const result: { [K in keyof Fields]?: Schema.optional<Fields[K]> } = {};
-    for (const key of Object.keys(fields) as (keyof Fields)[]) {
-      result[key] = Schema.optional(fields[key]);
-    }
-    return result as { [K in keyof Fields]: Schema.optional<Fields[K]> };
-  });
+  schema.mapFields((fields) => Struct.map(fields, Schema.optional));
 
 /**
  * Returns a new `Schema.Struct` containing only the named `keys` of `schema`,
