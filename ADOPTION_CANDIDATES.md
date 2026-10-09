@@ -539,8 +539,8 @@ monomorphized to its own `ChangeSet`, `FilePlan`, `PjtLock`, and `Blueprint` typ
   `intersection`, `difference`) were checked against `sameSet`; see that candidate's own absence
   proof above.
 - `ArrayX.takeFirstWhere` (`src/ArrayX.ts`) and effect 4.0.2's `Array.findFirstIndex`/`Array.remove`
-  were checked against `extractMinBy`; the two exports already cover it, as too thin a wrapper over
-  them.
+  were checked against `extractMinBy`; together they already cover it, which is why it is rejected
+  as too thin a wrapper.
 
 ## Implementation boundary
 
@@ -658,8 +658,10 @@ Paste into the body of `tk-d54380f2`:
 Body:
 
 > The effect-extras adoption survey (`ADOPTION_CANDIDATES.md`, rejected row "Priority-rank lookup
-> with an inline missing-value fallback") found five call sites that each build a position map and
-> then handle a value missing from it differently, with no shared helper and no stated rule:
+> with an inline missing-value fallback") found five call sites that each read positions from a
+> step-position map (three build their own; `factory-filters.ts` and `tasks-table.tsx` receive one
+> as a parameter) and then handle a value missing from it differently, with no shared helper and no
+> stated rule:
 >
 > - `packages/web/lib/factory-filters.ts`'s `stepOptionsOf` and
 >   `packages/web/components/tasks-table.tsx`'s `comparatorFor` both fall back to `0` — an unlisted
