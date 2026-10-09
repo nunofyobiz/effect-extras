@@ -21,7 +21,10 @@ here only if **all** of these hold:
    it was given.
 3. **It carries zero app knowledge.** It never references a business domain or data model
    (`Project`, `User`, `Timeline`, …) and never encodes product rules. **This is the hard line** —
-   domain-shaped helpers live in the app that owns the domain.
+   domain-shaped helpers live in the app that owns the domain. This is about the helper's own
+   signature and behavior, not the nouns used to illustrate it: a JSDoc `@example` built on a cart of
+   products or a settings record (see [JSDoc & API docs](./modules-and-api-docs.md)) does not make the
+   helper itself domain-specific, as long as it stays generic over `<A>`.
 4. **A thin wrapper around Effect built-ins must earn its place.** Add one only when it is
    _meaningfully useful_ **and** _universal_. If a one-liner at the call site is just as clear,
    do not wrap it.

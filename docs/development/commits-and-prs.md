@@ -1,8 +1,9 @@
 # Commits and PRs
 
-- **Atomic commits** — one cohesive change each; the package builds green on every commit.
+- **Atomic commits** — one cohesive change each; change-relevant checks selected from the diff pass
+  on that commit alone, and a reviewer can follow it in one sitting.
 - On an **unmerged feature branch**, amending / squashing / reordering is standing permission — keep the history clean. Update an open PR with `git push --force-with-lease` (never bare `--force`). Once a commit reaches `main`, it's history.
-- Run `pnpm check-all` before pushing. PR title is itself a Conventional Commit.
+- Gather focused evidence before pushing; run `pnpm check-all` before claiming a task done. PR title is itself a Conventional Commit.
 - `.agent-ops/` is gitignored — use it for agent scratch files that shouldn't be committed (e.g. a PR body passed to `gh pr create --body-file`).
 - Skills: [create-commit](../../.agents/skills/create-commit/SKILL.md), [verify-commit](../../.agents/skills/verify-commit/SKILL.md), [push-pr](../../.agents/skills/push-pr/SKILL.md), and [rebase-main](../../.agents/skills/rebase-main/SKILL.md).
 
@@ -16,6 +17,17 @@
 If a hook blocks a commit, read the output, fix the surfaced issue, re-stage, and commit again — don't bypass with `--no-verify`. CI re-runs commitlint on PRs as a backstop.
 
 ## Commit signing
+
+> Provenance: the rationale paragraph below is adapted from StoryCut's
+> `docs/dev-guides/agents-signing.md` "Why this exists". Effect-extras's own signing setup, scope
+> (`claude/*` / `agent/*` only), and script are unchanged facts about this repository's tooling.
+
+**Why a distinct agent identity.** A commit signed by a contributor's personal key implies that
+contributor wrote it; an agent didn't. A dedicated agent key keeps the audit trail honest, lets the key
+be revoked independently of the contributor's own signing key if it ever leaks, and sidesteps
+passphrase prompts a non-interactive sandbox has no TTY to answer. The commit author name
+(`Claude Code (<contributor>)`) still carries the contributor's own identity — this is about who signs,
+not about hiding who asked for the change.
 
 Local Claude Code commits on `claude/*` or `agent/*` branches can use a distinct `Claude Code
 (<contributor>)` identity and SSH signature. This is not a rule for every agent or every branch:

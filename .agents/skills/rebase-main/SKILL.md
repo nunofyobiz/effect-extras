@@ -5,6 +5,12 @@ description: Rebase the current branch onto the latest `origin/main`. Use this s
 
 # Rebasing on latest `origin/main`
 
+> Provenance: this skill descends from StoryCut's `rebase-main` skill. Adopts ampm's "Rebasing onto
+> latest main" (`docs/development/contributing.md`), which wins conflicts by default — specifically
+> its "reconcile intentions, not just text" reasoning (step 5) and its "clean is not green" reasoning
+> (step 6), both expanded below from StoryCut's thinner versions. ampm's web-build, dev-preview, and
+> migration steps are app-specific and intentionally absent here.
+
 Use this end-to-end whenever the user asks to update the current branch against `origin/main`. The
 rebase report at the end is non-negotiable — it's how the user decides whether the result is safe to
 push.
@@ -23,17 +29,21 @@ push.
      and rewrites a clean lockfile matching the resolved `package.json`. Don't
      `git checkout --theirs pnpm-lock.yaml` first. Then `git add package.json pnpm-lock.yaml` and
      `git rebase --continue`.
-5. **Reapply matching upstream patterns to code we added.** If an upstream commit removed or
-   renamed a helper/import, our new code may still use the old form — search the diff and apply the
-   same cleanup so we don't reintroduce what was just removed.
-6. Re-run the green-check set:
+5. **Reconcile intentions, not just text.** Reapply matching upstream patterns to code we added — if
+   an upstream commit removed or renamed a helper/import, our new code may still use the old form, so
+   search the diff and apply the same cleanup. For every upstream commit that touches ground this
+   branch also touches, ask: if this branch had been planned after that commit landed, would anything
+   have been done differently? A clean rebase is a weak signal — watch for new upstream surface area
+   this branch should now extend, or a new upstream mechanism it should reuse instead of what it built
+   independently. None of that shows up as a merge conflict or a red build.
+6. **Clean is not green.** A rebase invalidates evidence for the old head. Re-run the focused checks
+   the rebased diff or affected upstream changes can reach:
    ```bash
    pnpm install
    pnpm check-all
    ```
-   (tc → lint → test → build → publint → treeshake → knip → docgen). A clean rebase is not the same
-   as a green rebase. If you touched packaging (`exports`, `files`, entry points), also run
-   `pnpm build` then `pnpm pack --dry-run`.
+   (tc → lint → test → build → publint → treeshake → knip → docgen). If you touched packaging
+   (`exports`, `files`, entry points), also run `pnpm build` then `pnpm pack --dry-run`.
 7. Amend the rebased commit only if your fixes belong to it (conflict resolution, style). Otherwise
    stack a new commit.
 8. If the rebase required substantial reworking, **tell the user before pushing** so they can

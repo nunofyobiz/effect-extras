@@ -5,6 +5,13 @@ description: Create a well-formed git commit following the project's Conventiona
 
 # Create Commit
 
+> Provenance: adopts ampm's "Atomic, reviewable commits" (`docs/development/contributing.md`), which
+> wins conflicts by default. Change-relevant checks selected from the diff replace the prior rule of
+> running the full `pnpm check-all` on every commit; `check-all` is reserved for the repository-wide
+> gate before claiming a task done (see [verify-commit](../verify-commit/SKILL.md) and
+> [verification](../../../docs/development/verification.md)). The "reviewer can follow each commit in
+> one sitting" requirement is also adopted from ampm.
+
 Every commit follows Conventional Commits (validated by commitlint in CI) and is atomic.
 
 ## Commit message format
@@ -43,9 +50,17 @@ docs: add util-fit decision flowchart to README
 
 ## Atomic commits
 
-1. **The package builds green on that commit alone** — run the `verify-commit` skill first.
+Three requirements, in priority order:
+
+1. **Change-relevant checks pass on that commit alone** — focused tests and static/build checks
+   selected from the diff, with no known broken intermediate state. Run the `verify-commit` skill to
+   pick them.
 2. **One cohesive change** — one refactor, one helper, one fix. Don't mix unrelated changes.
-3. **A PR may contain multiple commits**, each self-contained.
+3. **A reviewer can follow each commit in one sitting.** Decompose before typing: the smallest
+   standalone step first (rename / extract / scaffold), then the behavior commit, then cleanup/docs —
+   not the same diff squashed into one commit.
+
+A PR may contain multiple commits, each self-contained.
 
 ## Amending and rewriting history on feature branches
 
@@ -61,8 +76,8 @@ Once a commit has reached `main`, it's history — don't rewrite it; further cha
 
 ## Before committing
 
-Run `pnpm check-all` (the full CI simulation) so the commit won't break CI. See the `verify-commit`
-skill for the individual checks and their order.
+Run the change-relevant checks the `verify-commit` skill selects from the diff — not the full
+`pnpm check-all`, which is reserved for the repository-wide gate before claiming a task done.
 
 ## Pre-commit hooks
 

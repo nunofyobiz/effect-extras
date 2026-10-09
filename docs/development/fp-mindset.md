@@ -75,7 +75,11 @@ Before writing a new helper, check whether one of the existing modules already c
 5. **Follow the module/barrel pattern** — a flat `src/<module>.ts` (+ `src/<module>.test.ts`) + an
    `export * as <module> from "./<module>.js";` line in `src/index.ts`. Choose the module name using
    the [canonical placement rule](./what-belongs-here.md#names-and-modules).
-6. **Exhaustive test coverage** — every public function, every branch, edge cases (empty,
-   single-element, boundary), and type-level correctness where the utility's whole point is type
-   narrowing. Non-negotiable: these helpers are consumed by every layer above them, they outlive the
-   surrounding code, and their tests are the only spec they have.
+6. **Exhaustive test coverage** — the full [Tests](./tests.md) bar: happy path and every edge case
+   (empty, single-element, boundary, each branch), a deliberately ill-typed runtime case with a
+   reasoned `@ts-expect-error`, and both call styles for a `dual` helper. Non-negotiable: these
+   helpers are consumed by every layer above them, they outlive the surrounding code, and their tests
+   are the only spec they have.
+7. **Document it for a stranger** — the [`*X` modules and API docs](./modules-and-api-docs.md) bar:
+   a plain-language description and at least one `@example` built on a concrete, everyday use case,
+   with comments explaining what happens to that data.

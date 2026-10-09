@@ -86,17 +86,17 @@ operations needing a clean tree.
 
 ## When the work touches… read…
 
-| Work                              | Read                                                                                                                                                             |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Effect v4 APIs                    | [Effect v4](./docs/development/effect-v4.md)                                                                                                                     |
-| Whether a utility belongs         | [What belongs here](./docs/development/what-belongs-here.md) and [FP mindset](./docs/development/fp-mindset.md)                                                  |
-| New modules or API documentation  | [`*X` modules and API docs](./docs/development/modules-and-api-docs.md)                                                                                          |
-| Package output or import size     | [Tree-shaking and packaging](./docs/development/tree-shaking-and-packaging.md)                                                                                   |
-| Effect code, orders, or narrowing | [Effect patterns](./docs/development/effect-patterns.md)                                                                                                         |
-| Tests                             | [Tests](./docs/development/tests.md)                                                                                                                             |
-| Node, CI, or local checks         | [Verification](./docs/development/verification.md) and [verify-commit](./.agents/skills/verify-commit/SKILL.md)                                                  |
-| Creating a commit                 | [Commits and PRs](./docs/development/commits-and-prs.md) and [create-commit](./.agents/skills/create-commit/SKILL.md)                                            |
-| Rebasing or opening a PR          | [Commits and PRs](./docs/development/commits-and-prs.md), [rebase-main](./.agents/skills/rebase-main/SKILL.md), and [push-pr](./.agents/skills/push-pr/SKILL.md) |
-| Changesets or publishing          | [Versioning and releasing](./docs/development/versioning-and-releasing.md) and [release-bump](./.agents/skills/release-bump/SKILL.md)                            |
-| Dependency updates                | [Renovate](./docs/development/renovate.md)                                                                                                                       |
-| Guidance or skills                | [Guidance maintenance](./docs/development/guidance-maintenance.md) and [migration map](./docs/development/migration-map.md)                                      |
+| Work                              | Read                                                                                                                                                                                                 |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Effect v4 APIs                    | [Effect v4](./docs/development/effect-v4.md)                                                                                                                                                         |
+| Whether a utility belongs         | [What belongs here](./docs/development/what-belongs-here.md) and [FP mindset](./docs/development/fp-mindset.md)                                                                                      |
+| New modules or API documentation  | [`*X` modules and API docs](./docs/development/modules-and-api-docs.md) and [new-module](./.agents/skills/new-module/SKILL.md)                                                                       |
+| Package output or import size     | [Tree-shaking and packaging](./docs/development/tree-shaking-and-packaging.md)                                                                                                                       |
+| Effect code, orders, or narrowing | [Effect patterns](./docs/development/effect-patterns.md)                                                                                                                                             |
+| Tests                             | [Tests](./docs/development/tests.md)                                                                                                                                                                 |
+| Node, CI, or local checks         | [Verification](./docs/development/verification.md) and [verify-commit](./.agents/skills/verify-commit/SKILL.md)                                                                                      |
+| Creating a commit                 | [Commits and PRs](./docs/development/commits-and-prs.md) and [create-commit](./.agents/skills/create-commit/SKILL.md)                                                                                |
+| Rebasing or opening a PR          | [Commits and PRs](./docs/development/commits-and-prs.md), [rebase-main](./.agents/skills/rebase-main/SKILL.md), and [push-pr](./.agents/skills/push-pr/SKILL.md)                                     |
+| Changesets or publishing          | [Versioning and releasing](./docs/development/versioning-and-releasing.md) and [release-bump](./.agents/skills/release-bump/SKILL.md)                                                                |
+| Dependency updates                | [Renovate](./docs/development/renovate.md)                                                                                                                                                           |
+| Guidance or skills                | [Guidance maintenance](./docs/development/guidance-maintenance.md), [guidance-maintenance](./.agents/skills/guidance-maintenance/SKILL.md), and [migration map](./docs/development/migration-map.md) |

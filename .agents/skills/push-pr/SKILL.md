@@ -5,12 +5,33 @@ description: Push commits and create or update a GitHub pull request with a well
 
 # Push PR
 
+> Provenance: this skill descends from StoryCut's `push-pr` skill. Adopts ampm's "Commits & PRs"
+> (`docs/development/contributing.md`) and the `ampm-pr-creation` skill, which win conflicts by
+> default: the title is a Conventional Commit for the whole change and never the task's own wording,
+> one branch carries one PR, and the body says why the change exists and what a reviewer should
+> check. Regenerating the title and body from the full commit set on every push is the behavior
+> effect-clue's "PR workflow" section separately asks for; ampm and StoryCut already cover it here.
+
 This skill handles pushing commits and creating or updating a GitHub pull request. Every time
 commits are pushed, regenerate the PR title and description from the full set of commits in the PR.
 
+## One branch, one PR
+
+Push the branch you're already checked out on; never create another branch or open a second PR for
+the same change. If a PR already exists for this branch, update it — don't open a new one.
+
 ## PR title format
 
-The PR title **must be a valid Conventional Commit** — the same format used for individual commits:
+The PR title **must be a valid Conventional Commit** describing the whole change — **never the
+task's own wording**. A task is named for whoever is reading a board; a PR title becomes the merge
+subject in git history.
+
+```
+❌ Contributor guidance adopts the best of ampm, StoryCut and effect-clue   (task wording)
+✅ docs: adopt sibling-repo guidance and set the testing/docs bar          (Conventional Commit)
+```
+
+The PR title is itself a valid Conventional Commit — the same format used for individual commits:
 
 ```
 <type>(<optional scope>): <description>
@@ -35,14 +56,17 @@ chore: stand up CI, renovate, changesets, and agent docs
 
 ## PR description format
 
+The body says **why the change exists** and **what a reviewer should check** — not just what
+changed.
+
 ```markdown
 ## Summary
 
-<1-3 bullets describing what changed and why>
+<1-3 bullets on why this change exists>
 
 ## Test plan
 
-- [ ] <how to verify — usually: pnpm check-all is green>
+- [ ] <what a reviewer should check — usually: pnpm check-all is green>
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
@@ -60,7 +84,8 @@ chore: stand up CI, renovate, changesets, and agent docs
    - `git log --oneline <base>..HEAD` — review all commits that will be in the PR
    - `git diff <base>...HEAD --stat` — understand the scope
 2. Push: `git push -u origin HEAD`
-3. Generate the title + description from the commits, then: `gh pr create --title "<title>" --body "<body>"`
+3. Generate the title + description from the commits, write the body to a file under `.agent-ops/`
+   (gitignored), then: `gh pr create --title "<title>" --body-file .agent-ops/pr-body.md`
 4. Return the PR URL.
 
 ### Updating an existing PR
@@ -70,13 +95,17 @@ description from the full commit set:
 
 1. `git push`
 2. `gh pr view --json baseRefName --jq .baseRefName`, then `git log --oneline <base>..HEAD`
-3. `gh pr edit --title "<new-title>" --body "<new-body>"`
+3. Write the regenerated body to `.agent-ops/pr-body.md`, then:
+   `gh pr edit --title "<new-title>" --body-file .agent-ops/pr-body.md`
 4. Return the PR URL.
 
 ## Important notes
 
 - Determine the base branch from the PR or repo default — don't assume `main`.
-- Use a HEREDOC for `--body` to preserve formatting.
+- Write the body to a file under `.agent-ops/` and pass `--body-file`, rather than a HEREDOC for
+  `--body` — a HEREDOC prompts for permission on every invocation (see
+  [AGENTS.md](../../../AGENTS.md)); `.agent-ops/` is gitignored and already used this way for commit
+  bodies (see [Commits and PRs](../../../docs/development/commits-and-prs.md)).
 - Never force-push unless the user explicitly asks (and then `--force-with-lease`).
 - If the branch has no upstream, use `git push -u origin HEAD`.
 - Commits are SSH-signed automatically (see [Commit signing](../../../docs/development/commits-and-prs.md#commit-signing)); pushed commits should show
