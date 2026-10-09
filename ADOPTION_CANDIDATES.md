@@ -45,143 +45,19 @@ and Next components are out of scope for this survey regardless of genericity (t
 by `tk-d54380f2`); test-only helpers are out of scope per the counting rule above.
 
 Names are deliberately plain: `indexes` (aliased `indices`), `firstIndexes`, `lastIndexes`,
-`preferredByKey`, `clusterBy`, `mergeKeyedArrays`, `sameSet`, and `byPriority` describe their
-result without FP jargon. `tap`, `contramap`, `mapLeft`, and `mapRight` are not proposed.
+`clusterBy`, `mergeByWhere`, `sameSet`, and `byPriority` describe their result without FP jargon.
+`tap`, `contramap`, `mapLeft`, and `mapRight` are not proposed.
 
 This round of review feedback (PR #65) renamed `positions` to `indexes`/`indices` and split off
 `firstIndexes`/`lastIndexes`, renamed `connectedComponentsBy` to `clusterBy`, dropped
 `extractMinBy` (folded into the rejected table as a thin wrapper), promoted `sameSet` from
-rejected to adopted, and dropped `byPriority`'s `otherwise` parameter in favor of composing with
-`Order.combine`. Each change is called out at its own candidate below.
+rejected to adopted, dropped `byPriority`'s `otherwise` parameter in favor of composing with
+`Order.combine`, and unified `MapX.preferredByKey` into `ArrayX.mergeByWhere` (one fold, not two
+near-duplicate ones). Each change is called out at its own candidate below.
 
 ## Adopted candidates
 
-### `MapX` — 2 source repositories, 18 call sites
-
-#### `indexes` (alias `indices`), `firstIndexes`, `lastIndexes`
-
-Review feedback (PR #65) renamed this candidate and split it into three exports rather than one.
-`indexes` builds a native `Map` from keys to the list of every zero-based position where that key
-occurs in an iterable, in encounter order — duplicate keys accumulate, none are discarded.
-`firstIndexes` and `lastIndexes` are its first-wins and last-wins specializations: each builds a
-`Map` from keys to a single position, the first or last occurrence respectively. None mutates the
-input. `lastIndexes` reproduces `new Map(iterable.map(...))`'s own overwrite-on-duplicate
-semantics, so it is the direct, same-behavior replacement for every call site below (all of which
-already get last-wins behavior today, whether or not a given site's keys actually repeat);
-`indexes` and `firstIndexes` are added so a caller who does need every position, or needs
-first-wins instead, does not have to hand-roll it.
-
-Proposed generic `dual` signatures (data-last overload first):
-
-```ts
-export const indexes: {
-  <A, K>(keyOf: (value: A) => K): (self: Iterable<A>) => Map<K, number[]>;
-  <A, K>(self: Iterable<A>, keyOf: (value: A) => K): Map<K, number[]>;
-};
-export const indices: typeof indexes;
-
-export const firstIndexes: {
-  <A, K>(keyOf: (value: A) => K): (self: Iterable<A>) => Map<K, number>;
-  <A, K>(self: Iterable<A>, keyOf: (value: A) => K): Map<K, number>;
-};
-
-export const lastIndexes: {
-  <A, K>(keyOf: (value: A) => K): (self: Iterable<A>) => Map<K, number>;
-  <A, K>(self: Iterable<A>, keyOf: (value: A) => K): Map<K, number>;
-};
-```
-
-- Target: existing `MapX` module.
-- effect-extras status: no equivalent export exists in `src/MapX.ts` or `src/index.ts`.
-- Effect 4.0.2 absence proof: checked `effect/HashMap` exports `make`, `fromIterable`, `set`,
-  `map`, and `reduce`, and `effect/Array` exports `map` and `reduce`; none builds a native `Map`
-  keyed by positional index, single or multi-valued. There is no `effect/Map` module.
-- Why it belongs: it is a pure, domain-free lookup construction used by unrelated workflow/UI
-  ordering code and a separate media application. It packages a repeated index-aware map pattern,
-  not a control-flow combinator.
-
-| Repository          | File                                                   | Enclosing/source symbol                                                                                                    | Occurrences |
-| ------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ----------: |
-| `nunofyobiz/ampm`   | `packages/web/lib/branch-choice.ts`                    | `moveAsksBranchChoice`                                                                                                     |           1 |
-| `nunofyobiz/ampm`   | `packages/web/app/(app)/[workspaceId]/inbox-server.ts` | `prefetchedOpenPane`                                                                                                       |           1 |
-| `nunofyobiz/ampm`   | `packages/web/lib/approval-decision.ts`                | `backwardTargets`                                                                                                          |           1 |
-| `nunofyobiz/ampm`   | `packages/web/components/move-actions.tsx`             | `MoveActions` lifecycle comparison                                                                                         |           1 |
-| `nunofyobiz/ampm`   | `packages/web/components/factory.tsx`                  | `Factory` lifecycle comparison                                                                                             |           1 |
-| `nunofyobiz/ampm`   | `packages/web/components/inbox.tsx`                    | `Inbox` lifecycle comparison                                                                                               |           1 |
-| `nunofyobiz/ampm`   | `packages/web/components/roadmap.tsx`                  | `Roadmap` lifecycle comparison                                                                                             |           1 |
-| `nunofyobiz/ampm`   | `packages/web/components/approval-standalone.tsx`      | `ApprovalStandalone` lifecycle comparison                                                                                  |           1 |
-| `nunofyobiz/ampm`   | `packages/core/src/domain/FollowUpDedup.ts`            | `deduplicateFollowUps`                                                                                                     |           1 |
-| `nunofyobiz/ampm`   | `packages/core/src/domain/ProposalGrouping.ts`         | `groupProposals` (its own `indexOfProposal` position map, distinct from this function's `clusterBy`-shaped grouping above) |           1 |
-| `nunofyobiz/ampm`   | `packages/core/src/domain/WorkspaceModel.ts`           | `mergeRows` (its own index-of-id lookup)                                                                                   |           1 |
-| `StoryCut/StoryCut` | `domain/models/Timeline/Timeline.ts`                   | `fuzzyOrderedTimelineTrackIndexes`                                                                                         |           1 |
-| `StoryCut/StoryCut` | `domain/models/Timeline/Timeline.ts`                   | `fuzzyOrderedTimeBucketIndexes`                                                                                            |           1 |
-
-Usage total: 2 repositories, 12 files, 13 call sites, every one of them a `lastIndexes` caller
-today (none of these sites' keys are known to repeat, so `lastIndexes` and `indexes` would behave
-identically for them; `lastIndexes` is listed as the literal replacement because it matches this
-candidate's original, single-export shape exactly). `lib/FuzzyOrdering/FuzzyOrdering.ts`'s `order`
-is excluded here: it builds the identical position map internally, but it closes over it and
-returns the comparator itself in one step, so it is the `OrderX.byPriority` implementation, not a
-map-feeds-a-comparator occurrence — counted once, there, below.
-
-#### `preferredByKey`
-
-Keep one value per key from an iterable, where a caller-supplied `isPreferred(candidate,
-existing)` predicate decides which of two same-keyed values wins. Review feedback (PR #65) asked
-that the predicate see each side's key, not just its value, since a preference rule can depend on
-the key itself (not only the two candidate values) — so each side is passed as a `{ key, value }`
-pair rather than a bare value. Builds the result as a `Map` so the winner can be looked up by key
-directly; does not mutate the input.
-
-Proposed generic `dual` signature (data-last overload first):
-
-```ts
-export const preferredByKey: {
-  <A, K>(
-    keyOf: (value: A) => K,
-    isPreferred: (
-      candidate: { readonly key: K; readonly value: A },
-      existing: { readonly key: K; readonly value: A },
-    ) => boolean,
-  ): (self: Iterable<A>) => Map<K, A>;
-  <A, K>(
-    self: Iterable<A>,
-    keyOf: (value: A) => K,
-    isPreferred: (
-      candidate: { readonly key: K; readonly value: A },
-      existing: { readonly key: K; readonly value: A },
-    ) => boolean,
-  ): Map<K, A>;
-};
-```
-
-- Target: existing `MapX` module, alongside `indexes`.
-- effect-extras status: no equivalent export exists in `src/MapX.ts` or `src/index.ts`.
-- Effect 4.0.2 absence proof: checked `effect/Array` exports `dedupeWith`, `dedupeAdjacentWith`,
-  `groupBy`, and `reduce`, and `effect/HashMap`'s `set`/`modify`; `dedupeWith` compares the whole
-  array under one `Equivalence` and keeps first occurrence, it does not pick a winner per key via
-  a preference predicate, and nothing else folds an iterable into "one best value per key."
-- Why it belongs: this exact shape is written independently at least three times inside one
-  repository (see below), which is strong evidence it is a missing generic primitive rather than
-  a one-off. It carries no row or workspace vocabulary once the key and preference functions are
-  supplied by the caller.
-
-| Repository        | File                                       | Enclosing/source symbol                                                    | Occurrences |
-| ----------------- | ------------------------------------------ | -------------------------------------------------------------------------- | ----------: |
-| `nunofyobiz/ampm` | `packages/core/src/store/StorePostgres.ts` | `passRecordsFor`                                                           |           1 |
-| `nunofyobiz/ampm` | `packages/core/src/store/StorePostgres.ts` | `passRecordsForWorkspaces`                                                 |           1 |
-| `nunofyobiz/ampm` | `packages/core/src/store/StorePostgres.ts` | `passScheduleStatesForWorkspaces`                                          |           1 |
-| `nunofyobiz/ampm` | `packages/core/src/store/Store.ts`         | `newestPerSubjectOf` (inline reimplementation, hardcoded to `Run` fields)  |           1 |
-| `nunofyobiz/ampm` | `packages/core/src/store/Store.ts`         | `newestRunIdByItemOf` (inline reimplementation, hardcoded to `Run` fields) |           1 |
-
-Usage total: 1 repository, 2 files, 5 call sites (3 via the named `collapseByRecency` helper, 2 as
-independent inline recurrences of the identical shape). `packages/core/src/domain/WorkspaceModel.ts`
-(`rowRecordReducer`/`newerRow`) is a fourth, related instance — the pairwise "keep the newer of two
-same-keyed values" case this candidate's `isPreferred` callback generalizes — noted here as further
-corroboration rather than counted again, since it folds two already-keyed maps rather than an
-iterable.
-
-### `ArrayX` — 2 source repositories, 8 call sites
+### `ArrayX` — 2 source repositories, 13 call sites
 
 #### `clusterBy`
 
@@ -263,7 +139,7 @@ Array<Array<NodeIndex>>`, confirmed in `node_modules/effect/dist/Graph.d.ts`), b
 
 Usage total: 1 repository, 2 files, 3 call sites.
 
-#### `mergeKeyedArrays`
+#### `mergeByWhere`
 
 Merge an iterable of updates into an existing array by key: a value already present keeps its
 position and is replaced only when the caller's preference predicate picks the incoming value
@@ -272,14 +148,27 @@ appear in the return type because its only job is matching — deciding which `e
 any) a given `incoming` element corresponds to — not re-shaping anything; the result is always
 `readonly A[]`, the same element type as the input, just reconciled against `incoming`. Returns the
 original `existing` reference, unchanged, when nothing in the result actually changed, so a
-memoized selector over the result is stable.
+memoized selector over the result is stable. `isPreferred` compares two plain values, not `{ key,
+value }` pairs, because `keyOf` has already pinned both sides to the same key before `isPreferred`
+is ever called — there is no second, key-dependent axis for it to see.
+
+Review feedback (PR #65) unified this candidate with a separately-proposed `MapX.preferredByKey`:
+both folded an iterable down to one value per key under a caller-supplied preference predicate,
+one reconciling against an existing array and the other starting from nothing, so they were the
+same primitive wearing two faces rather than two distinct ones. Calling this with an empty
+`existing` array reduces an iterable to one entry per key exactly as the former `preferredByKey`
+did — as an array in first-appearance order rather than a `Map` — and the earlier draft's
+`{ key, value }` wrapper around `isPreferred`'s arguments is dropped for the same reason given
+above. A caller who wants key-indexed lookup afterward builds one with a plain
+`new Map(result.map((value) => [keyOf(value), value]))`; that one-line composition is not a
+dedicated export, since the array result already carries at most one entry per key.
 
 Practical example — reconcile a locally-cached task list against a server response, keeping a
 pending local edit in place and appending a task the server created that the cache does not have
 yet:
 
 ```ts
-ArrayX.mergeKeyedArrays(
+ArrayX.mergeByWhere(
   cachedTasks, // readonly Task[]
   serverTasks, // Task[] just fetched
   (task) => task.id,
@@ -292,7 +181,7 @@ ArrayX.mergeKeyedArrays(
 Proposed generic `dual` signature (data-last overload first):
 
 ```ts
-export const mergeKeyedArrays: {
+export const mergeByWhere: {
   <A, K>(
     incoming: Iterable<A>,
     keyOf: (value: A) => K,
@@ -310,21 +199,36 @@ export const mergeKeyedArrays: {
 - Target: existing `ArrayX` module.
 - effect-extras status: no equivalent export exists in `src/ArrayX.ts` or `src/index.ts`.
 - Effect 4.0.2 absence proof: checked `effect/Array` exports `union`, `unionWith`, `differenceWith`,
-  and `dedupeWith`; none preserves existing order and referential identity while reconciling a
-  second, incoming keyed collection — `unionWith` concatenates and dedupes but does not
-  conditionally replace in place or return the original reference unchanged.
-- Why it belongs: a single repository, but 4 distinct production call sites across 3 files, all
-  implementing an optimistic-update/local-cache reconciliation pattern that is not specific to any
-  product noun once `Row` is replaced with `<A>` — any client holding a locally-cached list merged
-  against server deltas needs exactly this.
+  `dedupeWith`, `dedupeAdjacentWith`, `groupBy`, and `reduce`, and `effect/HashMap`'s `set`/
+  `modify`; `unionWith` concatenates and dedupes but does not conditionally replace in place,
+  preserve `existing`'s order and reference-identity-when-unchanged, or fold an arbitrary iterable
+  down to one winner per key; `dedupeWith` compares a whole array under one `Equivalence` and keeps
+  the first occurrence, it does not pick a winner per key via a preference predicate. Nothing
+  combines both jobs in one call.
+- Why it belongs: a single repository, but 9 distinct production call sites across 5 files,
+  spanning the two previously-separate shapes this survey had proposed (reconcile an existing
+  array against incoming keyed updates; reduce a single iterable to one winner per key) — now one
+  fold. It carries no row, workspace, or task vocabulary once `keyOf`/`isPreferred` are supplied by
+  the caller.
 
-| Repository        | File                                        | Enclosing/source symbol   | Occurrences |
-| ----------------- | ------------------------------------------- | ------------------------- | ----------: |
-| `nunofyobiz/ampm` | `packages/web/lib/workspace-model.ts`       | `mergeTaskRowsIntoCaches` |           2 |
-| `nunofyobiz/ampm` | `packages/web/lib/optimistic-resolution.ts` | `snapshotWithServerRows`  |           1 |
-| `nunofyobiz/ampm` | `packages/web/lib/optimistic-task.ts`       | `reconcileCreatedTasks`   |           1 |
+| Repository        | File                                        | Enclosing/source symbol                                                    | Occurrences |
+| ----------------- | ------------------------------------------- | -------------------------------------------------------------------------- | ----------: |
+| `nunofyobiz/ampm` | `packages/web/lib/workspace-model.ts`       | `mergeTaskRowsIntoCaches`                                                  |           2 |
+| `nunofyobiz/ampm` | `packages/web/lib/optimistic-resolution.ts` | `snapshotWithServerRows`                                                   |           1 |
+| `nunofyobiz/ampm` | `packages/web/lib/optimistic-task.ts`       | `reconcileCreatedTasks`                                                    |           1 |
+| `nunofyobiz/ampm` | `packages/core/src/store/StorePostgres.ts`  | `passRecordsFor`                                                           |           1 |
+| `nunofyobiz/ampm` | `packages/core/src/store/StorePostgres.ts`  | `passRecordsForWorkspaces`                                                 |           1 |
+| `nunofyobiz/ampm` | `packages/core/src/store/StorePostgres.ts`  | `passScheduleStatesForWorkspaces`                                          |           1 |
+| `nunofyobiz/ampm` | `packages/core/src/store/Store.ts`          | `newestPerSubjectOf` (inline reimplementation, hardcoded to `Run` fields)  |           1 |
+| `nunofyobiz/ampm` | `packages/core/src/store/Store.ts`          | `newestRunIdByItemOf` (inline reimplementation, hardcoded to `Run` fields) |           1 |
 
-Usage total: 1 repository, 3 files, 4 call sites.
+Usage total: 1 repository, 5 files, 9 call sites (4 as the array-reconciliation shape, 5 as the
+reduce-to-one-winner shape — 3 of those 5 via the named `collapseByRecency` helper, 2 as
+independent inline recurrences of the identical shape). `packages/core/src/domain/WorkspaceModel.ts`
+(`rowRecordReducer`/`newerRow`) is a tenth, related instance — the pairwise "keep the newer of two
+same-keyed values" case this candidate's `isPreferred` callback generalizes — noted here as further
+corroboration rather than counted again, since it folds two already-keyed maps rather than an
+iterable.
 
 #### `sameSet`
 
@@ -369,6 +273,74 @@ export const sameSet: {
 
 Usage total: 1 repository, 1 file, 1 call site.
 
+### `MapX` — 2 source repositories, 13 call sites
+
+#### `indexes` (alias `indices`), `firstIndexes`, `lastIndexes`
+
+Review feedback (PR #65) renamed this candidate and split it into three exports rather than one.
+`indexes` builds a native `Map` from keys to the list of every zero-based position where that key
+occurs in an iterable, in encounter order — duplicate keys accumulate, none are discarded.
+`firstIndexes` and `lastIndexes` are its first-wins and last-wins specializations: each builds a
+`Map` from keys to a single position, the first or last occurrence respectively. None mutates the
+input. `lastIndexes` reproduces `new Map(iterable.map(...))`'s own overwrite-on-duplicate
+semantics, so it is the direct, same-behavior replacement for every call site below (all of which
+already get last-wins behavior today, whether or not a given site's keys actually repeat);
+`indexes` and `firstIndexes` are added so a caller who does need every position, or needs
+first-wins instead, does not have to hand-roll it.
+
+Proposed generic `dual` signatures (data-last overload first):
+
+```ts
+export const indexes: {
+  <A, K>(keyOf: (value: A) => K): (self: Iterable<A>) => Map<K, number[]>;
+  <A, K>(self: Iterable<A>, keyOf: (value: A) => K): Map<K, number[]>;
+};
+export const indices: typeof indexes;
+
+export const firstIndexes: {
+  <A, K>(keyOf: (value: A) => K): (self: Iterable<A>) => Map<K, number>;
+  <A, K>(self: Iterable<A>, keyOf: (value: A) => K): Map<K, number>;
+};
+
+export const lastIndexes: {
+  <A, K>(keyOf: (value: A) => K): (self: Iterable<A>) => Map<K, number>;
+  <A, K>(self: Iterable<A>, keyOf: (value: A) => K): Map<K, number>;
+};
+```
+
+- Target: existing `MapX` module.
+- effect-extras status: no equivalent export exists in `src/MapX.ts` or `src/index.ts`.
+- Effect 4.0.2 absence proof: checked `effect/HashMap` exports `make`, `fromIterable`, `set`,
+  `map`, and `reduce`, and `effect/Array` exports `map` and `reduce`; none builds a native `Map`
+  keyed by positional index, single or multi-valued. There is no `effect/Map` module.
+- Why it belongs: it is a pure, domain-free lookup construction used by unrelated workflow/UI
+  ordering code and a separate media application. It packages a repeated index-aware map pattern,
+  not a control-flow combinator.
+
+| Repository          | File                                                   | Enclosing/source symbol                                                                                                    | Occurrences |
+| ------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ----------: |
+| `nunofyobiz/ampm`   | `packages/web/lib/branch-choice.ts`                    | `moveAsksBranchChoice`                                                                                                     |           1 |
+| `nunofyobiz/ampm`   | `packages/web/app/(app)/[workspaceId]/inbox-server.ts` | `prefetchedOpenPane`                                                                                                       |           1 |
+| `nunofyobiz/ampm`   | `packages/web/lib/approval-decision.ts`                | `backwardTargets`                                                                                                          |           1 |
+| `nunofyobiz/ampm`   | `packages/web/components/move-actions.tsx`             | `MoveActions` lifecycle comparison                                                                                         |           1 |
+| `nunofyobiz/ampm`   | `packages/web/components/factory.tsx`                  | `Factory` lifecycle comparison                                                                                             |           1 |
+| `nunofyobiz/ampm`   | `packages/web/components/inbox.tsx`                    | `Inbox` lifecycle comparison                                                                                               |           1 |
+| `nunofyobiz/ampm`   | `packages/web/components/roadmap.tsx`                  | `Roadmap` lifecycle comparison                                                                                             |           1 |
+| `nunofyobiz/ampm`   | `packages/web/components/approval-standalone.tsx`      | `ApprovalStandalone` lifecycle comparison                                                                                  |           1 |
+| `nunofyobiz/ampm`   | `packages/core/src/domain/FollowUpDedup.ts`            | `deduplicateFollowUps`                                                                                                     |           1 |
+| `nunofyobiz/ampm`   | `packages/core/src/domain/ProposalGrouping.ts`         | `groupProposals` (its own `indexOfProposal` position map, distinct from this function's `clusterBy`-shaped grouping above) |           1 |
+| `nunofyobiz/ampm`   | `packages/core/src/domain/WorkspaceModel.ts`           | `mergeRows` (its own index-of-id lookup)                                                                                   |           1 |
+| `StoryCut/StoryCut` | `domain/models/Timeline/Timeline.ts`                   | `fuzzyOrderedTimelineTrackIndexes`                                                                                         |           1 |
+| `StoryCut/StoryCut` | `domain/models/Timeline/Timeline.ts`                   | `fuzzyOrderedTimeBucketIndexes`                                                                                            |           1 |
+
+Usage total: 2 repositories, 12 files, 13 call sites, every one of them a `lastIndexes` caller
+today (none of these sites' keys are known to repeat, so `lastIndexes` and `indexes` would behave
+identically for them; `lastIndexes` is listed as the literal replacement because it matches this
+candidate's original, single-export shape exactly). `lib/FuzzyOrdering/FuzzyOrdering.ts`'s `order`
+is excluded here: it builds the identical position map internally, but it closes over it and
+returns the comparator itself in one step, so it is the `OrderX.byPriority` implementation, not a
+map-feeds-a-comparator occurrence — counted once, there, below.
+
 ### `OrderX` — 2 source repositories, 2 call sites
 
 #### `byPriority`
@@ -394,6 +366,13 @@ export const byPriority = <A, K>(
 };
 ```
 
+- Implementation note (review feedback, PR #65): build `priority` into a plain lookup — a
+  `Map<K, number>` from each key to its position, or a `Record`/plain object if `K` is narrowed to
+  `PropertyKey` — once, in the closure, when `byPriority` is called, and have the returned `Order`
+  look up both sides' ranks from that lookup per comparison rather than re-scanning `priority` or
+  going through Effect's own collection plumbing on every call. The comparator runs on a hot path
+  (every pairwise comparison in a sort), so a deliberate, raw-code lookup here is a justified
+  exception to leaning on Effect internals for the hot path's own body.
 - Target: existing `OrderX` module.
 - effect-extras status: no equivalent export exists in `src/OrderX.ts` or `src/index.ts`. The
   nearest existing export is `OrderX.rankedEnum`, which is a different shape: it requires an
@@ -430,9 +409,11 @@ export const byPriority = <A, K>(
 
 Usage total: 2 repositories, 2 files, 2 call sites.
 
-Module ordering note: all three adopted modules above span 2 source repositories each, so the
-tie-break is total call sites (`MapX` 18, then `ArrayX` 8, then `OrderX` 2); a module-name
-alphabetical order is the final, deterministic tie-break this survey did not need.
+Module ordering note: all three adopted modules above span 2 source repositories each. `ArrayX`
+and `MapX` also tie on the next tie-break, total call sites, at 13 each (review feedback, PR #65,
+moved `MapX.preferredByKey`'s 5 call sites into `ArrayX.mergeByWhere`, which leveled what had been
+`MapX` 18 against `ArrayX` 8), so the deterministic final tie-break — module name, alphabetical —
+orders `ArrayX` before `MapX`. `OrderX` sits last on every measure (2 call sites).
 
 ## Rejected candidates
 
@@ -573,21 +554,21 @@ monomorphized to its own `ChangeSet`, `FilePlan`, `PjtLock`, and `Blueprint` typ
 ## Implementation boundary
 
 `tk-8452f601` should implement, in this module order (most source repositories first, then total
-call sites):
+call sites, then module name):
 
-1. `MapX.indexes` (and its `indices` alias), `MapX.firstIndexes`, `MapX.lastIndexes`, and
-   `MapX.preferredByKey`.
-2. `ArrayX.clusterBy`, `ArrayX.mergeKeyedArrays`, and `ArrayX.sameSet`.
+1. `ArrayX.clusterBy`, `ArrayX.mergeByWhere`, and `ArrayX.sameSet`.
+2. `MapX.indexes` (and its `indices` alias), `MapX.firstIndexes`, and `MapX.lastIndexes`.
 3. `OrderX.byPriority`.
 
 Each needs its normal module tests, documentation, and consumer migration decisions in the
 implementation task. This survey changes no source, generated documentation, package metadata, or
 changeset.
 
-The adopted APIs are intentionally not merged into one another: `indexes` (with `firstIndexes` and
-`lastIndexes`) is a reusable lookup constructor, `preferredByKey` owns per-key winner selection,
-`clusterBy` owns transitive-membership grouping, `mergeKeyedArrays` additionally owns
-order-preserving, referentially-stable array reconciliation, `sameSet` owns unordered-equality
+The adopted APIs are intentionally not merged into one another beyond the `mergeByWhere`/
+`preferredByKey` unification above: `indexes` (with `firstIndexes` and `lastIndexes`) is a
+reusable lookup constructor, `clusterBy` owns transitive-membership grouping, `mergeByWhere` owns
+order-preserving, referentially-stable per-key reconciliation (including the single-iterable,
+reduce-to-one-winner case the former `preferredByKey` covered), `sameSet` owns unordered-equality
 comparison, and `byPriority` owns deriving a composable `Order` from a priority list — each is a
 distinct, independently useful primitive.
 
