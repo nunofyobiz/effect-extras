@@ -1,5 +1,43 @@
 # @nunofyobiz/effect-extras
 
+## 4.1.0
+
+### Minor Changes
+
+- [#51](https://github.com/nunofyobiz/effect-extras/pull/51) [`d0b9b5f`](https://github.com/nunofyobiz/effect-extras/commit/d0b9b5f6d5c69c6dcb695856eadf9216032efc7c) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Deprecated `OptionX.tupleOf` in favour of `Option.product`,
+  `ArrayX.filterMapNullable` in favour of `Array.flatMapNullishOr`, `ArrayX.categorize`
+  in favour of `Array.groupBy`, and `EffectX.fromOptionOrElse` in favour of
+  `Effect.fromOption(option, onNone)`. `fromOptionOrElse` now invokes `onNone` once
+  while constructing a `None` effect rather than on each execution.
+
+- [#44](https://github.com/nunofyobiz/effect-extras/pull/44) [`5b4f092`](https://github.com/nunofyobiz/effect-extras/commit/5b4f092a42bf1ff2d07d3c91ee0500599c714ced) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Add `SchemaX.clamp` for coercing numeric schemas into inclusive ranges.
+
+### Patch Changes
+
+- [#53](https://github.com/nunofyobiz/effect-extras/pull/53) [`d5f9c74`](https://github.com/nunofyobiz/effect-extras/commit/d5f9c745e2fc04a1d66e2c5dc490ed01ed1361a2) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Clarify the shipped README guidance for choosing, naming, and placing generic helpers.
+
+- [#56](https://github.com/nunofyobiz/effect-extras/pull/56) [`e3aa49f`](https://github.com/nunofyobiz/effect-extras/commit/e3aa49f4c91eeb116f48fb7d0f11ed992ca04b5f) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Fix `MapX.getOrElseSetGet` to call its fallback once on a cache miss and return the value it stored.
+
+- [#60](https://github.com/nunofyobiz/effect-extras/pull/60) [`a65e429`](https://github.com/nunofyobiz/effect-extras/commit/a65e429be93b9c3e360ea7138818774f0cd34a0b) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Internal: build `FormDataX.decodeSync`'s dual form with `dual` from `effect/Function`, matching the pattern used by every other module.
+
+- [#63](https://github.com/nunofyobiz/effect-extras/pull/63) [`2f702b4`](https://github.com/nunofyobiz/effect-extras/commit/2f702b436651d502a6541f35c5ba852352257802) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Rebuild ArrayX internals on Effect v4 `Array` and `Predicate` primitives without changing behavior.
+
+- [#58](https://github.com/nunofyobiz/effect-extras/pull/58) [`9fdbb61`](https://github.com/nunofyobiz/effect-extras/commit/9fdbb6137aae49e340ee398f4c19fa219e1166bb) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Rebuild `DurationX.diff` on Effect's elapsed-time utilities.
+
+- [#57](https://github.com/nunofyobiz/effect-extras/pull/57) [`a7092ae`](https://github.com/nunofyobiz/effect-extras/commit/a7092aeb6e706d475b5ef6043bb1e00357b667ae) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Rebuild Option, Result, Effect, nullable, and predicate bridge helpers on Effect v4 primitives.
+
+- [#55](https://github.com/nunofyobiz/effect-extras/pull/55) [`b60d30a`](https://github.com/nunofyobiz/effect-extras/commit/b60d30afef97f95cf588b85182a850110fc7e3a2) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Rebuild NumberX internals on Effect v4 primitives without changing behavior.
+
+- [#61](https://github.com/nunofyobiz/effect-extras/pull/61) [`eae0113`](https://github.com/nunofyobiz/effect-extras/commit/eae0113df659049837b43c5bcab21debd2aa5921) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Refactor RecordX and StructX helpers to use Effect v4 matching and predicate refinements.
+
+- [#62](https://github.com/nunofyobiz/effect-extras/pull/62) [`720a4c1`](https://github.com/nunofyobiz/effect-extras/commit/720a4c11d3af7ea1954d72f20fef1be23b675e19) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Rebuild `pick`, `omit` and `partial` on Effect v4's typed `Struct` helpers, removing internal `as` casts. `partial` now keeps symbol-keyed fields and makes them optional, matching its declared type — previously it silently dropped them.
+
+- [#54](https://github.com/nunofyobiz/effect-extras/pull/54) [`5039153`](https://github.com/nunofyobiz/effect-extras/commit/5039153e5cd14ef3f11b21dbdf1a56fd9a2a07d1) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Rebuild StringX helpers on Effect v4 String primitives without changing their API or behavior.
+
+- [#52](https://github.com/nunofyobiz/effect-extras/pull/52) [`a8b3427`](https://github.com/nunofyobiz/effect-extras/commit/a8b342725e5dcd8a99d148d6dd703b10ca106185) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Refactor `InclusiveOr` and its `WarnResult` vocabulary layer on Effect v4 built-ins without changing their public APIs or behavior.
+
+- [#50](https://github.com/nunofyobiz/effect-extras/pull/50) [`c0e53de`](https://github.com/nunofyobiz/effect-extras/commit/c0e53decb0c54b173a7fcde3d6d534ef83bebb22) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Update the README and API documentation to point consumers to the current Effect v4 documentation and remove outdated Effect v3 comparisons. This changes no APIs or runtime behavior.
+
 ## 4.0.0
 
 ### Major Changes
