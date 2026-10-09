@@ -46,9 +46,59 @@ describe("Struct utils", () => {
         name: "value",
       });
     });
+
+    test("narrows an optional value without retaining undefined", () => {
+      const value: string | undefined = Math.random() > 2 ? undefined : "Ada";
+      const result: Partial<Record<"name", string>> = defined("name", value);
+      expect(result).toStrictEqual({ name: "Ada" });
+    });
   });
 
   describe("filterDefined", () => {
+    test("empty input", () => {
+      const input = {};
+      const result = filterDefined(input);
+
+      expect(result).toStrictEqual({});
+      expect(result).not.toBe(input);
+    });
+
+    test("preserves order and omits undefined without mutating the input", () => {
+      const input = { b: 0, a: undefined, c: "", d: false, e: null };
+      const result = filterDefined(input);
+
+      expect(result).toStrictEqual({ b: 0, c: "", d: false, e: null });
+      expect(Object.keys(result)).toStrictEqual(["b", "c", "d", "e"]);
+      expect("a" in result).toBe(false);
+      expect(result).not.toBe(input);
+      expect(input).toStrictEqual({
+        b: 0,
+        a: undefined,
+        c: "",
+        d: false,
+        e: null,
+      });
+    });
+
+    test("keeps an own enumerable __proto__ property and drops symbols", () => {
+      const symbol = Symbol("ignored");
+      const input: Record<string, unknown> = { [symbol]: "symbol" };
+      Object.defineProperty(input, "__proto__", {
+        configurable: true,
+        enumerable: true,
+        value: "kept",
+      });
+
+      const result = filterDefined(input);
+
+      expect(Object.hasOwn(result, "__proto__")).toBe(true);
+      expect(Object.getOwnPropertyDescriptor(result, "__proto__")?.value).toBe(
+        "kept",
+      );
+      expect(Object.getOwnPropertySymbols(result)).toStrictEqual([]);
+      expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+    });
+
     test("all undefined", () => {
       expect(
         filterDefined({

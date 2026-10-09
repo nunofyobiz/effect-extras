@@ -186,6 +186,43 @@ describe("Record utils", () => {
   });
 
   describe("collectBy", () => {
+    test("preserves keys, symbols, and safe __proto__ assignments", () => {
+      const symbol = Symbol("id");
+      const values = [
+        { id: "a", value: 1 },
+        { id: "b", value: 2 },
+        { id: "a", value: 3 },
+        { id: "__proto__", value: 4 },
+        { id: symbol, value: 5 },
+      ];
+
+      const result = collectBy(values, (value) => value.id);
+
+      expect(Object.keys(result)).toStrictEqual(["a", "b", "__proto__"]);
+      expect(result.a).toStrictEqual({ id: "a", value: 3 });
+      expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+      expect(Object.hasOwn(result, "__proto__")).toBe(true);
+      expect(
+        Object.getOwnPropertyDescriptor(result, "__proto__")?.value,
+      ).toStrictEqual({
+        id: "__proto__",
+        value: 4,
+      });
+      expect(result[symbol]).toStrictEqual({ id: symbol, value: 5 });
+      expect(result).not.toBe(values);
+      expect(values).toStrictEqual([
+        { id: "a", value: 1 },
+        { id: "b", value: 2 },
+        { id: "a", value: 3 },
+        { id: "__proto__", value: 4 },
+        { id: symbol, value: 5 },
+      ]);
+    });
+
+    test("returns a fresh empty record", () => {
+      expect(collectBy([], (value: never) => value)).toStrictEqual({});
+    });
+
     test("no conflicts", () => {
       expect(
         collectBy(
@@ -398,6 +435,15 @@ describe("Record utils", () => {
       const map = new Map();
       expect(canonicalize(map)).toBe(map);
     });
+
+    test("returns fresh arrays and records without mutating them", () => {
+      const input = [{ b: 1, a: 2 }];
+      const result = canonicalize(input);
+
+      expect(result).toStrictEqual([{ a: 2, b: 1 }]);
+      expect(result).not.toBe(input);
+      expect(input).toStrictEqual([{ b: 1, a: 2 }]);
+    });
   });
 
   describe("deleteByPath", () => {
@@ -425,12 +471,18 @@ describe("Record utils", () => {
     test("returns None for an empty path or a non-record input", () => {
       expect(Option.isNone(deleteByPath({ a: 1 }, []))).toBe(true);
       expect(Option.isNone(deleteByPath(42, ["a"]))).toBe(true);
+      expect(Option.isNone(deleteByPath([], ["a"]))).toBe(true);
     });
 
     test("does not mutate the input", () => {
       const input = { a: { b: 1, c: 2 } };
       deleteByPath(input, ["a", "b"]);
       expect(input).toStrictEqual({ a: { b: 1, c: 2 } });
+    });
+
+    test("returns a fresh root after a successful deletion", () => {
+      const input = { a: 1, b: 2 };
+      expect(Option.getOrThrow(deleteByPath(input, ["a"]))).not.toBe(input);
     });
 
     test("data-last (pipeable) form", () => {
