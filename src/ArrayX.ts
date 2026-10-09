@@ -4,7 +4,7 @@
  * @since 0.0.0
  */
 import { Array, Equivalence, Option, Order, Predicate, pipe } from "effect";
-import { dual, identity } from "effect/Function";
+import { dual } from "effect/Function";
 
 /**
  * Returns a shallow copy of `array` between `start` (inclusive) and `end`
@@ -34,93 +34,6 @@ export const slice = dual<
   <A>(array: readonly A[], start: number, end: number) => A[]
 >(3, <A>(array: readonly A[], start: number, end: number): A[] =>
   array.slice(start, end),
-);
-
-/**
- * Moves a unique item within an array to a new position, using a custom identification function.
- *
- * **Assumption**: Items should be unique in the array based on the identification function.
- *
- * **Happy case**: If the source item is found exactly once and the destination reference item is found (or null, to move to the end):
- * The source item is moved from its current position to the new position
- *
- * **Source item not found**: The array is returned unchanged, regardless of whether the destination reference item exists.
- *
- * **Source item found but duplicated**:
- * - If destination reference item is found: All copies of the source item are removed, then a single copy is inserted before the destination reference item
- * - If destination reference item is not found: The array is returned completely unchanged (no items are moved or removed)
- *
- * Used internally by {@link insertUniq}; not exported as the codebase has no
- * direct callers.
- */
-const moveUniqWith = dual<
-  <A, I extends string | number>(config: {
-    identify: (item: A) => I;
-    sourceId: I;
-    moveToBeLeftOfId: I | null;
-  }) => (array: readonly A[] | A[]) => A[],
-  <A, I extends string | number>(
-    array: readonly A[] | A[],
-    config: {
-      identify: (item: A) => I;
-      sourceId: I;
-      moveToBeLeftOfId: I | null;
-    },
-  ) => A[]
->(
-  2,
-  <A, I extends string | number>(
-    inputArray: readonly A[] | A[],
-    {
-      identify,
-      sourceId,
-      moveToBeLeftOfId,
-    }: {
-      identify: (item: A) => I;
-      sourceId: I;
-      moveToBeLeftOfId: I | null;
-    },
-  ): A[] => {
-    const array: A[] = [...inputArray];
-
-    // Find the source item and its index
-    const sourceIndex = array.findIndex((item) => identify(item) === sourceId);
-    // Unreachable via the public API: the only caller (`insertUniq`) appends the
-    // item before delegating here, so `sourceId` is always present. Kept as a
-    // defensive no-op for direct (internal) callers.
-    /* v8 ignore next 3 */
-    if (sourceIndex < 0) {
-      return array;
-    }
-
-    const sourceItem = array[sourceIndex];
-
-    // Remove ALL occurrences of the source item from the array
-    const arrayWithoutSource = array.filter(
-      (item) => identify(item) !== sourceId,
-    );
-
-    // If moveToBeLeftOfId is null, move to end
-    if (moveToBeLeftOfId === null) {
-      return [...arrayWithoutSource, sourceItem];
-    }
-
-    // Find the destination index in the array without the source item
-    const destinationIndex = arrayWithoutSource.findIndex(
-      (item) => identify(item) === moveToBeLeftOfId,
-    );
-    if (destinationIndex < 0) {
-      // If destination not found, leave array completely unchanged
-      return array;
-    }
-
-    // Insert the source item before the destination index
-    return [
-      ...slice(arrayWithoutSource, 0, destinationIndex),
-      sourceItem,
-      ...slice(arrayWithoutSource, destinationIndex, arrayWithoutSource.length),
-    ];
-  },
 );
 
 /**
@@ -185,20 +98,24 @@ export const insertUniq = dual<
     array: readonly A[] | A[],
     { item, insertToBeLeftOf }: { item: A; insertToBeLeftOf: A | null },
   ): A[] => {
-    // Always deduplicate and append the item to the end for insertUniq
-    // This ensures we always have exactly one copy of the item, regardless of destination
-    const arrayWithNewItem = pipe(
+    // Always deduplicate first so there is exactly one copy of the item,
+    // regardless of destination
+    const arrayWithoutItem = Array.filter(
       array,
-      Array.filter((existingItem) => existingItem !== item),
-      Array.append(item),
+      (existingItem) => existingItem !== item,
     );
 
-    // Now move that new item to the desired position
-    return moveUniqWith(arrayWithNewItem, {
-      identify: identity,
-      sourceId: item,
-      moveToBeLeftOfId: insertToBeLeftOf,
-    });
+    return pipe(
+      Option.fromNullOr(insertToBeLeftOf),
+      Option.flatMap((destination) =>
+        Array.findFirstIndex(
+          arrayWithoutItem,
+          (existingItem) => existingItem === destination,
+        ),
+      ),
+      Option.flatMap((index) => Array.insertAt(arrayWithoutItem, index, item)),
+      Option.getOrElse(() => Array.append(arrayWithoutItem, item)),
+    );
   },
 );
 
@@ -507,13 +424,9 @@ export const compactNullable = <A>(array: A[]): NonNullable<A>[] =>
 export const filterHead = dual<
   <A>(predicate: Predicate.Predicate<A>) => (array: A[]) => A[],
   <A>(array: A[], predicate: Predicate.Predicate<A>) => A[]
->(2, <A>(array: A[], predicate: Predicate.Predicate<A>): A[] => {
-  const firstMatchingIndex = Array.findFirstIndex(array, predicate);
-  return Option.match(firstMatchingIndex, {
-    onSome: (index) => slice(array, index, array.length),
-    onNone: () => [],
-  });
-});
+>(2, <A>(array: A[], predicate: Predicate.Predicate<A>): A[] =>
+  Array.dropWhile(array, Predicate.not(predicate)),
+);
 
 /**
  * Drops the trailing elements of `array` after `predicate` last holds, keeping
@@ -542,13 +455,11 @@ export const filterHead = dual<
 export const filterTail = dual<
   <A>(predicate: Predicate.Predicate<A>) => (array: A[]) => A[],
   <A>(array: A[], predicate: Predicate.Predicate<A>) => A[]
->(2, <A>(array: A[], predicate: Predicate.Predicate<A>): A[] => {
-  const lastMatchingIndex = Array.findLastIndex(array, predicate);
-  return Option.match(lastMatchingIndex, {
-    onSome: (index) => slice(array, 0, index + 1),
-    onNone: () => [],
-  });
-});
+>(2, <A>(array: A[], predicate: Predicate.Predicate<A>): A[] =>
+  Array.reverse(
+    Array.dropWhile(Array.reverse(array), Predicate.not(predicate)),
+  ),
+);
 
 /**
  * Maps `f` over `array` and drops every result that is `null` or `undefined`,
@@ -681,28 +592,20 @@ export const chunkBy = dual<
     chunk: (a: A) => B,
     chunkEquals: Equivalence.Equivalence<B>,
   ): { group: B; values: Array.NonEmptyArray<A> }[] => {
-    if (array.length === 0) {
+    const pairs = Array.map(array, (item) => ({ group: chunk(item), item }));
+
+    if (!Array.isArrayNonEmpty(pairs)) {
       return [];
     }
 
-    const result: { group: B; values: Array.NonEmptyArray<A> }[] = [];
-
-    for (const item of array) {
-      const groupValue = chunk(item);
-
-      if (result.length > 0) {
-        const lastGroup = result.at(-1);
-        if (lastGroup && chunkEquals(lastGroup.group, groupValue)) {
-          // Add to current group
-          lastGroup.values.push(item);
-          continue;
-        }
-      }
-
-      // Start a new group
-      result.push({ group: groupValue, values: Array.of(item) });
-    }
-
-    return result;
+    return Array.map(
+      Array.groupWith(pairs, (current, headOfRun) =>
+        chunkEquals(headOfRun.group, current.group),
+      ),
+      (run) => ({
+        group: run[0].group,
+        values: Array.map(run, ({ item }) => item),
+      }),
+    );
   },
 );
