@@ -7,7 +7,7 @@ import {
   Predicate,
   pipe,
 } from "effect";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import {
   categorize,
   chunkBy,
@@ -165,6 +165,36 @@ describe("Array utils", () => {
           insertToBeLeftOf: "not-found",
         }),
       ).toStrictEqual(["a", "b", "c", "d"]); // Already at end
+    });
+
+    test("insertToBeLeftOf equal to item: dedupes and moves item to the end", () => {
+      expect(
+        insertUniq(["a", "b", "a", "c"], {
+          item: "a",
+          insertToBeLeftOf: "a",
+        }),
+      ).toStrictEqual(["b", "c", "a"]);
+    });
+
+    test("empty array", () => {
+      expect(
+        insertUniq([], { item: "a", insertToBeLeftOf: null }),
+      ).toStrictEqual(["a"]);
+    });
+
+    test("input array is left unmutated", () => {
+      const input = ["a", "b", "c", "d"];
+      const output = insertUniq(input, { item: "a", insertToBeLeftOf: "c" });
+      expect(output).toStrictEqual(["b", "a", "c", "d"]);
+      // Re-asserting on `input` (not `output`) confirms the original array
+      // was never mutated in place.
+      expect(input).toStrictEqual(["a", "b", "c", "d"]);
+    });
+
+    test("returns a fresh reference", () => {
+      const input = ["a", "b", "c", "d"];
+      const result = insertUniq(input, { item: "a", insertToBeLeftOf: "c" });
+      expect(result).not.toBe(input);
     });
 
     test("insert new to first", () => {
@@ -445,6 +475,21 @@ describe("Array utils", () => {
         pipe(["a", "b", 1, 2], filterHead(Predicate.isNumber)),
       ).toStrictEqual([1, 2]);
     });
+
+    test("input array is left unmutated", () => {
+      const input = ["a", "b", 1, 2];
+      const output = filterHead(input, Predicate.isNumber);
+      expect(output).toStrictEqual([1, 2]);
+      // Re-asserting on `input` (not `output`) confirms the original array
+      // was never mutated in place.
+      expect(input).toStrictEqual(["a", "b", 1, 2]);
+    });
+
+    test("returns a fresh reference", () => {
+      const input = [1, 2, 3];
+      const result = filterHead(input, Predicate.isNumber);
+      expect(result).not.toBe(input);
+    });
   });
 
   describe("filterTail", () => {
@@ -481,6 +526,21 @@ describe("Array utils", () => {
         pipe([1, 2, "a", "b"], filterTail(Predicate.isNumber)),
       ).toStrictEqual([1, 2]);
     });
+
+    test("input array is left unmutated", () => {
+      const input = [1, 2, "a", "b"];
+      const output = filterTail(input, Predicate.isNumber);
+      expect(output).toStrictEqual([1, 2]);
+      // Re-asserting on `input` (not `output`) confirms the original array
+      // was never mutated in place.
+      expect(input).toStrictEqual([1, 2, "a", "b"]);
+    });
+
+    test("returns a fresh reference", () => {
+      const input = [1, 2, 3];
+      const result = filterTail(input, Predicate.isNumber);
+      expect(result).not.toBe(input);
+    });
   });
 
   describe("chunkBy", () => {
@@ -507,6 +567,69 @@ describe("Array utils", () => {
         { group: "odd", values: [3] },
         { group: "even", values: [4, 8] },
         { group: "odd", values: [1] },
+      ]);
+    });
+
+    test("input array is left unmutated", () => {
+      const input = [1, 2, 4, 3];
+      const output = chunkBy(input, (n) => n % 2 === 0, Equal.equals);
+      expect(output).toStrictEqual([
+        { group: false, values: [1] },
+        { group: true, values: [2, 4] },
+        { group: false, values: [3] },
+      ]);
+      // Re-asserting on `input` (not `output`) confirms the original array
+      // was never mutated in place.
+      expect(input).toStrictEqual([1, 2, 4, 3]);
+    });
+
+    test("returns a fresh reference", () => {
+      const input = [1, 2, 3];
+      const result = chunkBy(input, (n) => n % 2 === 0, Equal.equals);
+      expect(result).not.toBe(input);
+    });
+
+    test("non-transitive equivalence compares each item against its run's first group value, in (firstGroup, current) order", () => {
+      const closeToFirst = vi.fn(
+        (a: number, b: number) => Math.abs(a - b) <= 1,
+      );
+
+      expect(chunkBy([1, 2, 3, 10], (n) => n, closeToFirst)).toStrictEqual([
+        { group: 1, values: [1, 2] },
+        { group: 3, values: [3] },
+        { group: 10, values: [10] },
+      ]);
+      expect(closeToFirst.mock.calls).toStrictEqual([
+        [1, 2],
+        [1, 3],
+        [3, 10],
+      ]);
+    });
+
+    test("asymmetric equivalence proves the result is order-sensitive: swapping the comparator's argument order would change the grouping", () => {
+      const groupIsAtMostOneBelowCurrent: Equivalence.Equivalence<number> = (
+        firstGroup,
+        current,
+      ) => current - firstGroup >= 0 && current - firstGroup <= 1;
+
+      expect(
+        chunkBy([1, 2, 3], (n) => n, groupIsAtMostOneBelowCurrent),
+      ).toStrictEqual([
+        { group: 1, values: [1, 2] },
+        { group: 3, values: [3] },
+      ]);
+    });
+
+    test("the chunk projection is called exactly once per item, in input order", () => {
+      const chunk = vi.fn((n: number) => n % 2 === 0);
+
+      const result = chunkBy([2, 4, 1, 3, 6], chunk, Equal.equals);
+
+      expect(chunk.mock.calls).toStrictEqual([[2], [4], [1], [3], [6]]);
+      expect(result).toStrictEqual([
+        { group: true, values: [2, 4] },
+        { group: false, values: [1, 3] },
+        { group: true, values: [6] },
       ]);
     });
   });

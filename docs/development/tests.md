@@ -56,6 +56,20 @@ test("data-first and data-last agree", () => {
 });
 ```
 
+## Pinning "input left unmutated"
+
+When a test exists only to prove the input wasn't mutated in place, assert the real output first
+(even though another test already covers its value), then re-assert on `input` with a comment
+calling out that the second assertion targets the original reference, not the result. A lone
+`expect(input).toStrictEqual(...)` with no call to the helper's output reads as if the helper is
+supposed to transform `input` itself, which is confusing on a first read.
+
+## Prefer `vi.fn()` over hand-rolled call recorders
+
+To assert how many times a callback ran, with what arguments, and in what order, use `vi.fn()` and
+inspect `.mock.calls` — don't hand-roll the same bookkeeping with a local array and manual
+`.push(...)` calls. `vi.fn()` is the project's existing test-runner primitive for this.
+
 ## Working with existing tests
 
 > Provenance: StoryCut's AGENTS.md "Working with existing tests", on a point the operator's rule and
