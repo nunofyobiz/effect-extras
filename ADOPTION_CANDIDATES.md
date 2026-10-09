@@ -155,7 +155,7 @@ export const preferredByKey: {
 };
 ```
 
-- Target: existing `MapX` module, alongside `positions`.
+- Target: existing `MapX` module, alongside `indexes`.
 - effect-extras status: no equivalent export exists in `src/MapX.ts` or `src/index.ts`.
 - Effect 4.0.2 absence proof: checked `effect/Array` exports `dedupeWith`, `dedupeAdjacentWith`,
   `groupBy`, and `reduce`, and `effect/HashMap`'s `set`/`modify`; `dedupeWith` compares the whole
