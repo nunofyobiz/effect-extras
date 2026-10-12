@@ -925,6 +925,23 @@ describe("Array utils", () => {
   });
 
   describe("filterMapNullable", () => {
+    test("returns transformed values and removes nullish mapper results", () => {
+      const input = ["12", "", "not a number", "34"];
+      const callback = (value: string) => {
+        if (value === "") {
+          return;
+        }
+        const amount = Number(value);
+        return Number.isNaN(amount) ? null : amount;
+      };
+      const direct = filterMapNullable(input, callback);
+      const piped = pipe(input, filterMapNullable(callback));
+      expect(direct).toStrictEqual([12, 34]);
+      expect(piped).toStrictEqual(direct);
+      expectTypeOf(direct).toEqualTypeOf<number[]>();
+      expectTypeOf(piped).toEqualTypeOf<number[]>();
+    });
+
     test.each([
       { input: ["Amira"], expected: ["Amira"] },
       { input: [null], expected: [] },
