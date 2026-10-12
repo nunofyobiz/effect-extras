@@ -6,7 +6,19 @@ parent: Modules
 
 ## InclusiveOr overview
 
-The `InclusiveOr` data type — an inclusive-or carrying a `left`, a `right`, or both at once.
+A value carrying a left payload, a right payload, or both at once.
+Use InclusiveOr when problems can accompany a usable result.
+
+Shared example scenarios:
+
+- Sign-up email: left contains cleanup or validation messages; right contains
+  the usable email, such as maya@example.com. Removing surrounding whitespace
+  can produce both a warning and an email that can still be saved.
+- Spreadsheet import: left contains a row's import problems; right contains
+  its usable contact record. For zip, pair index-aligned problem entries and
+  contact entries from the same rows. Pairing is positional, not a join by ID.
+
+WarnResult reuses these scenarios unchanged: warnings = left, success = right.
 
 Added in v0.0.0
 
@@ -65,16 +77,12 @@ Added in v0.0.0
 
 ## zip
 
-Zips two arrays into one, calling `f` with an `InclusiveOr` for each index so
-that length mismatches are handled explicitly rather than truncated.
-
-Unlike `Array.zipWith` (which stops at the shorter array), this walks to the
-length of the _longer_ array. The first array's element fills the `left` side
-and the second array's element fills the `right` side, so at each index `f`
-receives an `InclusiveOr<A, B>`: `LeftAndRight` when both arrays have an
-element, `LeftOnly` when only the first does, and `RightOnly` when only the
-second does. Use it when the "extra" tail of either array still carries
-meaning.
+Pairs two arrays by index and passes each pair to a callback as an InclusiveOr.
+Use it when unmatched tails must be kept: both entries produce LeftAndRight,
+only the first produces LeftOnly, and only the second produces RightOnly.
+Presence depends on array bounds, so an explicit undefined entry is present.
+This is positional pairing, not a join by identifier. Both empty inputs return
+an empty array without calling the callback.
 
 **Signature**
 
@@ -91,17 +99,18 @@ export declare const zip: {
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
 import { pipe } from "effect"
 
-const describe = InclusiveOr.match({
-  LeftOnly: ({ left }) => `left ${left}`,
-  RightOnly: ({ right }) => `right ${right}`,
-  LeftAndRight: ({ left, right }) => `both ${left}/${right}`
-})
-
-// data-first
-assert.deepStrictEqual(InclusiveOr.zip([1, 2, 3], [10, 20], describe), ["both 1/10", "both 2/20", "left 3"])
-
-// data-last (pipeable)
-assert.deepStrictEqual(pipe([1, 2, 3], InclusiveOr.zip([10, 20], describe)), ["both 1/10", "both 2/20", "left 3"])
+// These spreadsheet lists refer to the same rows in the same order.
+const problems = [["Name is missing"], ["Email is missing"]]
+const contacts = [{ email: "maya@example.com" }]
+const keepPair = (row: InclusiveOr.InclusiveOr<string[], { email: string }>) => row
+// Row one has problems and a contact; row two has only problems.
+const paired = InclusiveOr.zip(problems, contacts, keepPair)
+assert.deepStrictEqual(paired, [
+  InclusiveOr.LeftAndRight({ left: ["Name is missing"], right: { email: "maya@example.com" } }),
+  InclusiveOr.LeftOnly({ left: ["Email is missing"] })
+])
+// The piped form keeps the same positional pairs and unmatched tail.
+assert.deepStrictEqual(pipe(problems, InclusiveOr.zip(contacts, keepPair)), paired)
 ```
 
 Added in v0.0.0
@@ -110,8 +119,8 @@ Added in v0.0.0
 
 ## LeftAndRight
 
-Constructs a `LeftAndRight` — an `InclusiveOr` that carries both a `left` and a
-`right`.
+Creates a value carrying both payloads. Use it to keep problems alongside a usable
+result. Both supplied payloads are preserved, even if they are nullish.
 
 **Signature**
 
@@ -127,18 +136,19 @@ export declare const LeftAndRight: <A, B>(args: {
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
 
-const value = InclusiveOr.LeftAndRight({ left: 1, right: "a" })
-
-assert.deepStrictEqual(value._tag, "LeftAndRight")
-assert.deepStrictEqual(value.left, 1)
-assert.deepStrictEqual(value.right, "a")
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+// Save the cleaned email and retain the message explaining the cleanup.
+const result = InclusiveOr.LeftAndRight({ left: warnings, right: email })
+assert.deepStrictEqual(result, { _tag: "LeftAndRight", left: warnings, right: email })
 ```
 
 Added in v0.0.0
 
 ## LeftOnly
 
-Constructs a `LeftOnly` — an `InclusiveOr` that carries only a `left`.
+Creates a value carrying only a left payload. Use it to report problems when there
+is no usable result. The supplied payload is preserved, even if it is nullish.
 
 **Signature**
 
@@ -153,17 +163,17 @@ export declare const LeftOnly: <A, B>(args: {
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
 
-const value = InclusiveOr.LeftOnly({ left: 1 })
-
-assert.deepStrictEqual(value._tag, "LeftOnly")
-assert.deepStrictEqual(value.left, 1)
+// A missing email gives the form a problem without a value to save.
+const result = InclusiveOr.LeftOnly({ left: ["Email is required"] })
+assert.deepStrictEqual(result, { _tag: "LeftOnly", left: ["Email is required"] })
 ```
 
 Added in v0.0.0
 
 ## RightOnly
 
-Constructs a `RightOnly` — an `InclusiveOr` that carries only a `right`.
+Creates a value carrying only a right payload. Use it for a usable result without
+problems. The supplied payload is preserved, even if it is nullish.
 
 **Signature**
 
@@ -178,23 +188,19 @@ export declare const RightOnly: <A, B>(args: {
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
 
-const value = InclusiveOr.RightOnly({ right: "a" })
-
-assert.deepStrictEqual(value._tag, "RightOnly")
-assert.deepStrictEqual(value.right, "a")
+// The email was already clean, so save it without warnings.
+const result = InclusiveOr.RightOnly({ right: "maya@example.com" })
+assert.deepStrictEqual(result, { _tag: "RightOnly", right: "maya@example.com" })
 ```
 
 Added in v0.0.0
 
 ## WithLeft
 
-Builds an `InclusiveOr` known to carry a `left`, choosing `LeftAndRight` when `right`
-is present and `LeftOnly` otherwise.
-
-Use it when the `left` is mandatory and the `right` is an optional companion:
-pass an absent (`null`/`undefined`) `right` to get a `LeftOnly`, or a present
-one to get a `LeftAndRight`. The return type `WithLeft<L, R>` reflects that a
-`left` is always present.
+Creates a value with a mandatory left payload and an optional right companion.
+Use it when problems are known but usable data might be absent. A null or undefined
+companion produces LeftOnly; any other companion produces LeftAndRight. The
+mandatory left is preserved even when nullish.
 
 **Signature**
 
@@ -207,22 +213,24 @@ export declare const WithLeft: <L, R>({ left, right }: { left: L; right?: R | un
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
 
-assert.deepStrictEqual(InclusiveOr.WithLeft({ left: 1, right: "a" }), InclusiveOr.LeftAndRight({ left: 1, right: "a" }))
-
-assert.deepStrictEqual(InclusiveOr.WithLeft({ left: 1 }), InclusiveOr.LeftOnly({ left: 1 }))
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+// The warning remains whether or not the cleaned email is available.
+assert.deepStrictEqual(
+  InclusiveOr.WithLeft({ left: warnings, right: email }),
+  InclusiveOr.LeftAndRight({ left: warnings, right: email })
+)
+assert.deepStrictEqual(InclusiveOr.WithLeft({ left: warnings }), InclusiveOr.LeftOnly({ left: warnings }))
 ```
 
 Added in v0.0.0
 
 ## WithRight
 
-Builds an `InclusiveOr` known to carry a `right`, choosing `LeftAndRight` when `left`
-is present and `RightOnly` otherwise.
-
-The mirror of `WithLeft`: the `right` is mandatory and the `left` is an
-optional companion. Pass an absent (`null`/`undefined`) `left` to get a
-`RightOnly`, or a present one to get a `LeftAndRight`. The return type
-`WithRight<L, R>` reflects that a `right` is always present.
+Creates a value with a mandatory right payload and an optional left companion.
+Use it when usable data is known but problems might be absent. A null or undefined
+companion produces RightOnly; any other companion produces LeftAndRight. The
+mandatory right is preserved even when nullish.
 
 **Signature**
 
@@ -235,25 +243,24 @@ export declare const WithRight: <L, R>({ left, right }: { left?: L | undefined; 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
 
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+// A clean email has no warning companion; a cleaned email has both sides.
+assert.deepStrictEqual(InclusiveOr.WithRight({ right: email }), InclusiveOr.RightOnly({ right: email }))
 assert.deepStrictEqual(
-  InclusiveOr.WithRight({ left: 1, right: "a" }),
-  InclusiveOr.LeftAndRight({ left: 1, right: "a" })
+  InclusiveOr.WithRight({ left: warnings, right: email }),
+  InclusiveOr.LeftAndRight({ left: warnings, right: email })
 )
-
-assert.deepStrictEqual(InclusiveOr.WithRight({ right: "a" }), InclusiveOr.RightOnly({ right: "a" }))
 ```
 
 Added in v0.0.0
 
 ## fromNullables
 
-Builds an `InclusiveOr` from a pair of possibly-nullish inputs, falling back to the
-`orElse` thunk when both are absent.
-
-The non-optional companion to `optionFromNullables`: it unwraps the same logic
-but resolves the all-absent case with `orElse` instead of an `Option`. The
-default `orElse` throws, so omit it only when at least one side is guaranteed
-present.
+Creates an InclusiveOr from possibly missing payloads, using a lazy fallback when
+both are absent. Use it when an absent pair needs a replacement value rather than
+None. Null and undefined are absent; other values are kept. Without a custom
+fallback, an absent pair throws Error("Both left and right are nullable").
 
 **Signature**
 
@@ -274,33 +281,23 @@ export declare const fromNullables: <L, R>({
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
 
-assert.deepStrictEqual(
-  InclusiveOr.fromNullables({ left: 1, right: "a" }),
-  InclusiveOr.LeftAndRight({ left: 1, right: "a" })
-)
-
-// Both absent — fall back via orElse instead of throwing
-assert.deepStrictEqual(
-  InclusiveOr.fromNullables({
-    left: null,
-    right: null,
-    orElse: () => InclusiveOr.LeftOnly({ left: 0 })
-  }),
-  InclusiveOr.LeftOnly({ left: 0 })
-)
+// A blank sign-up field has neither a cleaned email nor a cleanup warning.
+// Supply a validation problem only when both inputs are absent.
+const result = InclusiveOr.fromNullables({
+  left: null,
+  right: undefined,
+  orElse: () => InclusiveOr.LeftOnly({ left: ["Email is required"] })
+})
+assert.deepStrictEqual(result, InclusiveOr.LeftOnly({ left: ["Email is required"] }))
 ```
 
 Added in v0.0.0
 
 ## optionFromNullables
 
-Builds an `InclusiveOr` from a pair of possibly-nullish inputs, wrapping the result in
-an `Option` so the all-absent case is expressible.
-
-Returns `Option.some(LeftAndRight)` when both are present, `Option.some(LeftOnly)`
-or `Option.some(RightOnly)` when exactly one is present, and `Option.none()`
-when both are nullish. Use it as the total entry point for turning two optional
-values into an `InclusiveOr`.
+Creates an optional InclusiveOr from two possibly missing payloads. Use it when
+neither side is guaranteed: null and undefined count as absent, and both absent
+produce None. Present values, including false, zero and empty strings, are kept.
 
 **Signature**
 
@@ -320,16 +317,14 @@ export declare const optionFromNullables: <L, R>({
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
 import { Option } from "effect"
 
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+// Keep the available email even when no cleanup warning was recorded.
 assert.deepStrictEqual(
-  InclusiveOr.optionFromNullables({ left: 1, right: "a" }),
-  Option.some(InclusiveOr.LeftAndRight({ left: 1, right: "a" }))
+  InclusiveOr.optionFromNullables({ left: null, right: email }),
+  Option.some(InclusiveOr.RightOnly({ right: email }))
 )
-
-assert.deepStrictEqual(
-  InclusiveOr.optionFromNullables({ left: 1, right: null }),
-  Option.some(InclusiveOr.LeftOnly({ left: 1 }))
-)
-
+// With neither a warning nor an email there is no InclusiveOr to construct.
 assert.deepStrictEqual(InclusiveOr.optionFromNullables({ left: null, right: undefined }), Option.none())
 ```
 
@@ -339,10 +334,9 @@ Added in v0.0.0
 
 ## leftOption
 
-Extracts the `left` of an `InclusiveOr` as an `Option`.
-
-The mirror of `rightOption`: `LeftOnly` and `LeftAndRight` yield
-`Option.some(left)`, while `RightOnly` yields `Option.none()`.
+Reads the left payload as Some, or returns None if that side is missing. Use it
+to compose optional problems with Option helpers. A present null or undefined
+payload is still Some.
 
 **Signature**
 
@@ -354,22 +348,25 @@ export declare const leftOption: <L, R>(inclusiveOr: InclusiveOr<L, R>) => Optio
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
-import { Option } from "effect"
+import { Option, pipe } from "effect"
 
-assert.deepStrictEqual(InclusiveOr.leftOption(InclusiveOr.LeftOnly({ left: 1 })), Option.some(1))
-assert.deepStrictEqual(InclusiveOr.leftOption(InclusiveOr.RightOnly({ right: "a" })), Option.none())
+// Keep the cleanup warning available for optional display.
+const result = InclusiveOr.LeftOnly({ left: ["Surrounding whitespace removed"] })
+assert.deepStrictEqual(pipe(result, InclusiveOr.leftOption), Option.some(["Surrounding whitespace removed"]))
+// An email alone has no problems.
+assert.deepStrictEqual(
+  pipe(InclusiveOr.RightOnly({ right: "maya@example.com" }), InclusiveOr.leftOption),
+  Option.none()
+)
 ```
 
 Added in v0.0.0
 
 ## leftOrElse
 
-Extracts the `left` of an `InclusiveOr`, falling back to `orElseReturn` when no `left`
-is present.
-
-`LeftOnly` and `LeftAndRight` return their `left`; `RightOnly` returns the
-result of `orElseReturn`. Use it to read the left side with a default in one
-step.
+Reads the left payload, calling a lazy fallback only when that side is missing.
+Use it to get problems with a default in one step. A present null or undefined
+payload does not invoke the fallback.
 
 **Signature**
 
@@ -381,23 +378,23 @@ export declare const leftOrElse: <A>(orElseReturn: () => A) => <L, R>(inclusiveO
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
-const leftOrZero = InclusiveOr.leftOrElse(() => 0)
-
-assert.deepStrictEqual(leftOrZero(InclusiveOr.LeftOnly({ left: 1 })), 1)
-assert.deepStrictEqual(leftOrZero(InclusiveOr.LeftAndRight({ left: 1, right: "a" })), 1)
-assert.deepStrictEqual(leftOrZero(InclusiveOr.RightOnly({ right: "a" })), 0)
+// A clean email has no warning list; use an empty list for the form display.
+const warnings = pipe(
+  InclusiveOr.RightOnly({ right: "maya@example.com" }),
+  InclusiveOr.leftOrElse((): string[] => [])
+)
+assert.deepStrictEqual(warnings, [])
 ```
 
 Added in v0.0.0
 
 ## leftOrUndefined
 
-Extracts the `left` of an `InclusiveOr`, returning `undefined` when no `left` is
-present.
-
-A specialisation of `leftOrElse` whose fallback is `undefined`: `LeftOnly` and
-`LeftAndRight` yield their `left`, while `RightOnly` yields `undefined`.
+Reads the left payload, returning undefined if that side is missing. Use it
+when problems can be absent and no default is needed. Present nullish payloads
+are preserved.
 
 **Signature**
 
@@ -414,22 +411,19 @@ export declare const leftOrUndefined: <L, R>(
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
-assert.deepStrictEqual(InclusiveOr.leftOrUndefined(InclusiveOr.LeftOnly({ left: 1 })), 1)
-assert.deepStrictEqual(InclusiveOr.leftOrUndefined(InclusiveOr.RightOnly({ right: "a" })), undefined)
+// There are no warnings to display for this clean email.
+assert.strictEqual(pipe(InclusiveOr.RightOnly({ right: "maya@example.com" }), InclusiveOr.leftOrUndefined), undefined)
 ```
 
 Added in v0.0.0
 
 ## orElse
 
-Completes an `InclusiveOr` into a guaranteed `LeftAndRight` by filling whichever side
-is missing from the matching `orElse` thunk.
-
-A `LeftAndRight` passes through unchanged; a `LeftOnly` gains a `right` from
-`orElseRight`; a `RightOnly` gains a `left` from `orElseLeft`. Use it to
-normalise a partial `InclusiveOr` into the both-present shape before reading both
-sides.
+Fills whichever side is missing using its lazy fallback, producing LeftAndRight.
+Use it when the next step needs both payloads. Only a missing side invokes a
+fallback; a present null or undefined payload is preserved.
 
 **Signature**
 
@@ -447,27 +441,27 @@ export declare const orElse: <L2, R2>({
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
-const fill = InclusiveOr.orElse({
-  orElseLeft: () => 0,
-  orElseRight: () => "default"
-})
-
-assert.deepStrictEqual(fill(InclusiveOr.LeftOnly({ left: 1 })), InclusiveOr.LeftAndRight({ left: 1, right: "default" }))
-assert.deepStrictEqual(fill(InclusiveOr.RightOnly({ right: "a" })), InclusiveOr.LeftAndRight({ left: 0, right: "a" }))
+const result = InclusiveOr.RightOnly({ right: "maya@example.com" })
+// Supply an empty warning list for an email that needed no cleanup.
+const complete = pipe(
+  result,
+  InclusiveOr.orElse({
+    orElseLeft: (): string[] => [],
+    orElseRight: () => "draft@example.com"
+  })
+)
+assert.deepStrictEqual(complete, InclusiveOr.LeftAndRight({ left: [], right: "maya@example.com" }))
 ```
 
 Added in v0.0.0
 
 ## orUndefined
 
-Completes an `InclusiveOr` into a `LeftAndRight` whose missing side is filled with
-`undefined`.
-
-A specialisation of `orElse` that supplies `undefined` for whichever side is
-absent, so the result always exposes both `left` and `right` keys (each
-possibly `undefined`). Use it when you want to destructure both sides without
-branching on the tag.
+Fills missing sides with undefined, producing LeftAndRight. Use it to read or
+destructure both keys without branching on the tag. Present nullish payloads are
+preserved.
 
 **Signature**
 
@@ -484,26 +478,20 @@ export declare const orUndefined: <L, R>(
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
-assert.deepStrictEqual(
-  InclusiveOr.orUndefined(InclusiveOr.LeftOnly({ left: 1 })),
-  InclusiveOr.LeftAndRight({ left: 1, right: undefined })
-)
-assert.deepStrictEqual(
-  InclusiveOr.orUndefined(InclusiveOr.RightOnly({ right: "a" })),
-  InclusiveOr.LeftAndRight({ left: undefined, right: "a" })
-)
+// The clean email has no warning list; expose that absence as undefined.
+const complete = pipe(InclusiveOr.RightOnly({ right: "maya@example.com" }), InclusiveOr.orUndefined)
+assert.deepStrictEqual(complete, InclusiveOr.LeftAndRight({ left: undefined, right: "maya@example.com" }))
 ```
 
 Added in v0.0.0
 
 ## rightOption
 
-Extracts the `right` of an `InclusiveOr` as an `Option`.
-
-`RightOnly` and `LeftAndRight` yield `Option.some(right)`; `LeftOnly` yields
-`Option.none()`. Use it when you want to chain the right side through `Option`
-combinators rather than fall back to a default eagerly.
+Reads the right payload as Some, or returns None if that side is missing. Use it
+to compose optional usable data with Option helpers. A present null or undefined
+payload is still Some.
 
 **Signature**
 
@@ -515,21 +503,25 @@ export declare const rightOption: <L, R>(inclusiveOr: InclusiveOr<L, R>) => Opti
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
-import { Option } from "effect"
+import { Option, pipe } from "effect"
 
-assert.deepStrictEqual(InclusiveOr.rightOption(InclusiveOr.RightOnly({ right: "a" })), Option.some("a"))
-assert.deepStrictEqual(InclusiveOr.rightOption(InclusiveOr.LeftOnly({ left: 1 })), Option.none())
+// Keep the usable email available for optional saving.
+const result = InclusiveOr.RightOnly({ right: "maya@example.com" })
+assert.deepStrictEqual(pipe(result, InclusiveOr.rightOption), Option.some("maya@example.com"))
+// Problems alone have no usable email.
+assert.deepStrictEqual(
+  pipe(InclusiveOr.LeftOnly({ left: ["Email is required"] }), InclusiveOr.rightOption),
+  Option.none()
+)
 ```
 
 Added in v0.0.0
 
 ## rightOrElse
 
-Extracts the `right` of an `InclusiveOr`, falling back to `orElseReturn` when no
-`right` is present.
-
-The mirror of `leftOrElse`: `RightOnly` and `LeftAndRight` return their
-`right`; `LeftOnly` returns the result of `orElseReturn`.
+Reads the right payload, calling a lazy fallback only when that side is missing.
+Use it to get usable data with a default in one step. A present null or undefined
+payload does not invoke the fallback.
 
 **Signature**
 
@@ -541,22 +533,23 @@ export declare const rightOrElse: <A>(orElseReturn: () => A) => <L, R>(inclusive
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
-const rightOrDefault = InclusiveOr.rightOrElse(() => "default")
-
-assert.deepStrictEqual(rightOrDefault(InclusiveOr.RightOnly({ right: "a" })), "a")
-assert.deepStrictEqual(rightOrDefault(InclusiveOr.LeftOnly({ left: 1 })), "default")
+// A form with only a validation problem needs a draft email for its preview.
+const email = pipe(
+  InclusiveOr.LeftOnly({ left: ["Email is required"] }),
+  InclusiveOr.rightOrElse(() => "draft@example.com")
+)
+assert.strictEqual(email, "draft@example.com")
 ```
 
 Added in v0.0.0
 
 ## rightOrUndefined
 
-Extracts the `right` of an `InclusiveOr`, returning `undefined` when no `right` is
-present.
-
-A specialisation of `rightOrElse` whose fallback is `undefined`: `RightOnly` and
-`LeftAndRight` yield their `right`, while `LeftOnly` yields `undefined`.
+Reads the right payload, returning undefined if that side is missing. Use it
+when usable data can be absent and no default is needed. Present nullish payloads
+are preserved.
 
 **Signature**
 
@@ -573,9 +566,10 @@ export declare const rightOrUndefined: <L, R>(
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
-assert.deepStrictEqual(InclusiveOr.rightOrUndefined(InclusiveOr.RightOnly({ right: "a" })), "a")
-assert.deepStrictEqual(InclusiveOr.rightOrUndefined(InclusiveOr.LeftOnly({ left: 1 })), undefined)
+// A missing email problem has no usable email to preview.
+assert.strictEqual(pipe(InclusiveOr.LeftOnly({ left: ["Email is required"] }), InclusiveOr.rightOrUndefined), undefined)
 ```
 
 Added in v0.0.0
@@ -584,9 +578,8 @@ Added in v0.0.0
 
 ## is
 
-Builds per-tag refinements for `InclusiveOr`. `is("LeftOnly")` is a type guard that
-narrows an `InclusiveOr` to its `LeftOnly` member, and likewise for `"RightOnly"` and
-`"LeftAndRight"`.
+Checks a value's tag and narrows its type to that variant. Use it before reading a
+side that is not available on every variant; it also accepts unknown inputs.
 
 **Signature**
 
@@ -601,9 +594,14 @@ export declare const is: <Tag>(tag: Tag) => {
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
-assert.deepStrictEqual(InclusiveOr.is("LeftOnly")(InclusiveOr.LeftOnly({ left: 1 })), true)
-assert.deepStrictEqual(InclusiveOr.is("LeftOnly")(InclusiveOr.RightOnly({ right: "a" })), false)
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+const result = InclusiveOr.LeftAndRight({ left: warnings, right: email })
+// Recognise a cleaned email that has accompanying warnings.
+assert.strictEqual(pipe(result, InclusiveOr.is("LeftAndRight")), true)
+assert.strictEqual(InclusiveOr.is("LeftOnly")(result), false)
 ```
 
 Added in v0.0.0
@@ -612,12 +610,9 @@ Added in v0.0.0
 
 ## mapBoth
 
-Transforms both sides of an `InclusiveOr`, applying `mapLeft` to any `left` and
-`mapRight` to any `right`.
-
-Each constructor is rebuilt with its mapped contents, so `LeftOnly` maps only
-the left, `RightOnly` only the right, and `LeftAndRight` both. The tag is
-preserved. Use it as the bifunctor map over `InclusiveOr`.
+Transforms each present payload and keeps the original tag. Use it when problems
+and usable data each need a new representation. A missing side never calls its
+mapper; the original value is left unchanged.
 
 **Signature**
 
@@ -635,28 +630,35 @@ export declare const mapBoth: <L1, R1, L2, R2>({
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
-const both = InclusiveOr.mapBoth({
-  mapLeft: (left: number) => left + 1,
-  mapRight: (right: string) => right.toUpperCase()
-})
-
-assert.deepStrictEqual(
-  both(InclusiveOr.LeftAndRight({ left: 1, right: "a" })),
-  InclusiveOr.LeftAndRight({ left: 2, right: "A" })
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+const result = InclusiveOr.LeftAndRight({ left: warnings, right: email })
+// Turn warnings into display text and the email into a contact record.
+const mapped = pipe(
+  result,
+  InclusiveOr.mapBoth({
+    mapLeft: (messages: string[]) => messages.join("; "),
+    mapRight: (email: string) => ({ email })
+  })
 )
-assert.deepStrictEqual(both(InclusiveOr.LeftOnly({ left: 1 })), InclusiveOr.LeftOnly({ left: 2 }))
+assert.deepStrictEqual(
+  mapped,
+  InclusiveOr.LeftAndRight({
+    left: "Surrounding whitespace removed",
+    right: { email: "maya@example.com" }
+  })
+)
 ```
 
 Added in v0.0.0
 
 ## mapLeft
 
-Transforms the `left` of an `InclusiveOr`, leaving any `right` untouched.
-
-A specialisation of `mapBoth` with the right mapper set to `identity`:
-`LeftOnly` and `LeftAndRight` have their `left` mapped, while `RightOnly` passes
-through unchanged.
+Transforms the left payload, keeping any right payload and the tag.
+Use it to prepare problem messages without changing usable data.
+When left is absent, its mapper is not called.
 
 **Signature**
 
@@ -670,24 +672,32 @@ export declare const mapLeft: <L1, L2>(
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
-const inc = InclusiveOr.mapLeft((left: number) => left + 1)
-
-assert.deepStrictEqual(
-  inc(InclusiveOr.LeftAndRight({ left: 1, right: "a" })),
-  InclusiveOr.LeftAndRight({ left: 2, right: "a" })
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+const result = InclusiveOr.LeftAndRight({ left: warnings, right: email })
+// Prepare one display message while retaining the email.
+const mapped = pipe(
+  result,
+  InclusiveOr.mapLeft((messages: string[]) => messages.join("; "))
 )
-assert.deepStrictEqual(inc(InclusiveOr.RightOnly({ right: "a" })), InclusiveOr.RightOnly({ right: "a" }))
+assert.deepStrictEqual(
+  mapped,
+  InclusiveOr.LeftAndRight({
+    left: "Surrounding whitespace removed",
+    right: email
+  })
+)
 ```
 
 Added in v0.0.0
 
 ## mapRight
 
-Transforms the `right` of an `InclusiveOr`, leaving any `left` untouched.
-
-The mirror of `mapLeft`: `RightOnly` and `LeftAndRight` have their `right`
-mapped, while `LeftOnly` passes through unchanged.
+Transforms the right payload, keeping any left payload and the tag.
+Use it to prepare usable data without changing its problems.
+When right is absent, its mapper is not called.
 
 **Signature**
 
@@ -701,14 +711,23 @@ export declare const mapRight: <R1, R2>(
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
-const upper = InclusiveOr.mapRight((right: string) => right.toUpperCase())
-
-assert.deepStrictEqual(
-  upper(InclusiveOr.LeftAndRight({ left: 1, right: "a" })),
-  InclusiveOr.LeftAndRight({ left: 1, right: "A" })
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+const result = InclusiveOr.LeftAndRight({ left: warnings, right: email })
+// Prepare a contact record while retaining the cleanup warnings.
+const mapped = pipe(
+  result,
+  InclusiveOr.mapRight((email: string) => ({ email }))
 )
-assert.deepStrictEqual(upper(InclusiveOr.LeftOnly({ left: 1 })), InclusiveOr.LeftOnly({ left: 1 }))
+assert.deepStrictEqual(
+  mapped,
+  InclusiveOr.LeftAndRight({
+    left: warnings,
+    right: { email: "maya@example.com" }
+  })
+)
 ```
 
 Added in v0.0.0
@@ -717,14 +736,8 @@ Added in v0.0.0
 
 ## InclusiveOr (type alias)
 
-A value carrying a left `L`, a right `R`, or both at once — the data type for
-an "inclusive or".
-
-Where `Result<R, L>` models an exclusive choice (success _or_ failure),
-`InclusiveOr` adds the third case where both sides are present. It is a tagged enum
-with three constructors: `LeftOnly` (only `left`), `RightOnly` (only `right`),
-and `LeftAndRight` (both). Reach for it when an operation can produce partial
-results — e.g. a parse that yields a value _and_ a list of warnings.
+A value with a left payload, a right payload, or both. Use it when an operation can
+produce problems and a usable result together, such as saving a cleaned form field.
 
 **Signature**
 
@@ -750,20 +763,19 @@ export type InclusiveOr<L, R> = Data.TaggedEnum<{
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
 
-const both: InclusiveOr.InclusiveOr<number, string> = InclusiveOr.LeftAndRight({
-  left: 1,
-  right: "a"
-})
-
-assert.deepStrictEqual(both._tag, "LeftAndRight")
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+// Cleaning the sign-up field produced an email and a warning.
+const result: InclusiveOr.InclusiveOr<string[], string> = InclusiveOr.LeftAndRight({ left: warnings, right: email })
+assert.deepStrictEqual(result, { _tag: "LeftAndRight", left: warnings, right: email })
 ```
 
 Added in v0.0.0
 
 ## LeftAndRight (type alias)
 
-The `LeftAndRight` member of `InclusiveOr` — a value that carries both a `left` and a
-`right`.
+A value that carries both payloads. Use this type when problems accompany a result
+that is still usable.
 
 **Signature**
 
@@ -778,20 +790,19 @@ export type LeftAndRight<L, R> = InclusiveOr<L, R> & {
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
 
-const value: InclusiveOr.LeftAndRight<number, string> = InclusiveOr.LeftAndRight({
-  left: 1,
-  right: "a"
-})
-
-assert.deepStrictEqual(value, { _tag: "LeftAndRight", left: 1, right: "a" })
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+// Keep the cleanup warning alongside the email that can be saved.
+const result: InclusiveOr.LeftAndRight<string[], string> = InclusiveOr.LeftAndRight({ left: warnings, right: email })
+assert.deepStrictEqual(result, { _tag: "LeftAndRight", left: warnings, right: email })
 ```
 
 Added in v0.0.0
 
 ## LeftOnly (type alias)
 
-The `LeftOnly` member of `InclusiveOr` — a value that carries only a `left` and no
-`right`.
+A value that carries only a left payload. Use this type for problems that have no
+usable result yet.
 
 **Signature**
 
@@ -806,17 +817,17 @@ export type LeftOnly<L> = InclusiveOr<L, never> & {
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
 
-const value: InclusiveOr.LeftOnly<number> = InclusiveOr.LeftOnly({ left: 1 })
-
-assert.deepStrictEqual(value.left, 1)
+// The sign-up email is missing, so there is nothing to save.
+const result: InclusiveOr.LeftOnly<string[]> = InclusiveOr.LeftOnly({ left: ["Email is required"] })
+assert.deepStrictEqual(result.left, ["Email is required"])
 ```
 
 Added in v0.0.0
 
 ## RightOnly (type alias)
 
-The `RightOnly` member of `InclusiveOr` — a value that carries only a `right` and no
-`left`.
+A value that carries only a right payload. Use this type for a usable result with
+no accompanying problems.
 
 **Signature**
 
@@ -831,17 +842,17 @@ export type RightOnly<R> = InclusiveOr<never, R> & {
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
 
-const value: InclusiveOr.RightOnly<string> = InclusiveOr.RightOnly({ right: "a" })
-
-assert.deepStrictEqual(value.right, "a")
+// This sign-up email needs no cleanup.
+const result: InclusiveOr.RightOnly<string> = InclusiveOr.RightOnly({ right: "maya@example.com" })
+assert.deepStrictEqual(result.right, "maya@example.com")
 ```
 
 Added in v0.0.0
 
 ## WithLeft (type alias)
 
-Any `InclusiveOr` that is guaranteed to carry a `left` — either `LeftOnly` or
-`LeftAndRight`.
+Either a left-only value or a value with both sides. Use this type when problems
+are always available but a usable result may be missing.
 
 **Signature**
 
@@ -854,17 +865,17 @@ export type WithLeft<L, R> = LeftOnly<L> | LeftAndRight<L, R>
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
 
-const value: InclusiveOr.WithLeft<number, string> = InclusiveOr.LeftOnly({ left: 1 })
-
-assert.deepStrictEqual(value.left, 1)
+// The form always has a validation message; an email may become available later.
+const result: InclusiveOr.WithLeft<string[], string> = InclusiveOr.LeftOnly({ left: ["Email is required"] })
+assert.deepStrictEqual(result.left, ["Email is required"])
 ```
 
 Added in v0.0.0
 
 ## WithRight (type alias)
 
-Any `InclusiveOr` that is guaranteed to carry a `right` — either `RightOnly` or
-`LeftAndRight`.
+Either a right-only value or a value with both sides. Use this type when a usable
+result is always available but accompanying problems may be missing.
 
 **Signature**
 
@@ -877,9 +888,9 @@ export type WithRight<L, R> = RightOnly<R> | LeftAndRight<L, R>
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
 
-const value: InclusiveOr.WithRight<number, string> = InclusiveOr.RightOnly({ right: "a" })
-
-assert.deepStrictEqual(value.right, "a")
+// The cleaned email can be saved whether or not cleanup produced warnings.
+const result: InclusiveOr.WithRight<string[], string> = InclusiveOr.RightOnly({ right: "maya@example.com" })
+assert.deepStrictEqual(result.right, "maya@example.com")
 ```
 
 Added in v0.0.0
@@ -888,9 +899,9 @@ Added in v0.0.0
 
 ## match
 
-Folds an `InclusiveOr` over its three tags. Provide a handler for `LeftOnly`,
-`RightOnly`, and `LeftAndRight` and `match` returns a function from an `InclusiveOr`
-to the handlers' common result type.
+Chooses one of three handlers from the value's tag and returns that handler's
+result. Use it when each combination of problems and usable data needs its own
+handling. It supports both direct and piped calls.
 
 **Signature**
 
@@ -915,26 +926,28 @@ export declare const match: {
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
-const describe = InclusiveOr.match({
-  LeftOnly: ({ left }) => `left ${left}`,
-  RightOnly: ({ right }) => `right ${right}`,
-  LeftAndRight: ({ left, right }) => `both ${left}/${right}`
-})
-
-assert.deepStrictEqual(describe(InclusiveOr.LeftAndRight({ left: 1, right: "a" })), "both 1/a")
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+const result = InclusiveOr.LeftAndRight({ left: warnings, right: email })
+const describe = {
+  LeftOnly: ({ left }: InclusiveOr.LeftOnly<string[]>) => left.join("; "),
+  RightOnly: ({ right }: InclusiveOr.RightOnly<string>) => `Save ${right}`,
+  LeftAndRight: ({ left, right }: InclusiveOr.LeftAndRight<string[], string>) => `Save ${right}: ${left.join("; ")}`
+}
+// Show both the cleaned email and the reason it changed.
+assert.strictEqual(pipe(result, InclusiveOr.match(describe)), "Save maya@example.com: Surrounding whitespace removed")
+assert.strictEqual(InclusiveOr.match(result, describe), pipe(result, InclusiveOr.match(describe)))
 ```
 
 Added in v0.0.0
 
 ## matchLeft
 
-Folds an `InclusiveOr` from the left's perspective, collapsing the three tags into two
-handlers.
-
-Both `LeftOnly` and `LeftAndRight` carry a `left`, so they route to the `Left`
-handler; only `RightOnly` lacks a `left` and routes to `RightOnly`. Use it when
-you care about the `left` value and treat the right-only case as the exception.
+Handles values according to whether a left payload exists. Use it to display
+problems regardless of whether usable data also exists. LeftOnly and LeftAndRight
+pass their left to Left; RightOnly passes its right to RightOnly.
 
 **Signature**
 
@@ -952,28 +965,29 @@ export declare const matchLeft: <L, R, A>({
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
-const onLeft = InclusiveOr.matchLeft({
-  Left: (left: number) => `left ${left}`,
-  RightOnly: (right: string) => `right ${right}`
-})
-
-assert.deepStrictEqual(onLeft(InclusiveOr.LeftOnly({ left: 1 })), "left 1")
-assert.deepStrictEqual(onLeft(InclusiveOr.LeftAndRight({ left: 1, right: "a" })), "left 1")
-assert.deepStrictEqual(onLeft(InclusiveOr.RightOnly({ right: "a" })), "right a")
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+const result = InclusiveOr.LeftAndRight({ left: warnings, right: email })
+// Display the cleanup warning even though the email can still be saved.
+const message = pipe(
+  result,
+  InclusiveOr.matchLeft({
+    Left: (messages: string[]) => messages.join("; "),
+    RightOnly: (email: string) => `Ready to save ${email}`
+  })
+)
+assert.strictEqual(message, "Surrounding whitespace removed")
 ```
 
 Added in v0.0.0
 
 ## matchRight
 
-Folds an `InclusiveOr` from the right's perspective, collapsing the three tags into two
-handlers.
-
-The mirror of `matchLeft`: both `RightOnly` and `LeftAndRight` carry a `right`,
-so they route to the `Right` handler; only `LeftOnly` lacks a `right` and routes
-to `LeftOnly`. Use it when you care about the `right` value and treat the
-left-only case as the exception.
+Handles values according to whether a right payload exists. Use it to process
+usable data regardless of accompanying problems. RightOnly and LeftAndRight pass
+their right to Right; LeftOnly passes its left to LeftOnly.
 
 **Signature**
 
@@ -991,15 +1005,20 @@ export declare const matchRight: <L, R, A>({
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
-const onRight = InclusiveOr.matchRight({
-  LeftOnly: (left: number) => `left ${left}`,
-  Right: (right: string) => `right ${right}`
-})
-
-assert.deepStrictEqual(onRight(InclusiveOr.RightOnly({ right: "a" })), "right a")
-assert.deepStrictEqual(onRight(InclusiveOr.LeftAndRight({ left: 1, right: "a" })), "right a")
-assert.deepStrictEqual(onRight(InclusiveOr.LeftOnly({ left: 1 })), "left 1")
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+const result = InclusiveOr.LeftAndRight({ left: warnings, right: email })
+// Prepare the usable email for saving despite the cleanup warning.
+const message = pipe(
+  result,
+  InclusiveOr.matchRight({
+    LeftOnly: (messages: string[]) => messages.join("; "),
+    Right: (email: string) => `Save ${email}`
+  })
+)
+assert.strictEqual(message, "Save maya@example.com")
 ```
 
 Added in v0.0.0
@@ -1008,12 +1027,10 @@ Added in v0.0.0
 
 ## flatMapLeft
 
-Chains the `left` of an `InclusiveOr` into a new `InclusiveOr`, flattening the result.
-
-Whenever a `left` is present (`LeftOnly` or `LeftAndRight`) it is passed to
-`mapLeft`, whose returned `InclusiveOr` replaces the original; `RightOnly` passes
-through unchanged. Use it to sequence left-driven computations that themselves
-produce an `InclusiveOr`.
+Replaces the whole value with a mapper's InclusiveOr when left exists.
+Use it when rechecking problems can change which sides are available.
+The original opposite payload is discarded, including on LeftAndRight; it is
+not accumulated. Values without left pass through.
 
 **Signature**
 
@@ -1027,25 +1044,31 @@ export declare const flatMapLeft: <L1, L2, R2>(
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
-const chain = InclusiveOr.flatMapLeft((left: number) =>
-  left > 0 ? InclusiveOr.LeftOnly({ left: left * 10 }) : InclusiveOr.RightOnly({ right: "non-positive" })
+// An imported contact is usable, but rechecking its missing name rejects the row.
+const row = InclusiveOr.LeftAndRight({
+  left: ["Name is missing"],
+  right: { email: "maya@example.com" }
+})
+const checked = pipe(
+  row,
+  InclusiveOr.flatMapLeft((problems: string[]) =>
+    InclusiveOr.LeftOnly({ left: problems.map((problem) => `Unresolved: ${problem}`) })
+  )
 )
-
-assert.deepStrictEqual(chain(InclusiveOr.LeftOnly({ left: 2 })), InclusiveOr.LeftOnly({ left: 20 }))
-assert.deepStrictEqual(chain(InclusiveOr.RightOnly({ right: "a" })), InclusiveOr.RightOnly({ right: "a" }))
+// The new problems-only result replaces the entire row, including its contact.
+assert.deepStrictEqual(checked, InclusiveOr.LeftOnly({ left: ["Unresolved: Name is missing"] }))
 ```
 
 Added in v0.0.0
 
 ## flatMapLeftEffect
 
-Effectful `flatMapLeft`: chains the `left` of an `InclusiveOr` into an `Effect` that
-yields a new `InclusiveOr`, flattening the result.
-
-When a `left` is present it is passed to `mapLeft`, whose effectful `InclusiveOr`
-replaces the original; `RightOnly` is lifted unchanged via `Effect.succeed`. Use
-it to sequence left-driven effectful computations that produce an `InclusiveOr`.
+Replaces the whole value with an effectful mapper's InclusiveOr when left exists.
+Use it when rechecking problems can change which sides are available.
+The original opposite payload is discarded, including on LeftAndRight; it is
+not accumulated. Values without left pass through in a successful Effect. A mapper failure fails the result.
 
 **Signature**
 
@@ -1059,26 +1082,31 @@ export declare const flatMapLeftEffect: <L1, L2, R2, EL, RL>(
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
-import { Effect } from "effect"
+import { Effect, pipe } from "effect"
 
-const chain = InclusiveOr.flatMapLeftEffect((left: number) => Effect.succeed(InclusiveOr.LeftOnly({ left: left * 10 })))
-
-assert.deepStrictEqual(Effect.runSync(chain(InclusiveOr.LeftOnly({ left: 2 }))), InclusiveOr.LeftOnly({ left: 20 }))
-assert.deepStrictEqual(
-  Effect.runSync(chain(InclusiveOr.RightOnly({ right: "a" }))),
-  InclusiveOr.RightOnly({ right: "a" })
+// An imported contact is usable, but rechecking its missing name rejects the row.
+const row = InclusiveOr.LeftAndRight({
+  left: ["Name is missing"],
+  right: { email: "maya@example.com" }
+})
+const checked = pipe(
+  row,
+  InclusiveOr.flatMapLeftEffect((problems: string[]) =>
+    Effect.succeed(InclusiveOr.LeftOnly({ left: problems.map((problem) => `Unresolved: ${problem}`) }))
+  )
 )
+// The new problems-only result replaces the entire row, including its contact.
+assert.deepStrictEqual(Effect.runSync(checked), InclusiveOr.LeftOnly({ left: ["Unresolved: Name is missing"] }))
 ```
 
 Added in v0.0.0
 
 ## flatMapRight
 
-Chains the `right` of an `InclusiveOr` into a new `InclusiveOr`, flattening the result.
-
-The mirror of `flatMapLeft`: whenever a `right` is present (`RightOnly` or
-`LeftAndRight`) it is passed to `mapRight`, whose returned `InclusiveOr` replaces the
-original; `LeftOnly` passes through unchanged.
+Replaces the whole value with a mapper's InclusiveOr when right exists.
+Use it when processing usable data can change which sides are available.
+The original opposite payload is discarded, including on LeftAndRight; it is
+not accumulated. Values without right pass through.
 
 **Signature**
 
@@ -1092,23 +1120,28 @@ export declare const flatMapRight: <L2, R1, R2>(
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
+import { pipe } from "effect"
 
-const chain = InclusiveOr.flatMapRight((right: string) => InclusiveOr.RightOnly({ right: right.toUpperCase() }))
-
-assert.deepStrictEqual(chain(InclusiveOr.RightOnly({ right: "a" })), InclusiveOr.RightOnly({ right: "A" }))
-assert.deepStrictEqual(chain(InclusiveOr.LeftOnly({ left: 1 })), InclusiveOr.LeftOnly({ left: 1 }))
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+const result = InclusiveOr.LeftAndRight({ left: warnings, right: email })
+// Rechecking the cleaned email produces a fresh result with no problems.
+const checked = pipe(
+  result,
+  InclusiveOr.flatMapRight((email: string) => InclusiveOr.RightOnly({ right: { email } }))
+)
+// The original cleanup warning is discarded rather than accumulated.
+assert.deepStrictEqual(checked, InclusiveOr.RightOnly({ right: { email: "maya@example.com" } }))
 ```
 
 Added in v0.0.0
 
 ## flatMapRightEffect
 
-Effectful `flatMapRight`: chains the `right` of an `InclusiveOr` into an `Effect` that
-yields a new `InclusiveOr`, flattening the result.
-
-The mirror of `flatMapLeftEffect`: when a `right` is present it is passed to
-`mapRight`, whose effectful `InclusiveOr` replaces the original; `LeftOnly` is lifted
-unchanged via `Effect.succeed`.
+Replaces the whole value with an effectful mapper's InclusiveOr when right exists.
+Use it when processing usable data can change which sides are available.
+The original opposite payload is discarded, including on LeftAndRight; it is
+not accumulated. Values without right pass through in a successful Effect. A mapper failure fails the result.
 
 **Signature**
 
@@ -1122,30 +1155,28 @@ export declare const flatMapRightEffect: <L2, R1, R2, ER, RR>(
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
-import { Effect } from "effect"
+import { Effect, pipe } from "effect"
 
-const chain = InclusiveOr.flatMapRightEffect((right: string) =>
-  Effect.succeed(InclusiveOr.RightOnly({ right: right.toUpperCase() }))
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+const result = InclusiveOr.LeftAndRight({ left: warnings, right: email })
+// Rechecking the cleaned email produces a fresh result with no problems.
+const checked = pipe(
+  result,
+  InclusiveOr.flatMapRightEffect((email: string) => Effect.succeed(InclusiveOr.RightOnly({ right: { email } })))
 )
-
-assert.deepStrictEqual(
-  Effect.runSync(chain(InclusiveOr.RightOnly({ right: "a" }))),
-  InclusiveOr.RightOnly({ right: "A" })
-)
-assert.deepStrictEqual(Effect.runSync(chain(InclusiveOr.LeftOnly({ left: 1 }))), InclusiveOr.LeftOnly({ left: 1 }))
+// The original cleanup warning is discarded rather than accumulated.
+assert.deepStrictEqual(Effect.runSync(checked), InclusiveOr.RightOnly({ right: { email: "maya@example.com" } }))
 ```
 
 Added in v0.0.0
 
 ## mapBothEffect
 
-Effectful `mapBoth`: transforms each present side through an `Effect`,
-reassembling the results into an `InclusiveOr` inside an `Effect`.
-
-For `LeftAndRight` both effects run via `Effect.all` and their results are
-combined; `LeftOnly`/`RightOnly` run only the relevant effect. Errors and
-requirements from both mappers are unioned into the result type. Use it when
-mapping an `InclusiveOr`'s sides requires effects (validation, IO).
+Transforms each present payload with an Effect and keeps the original tag. Use it
+when preparing problems and usable data requires effectful work. On a both-sides
+value, the left effect runs before the right; failure stops execution and fails
+the result. Missing sides never call their mapper.
 
 **Signature**
 
@@ -1163,16 +1194,25 @@ export declare const mapBothEffect: <L1, R1, L2, R2, EL, ER, RL, RR>({
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
-import { Effect } from "effect"
+import { Effect, pipe } from "effect"
 
-const both = InclusiveOr.mapBothEffect({
-  mapLeft: (left: number) => Effect.succeed(left + 1),
-  mapRight: (right: string) => Effect.succeed(right.toUpperCase())
-})
-
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+const result = InclusiveOr.LeftAndRight({ left: warnings, right: email })
+// Prepare warning text first, then prepare the contact record.
+const mapped = pipe(
+  result,
+  InclusiveOr.mapBothEffect({
+    mapLeft: (messages: string[]) => Effect.succeed(messages.join("; ")),
+    mapRight: (email: string) => Effect.succeed({ email })
+  })
+)
 assert.deepStrictEqual(
-  Effect.runSync(both(InclusiveOr.LeftAndRight({ left: 1, right: "a" }))),
-  InclusiveOr.LeftAndRight({ left: 2, right: "A" })
+  Effect.runSync(mapped),
+  InclusiveOr.LeftAndRight({
+    left: "Surrounding whitespace removed",
+    right: { email: "maya@example.com" }
+  })
 )
 ```
 
@@ -1180,12 +1220,9 @@ Added in v0.0.0
 
 ## mapLeftEffect
 
-Effectful `mapLeft`: transforms the `left` of an `InclusiveOr` through an `Effect`,
-leaving any `right` untouched.
-
-A specialisation of `mapBothEffect` with the right mapper set to
-`Effect.succeed`: the `left` (when present) is mapped effectfully and the
-`right` is carried through unchanged.
+Transforms the left payload with an Effect, keeping any right payload and the tag.
+Use it to prepare problem messages without changing usable data.
+When left is absent, its mapper is not called. A mapper failure fails the result.
 
 **Signature**
 
@@ -1199,13 +1236,22 @@ export declare const mapLeftEffect: <L1, L2, EL, RL>(
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
-import { Effect } from "effect"
+import { Effect, pipe } from "effect"
 
-const inc = InclusiveOr.mapLeftEffect((left: number) => Effect.succeed(left + 1))
-
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+const result = InclusiveOr.LeftAndRight({ left: warnings, right: email })
+// Prepare one display message while retaining the email.
+const mapped = pipe(
+  result,
+  InclusiveOr.mapLeftEffect((messages: string[]) => Effect.succeed(messages.join("; ")))
+)
 assert.deepStrictEqual(
-  Effect.runSync(inc(InclusiveOr.LeftAndRight({ left: 1, right: "a" }))),
-  InclusiveOr.LeftAndRight({ left: 2, right: "a" })
+  Effect.runSync(mapped),
+  InclusiveOr.LeftAndRight({
+    left: "Surrounding whitespace removed",
+    right: email
+  })
 )
 ```
 
@@ -1213,11 +1259,9 @@ Added in v0.0.0
 
 ## mapRightEffect
 
-Effectful `mapRight`: transforms the `right` of an `InclusiveOr` through an `Effect`,
-leaving any `left` untouched.
-
-The mirror of `mapLeftEffect`: the `right` (when present) is mapped effectfully
-and the `left` is carried through unchanged via `Effect.succeed`.
+Transforms the right payload with an Effect, keeping any left payload and the tag.
+Use it to prepare usable data without changing its problems.
+When right is absent, its mapper is not called. A mapper failure fails the result.
 
 **Signature**
 
@@ -1231,13 +1275,22 @@ export declare const mapRightEffect: <R1, R2, ER, RR>(
 
 ```ts
 import { InclusiveOr } from "@nunofyobiz/effect-extras"
-import { Effect } from "effect"
+import { Effect, pipe } from "effect"
 
-const upper = InclusiveOr.mapRightEffect((right: string) => Effect.succeed(right.toUpperCase()))
-
+const warnings = ["Surrounding whitespace removed"]
+const email = "maya@example.com"
+const result = InclusiveOr.LeftAndRight({ left: warnings, right: email })
+// Prepare a contact record while retaining the cleanup warnings.
+const mapped = pipe(
+  result,
+  InclusiveOr.mapRightEffect((email: string) => Effect.succeed({ email }))
+)
 assert.deepStrictEqual(
-  Effect.runSync(upper(InclusiveOr.LeftAndRight({ left: 1, right: "a" }))),
-  InclusiveOr.LeftAndRight({ left: 1, right: "A" })
+  Effect.runSync(mapped),
+  InclusiveOr.LeftAndRight({
+    left: warnings,
+    right: { email: "maya@example.com" }
+  })
 )
 ```
 
