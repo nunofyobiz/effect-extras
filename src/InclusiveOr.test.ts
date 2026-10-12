@@ -1129,6 +1129,35 @@ describe("InclusiveOr", () => {
     );
   });
   describe("zip", () => {
+    test.each([
+      {
+        name: "unmatched warning",
+        warnings: [warning, "Missing email"],
+        contacts: [email],
+        expected: [`Save ${email}: ${warning}`, "Problem: Missing email"],
+      },
+      {
+        name: "unmatched contact",
+        warnings: [warning],
+        contacts: [email, "lee@example.com"],
+        expected: [`Save ${email}: ${warning}`, "Save lee@example.com"],
+      },
+    ])(
+      "collects transformed callback results with an $name in both call styles",
+      ({ warnings, contacts, expected }) => {
+        const callback = (value: InclusiveOr.InclusiveOr<string, string>) =>
+          InclusiveOr.match(value, {
+            LeftOnly: ({ left }) => `Problem: ${left}`,
+            RightOnly: ({ right }) => `Save ${right}`,
+            LeftAndRight: ({ left, right }) => `Save ${right}: ${left}`,
+          });
+        const direct = InclusiveOr.zip(warnings, contacts, callback);
+        const piped = pipe(warnings, InclusiveOr.zip(contacts, callback));
+        expect(direct).toStrictEqual(expected);
+        expect(piped).toStrictEqual(expected);
+        expect(piped).toStrictEqual(direct);
+      },
+    );
     const cases = [
       {
         name: "equal lengths",
