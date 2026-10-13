@@ -18,18 +18,17 @@ import * as ArrayX from "./ArrayX.js";
 import * as PredicateX from "./PredicateX.js";
 
 /**
- * Returns `true` when `record` has at least one entry, narrowing it to a
- * known-non-empty `Record`.
- *
- * The negation of `Record.isEmptyRecord`, packaged as a type guard so it reads
- * naturally at call sites that want to branch on "this record has something in
- * it" without a manual `!Record.isEmptyRecord(...)`.
+ * Returns `true` when `record` has at least one own enumerable string key.
+ * Use it to check whether a settings or lookup record contains entries before
+ * processing it. Symbol keys and inherited entries do not count; the guard
+ * preserves the existing record type rather than proving any particular key exists.
  *
  * @example
  * ```ts
  * import { RecordX } from "@nunofyobiz/effect-extras"
  *
- * assert.deepStrictEqual(RecordX.isNonEmptyRecord({ a: 1 }), true)
+ * // A saved theme counts as a setting; an empty settings record has no entries.
+ * assert.deepStrictEqual(RecordX.isNonEmptyRecord({ theme: "dark" }), true)
  * assert.deepStrictEqual(RecordX.isNonEmptyRecord({}), false)
  * ```
  *
@@ -53,23 +52,24 @@ export const isNonEmptyRecord = <K extends PropertyKey, V>(
  * import { pipe } from "effect"
  * import { RecordX } from "@nunofyobiz/effect-extras"
  *
- * // data-first
+ * const settings: Record<string, number> = { fontSize: 14, lineHeight: 20 }
+ *
+ * // Increase the saved font size without changing the other settings.
  * assert.deepStrictEqual(
- *   RecordX.modifyIfExists({ a: 1, b: 2 }, "b", (n) => n * 10),
- *   { a: 1, b: 20 },
+ *   RecordX.modifyIfExists(settings, "fontSize", (size) => size + 2),
+ *   { fontSize: 16, lineHeight: 20 },
  * )
  *
- * // a missing key leaves the record untouched
- * const counts: Record<string, number> = { a: 1, b: 2 }
+ * // An unsaved setting stays absent, and its modifier is never called.
  * assert.deepStrictEqual(
- *   RecordX.modifyIfExists(counts, "missing", (n) => n + 1),
- *   { a: 1, b: 2 },
+ *   RecordX.modifyIfExists(settings, "zoom", (zoom) => zoom + 1),
+ *   settings,
  * )
  *
- * // data-last (pipeable)
+ * // The pipeable form makes the same font-size adjustment.
  * assert.deepStrictEqual(
- *   pipe({ a: 1, b: 2 }, RecordX.modifyIfExists("a", (n) => n * 10)),
- *   { a: 10, b: 2 },
+ *   pipe(settings, RecordX.modifyIfExists("fontSize", (size) => size + 2)),
+ *   { fontSize: 16, lineHeight: 20 },
  * )
  * ```
  *
@@ -104,27 +104,26 @@ export const modifyIfExists: {
  * `predicate`, narrowed to the refined type `B`, or `Option.none()` if none
  * match.
  *
- * The `Record` counterpart of `ArrayX.takeFirstWhere`: it considers only the
- * record's values, keeps those satisfying `predicate`, and returns the minimum
- * of them by `order`. Keys are ignored entirely.
+ * Use it to find the lowest-ranked eligible value in a lookup table. Only own
+ * enumerable string-keyed values participate; keys do not affect the ranking.
  *
  * @example
  * ```ts
- * import { Option, Order, pipe } from "effect"
+ * import { Option, Order, Predicate, pipe } from "effect"
  * import { RecordX } from "@nunofyobiz/effect-extras"
  *
- * const isEven = (n: number): n is number => n % 2 === 0
+ * const prices: Record<string, number | null> = { mug: 12, notebook: 8, lamp: null }
  *
- * // data-first
+ * // Find the cheapest listed product, ignoring the unavailable lamp.
  * assert.deepStrictEqual(
- *   RecordX.takeFirstWhere({ a: 3, b: 4, c: 2 }, isEven, Order.Number),
- *   Option.some(2),
+ *   RecordX.takeFirstWhere(prices, Predicate.isNumber, Order.Number),
+ *   Option.some(8),
  * )
  *
- * // data-last (pipeable); no even values yields None
+ * // The pipeable form finds the same listed price.
  * assert.deepStrictEqual(
- *   pipe({ a: 1, b: 3 }, RecordX.takeFirstWhere(isEven, Order.Number)),
- *   Option.none(),
+ *   pipe(prices, RecordX.takeFirstWhere(Predicate.isNumber, Order.Number)),
+ *   Option.some(8),
  * )
  * ```
  *
@@ -155,26 +154,25 @@ export const takeFirstWhere = dual<
  * Returns the largest value of `record` (per `order`) that matches `predicate`,
  * narrowed to the refined type `B`, or `Option.none()` if none match.
  *
- * The mirror of {@link takeFirstWhere}: it considers only the record's values,
- * keeps those satisfying `predicate`, and returns the maximum of them by
- * `order`. Keys are ignored entirely.
+ * Use it to find the highest-ranked eligible value in a lookup table. Only own
+ * enumerable string-keyed values participate; keys do not affect the ranking.
  *
  * @example
  * ```ts
- * import { Option, Order, pipe } from "effect"
+ * import { Option, Order, Predicate, pipe } from "effect"
  * import { RecordX } from "@nunofyobiz/effect-extras"
  *
- * const isEven = (n: number): n is number => n % 2 === 0
+ * const prices: Record<string, number | null> = { mug: 12, notebook: 8, lamp: null }
  *
- * // data-first
+ * // Find the highest listed price, ignoring the unavailable lamp.
  * assert.deepStrictEqual(
- *   RecordX.takeLastWhere({ a: 3, b: 4, c: 2 }, isEven, Order.Number),
- *   Option.some(4),
+ *   RecordX.takeLastWhere(prices, Predicate.isNumber, Order.Number),
+ *   Option.some(12),
  * )
  *
- * // data-last (pipeable); no even values yields None
+ * // No available products means there is no price to return.
  * assert.deepStrictEqual(
- *   pipe({ a: 1, b: 3 }, RecordX.takeLastWhere(isEven, Order.Number)),
+ *   pipe({ lamp: null }, RecordX.takeLastWhere(Predicate.isNumber, Order.Number)),
  *   Option.none(),
  * )
  * ```
@@ -206,22 +204,22 @@ export const takeLastWhere = dual<
  * Returns the largest value of `record` according to `order`, wrapped in an
  * `Option` so empty records are handled safely.
  *
- * Sorts the record's values by `order` and takes the last one, yielding
- * `Option.none()` when the record is empty and `Option.some(max)` otherwise.
- * Keys are ignored — only values participate in the ordering.
+ * Use it to find a maximum, such as the highest price in a product lookup.
+ * Only own enumerable string-keyed values participate; an empty record yields
+ * `Option.none()`. Reverse the order to select the minimum instead.
  *
  * @example
  * ```ts
  * import { Option, Order, pipe } from "effect"
  * import { RecordX } from "@nunofyobiz/effect-extras"
  *
- * // data-first
+ * // Select the highest product price without needing to sort the lookup yourself.
  * assert.deepStrictEqual(
- *   RecordX.takeLast({ a: 3, b: 5, c: 1 }, Order.Number),
- *   Option.some(5),
+ *   RecordX.takeLast({ mug: 12, notebook: 8, lamp: 35 }, Order.Number),
+ *   Option.some(35),
  * )
  *
- * // data-last (pipeable); empty record yields None
+ * // An empty price lookup has no maximum.
  * assert.deepStrictEqual(
  *   pipe({}, RecordX.takeLast(Order.Number)),
  *   Option.none(),
@@ -262,13 +260,14 @@ export const takeLast = dual<
  * ```ts
  * import { RecordX } from "@nunofyobiz/effect-extras"
  *
- * type UserId = string & { readonly _brand: "UserId" }
+ * type ProductId = "mug" | "notebook"
  *
- * const byId: Record<string, number> = { u1: 10, u2: 20 }
- * const branded = RecordX.keysAs<UserId>()(byId)
+ * const prices: Record<string, number> = { mug: 12, notebook: 8 }
+ * const byProduct = RecordX.keysAs<ProductId>()(prices)
  *
- * // Same runtime value, keys now seen as `UserId`
- * assert.deepStrictEqual(branded, { u1: 10, u2: 20 })
+ * // Treat the known product keys as ProductId; values and the reference stay the same.
+ * assert.deepStrictEqual(byProduct, { mug: 12, notebook: 8 })
+ * assert.strictEqual(byProduct, prices)
  * ```
  *
  * @category conversions
@@ -283,7 +282,8 @@ export const keysAs =
  * Returns the value at `key` in `record`, throwing an `Error` if the key is
  * absent.
  *
- * The unsafe, get-or-explode counterpart to `Record.get` (which returns an
+ * Only own keys count, including symbols and keys with `undefined` values.
+ * The throwing counterpart to `Record.get` (which returns an
  * `Option`). The thrown error names the missing key and lists the record's
  * existing keys to aid debugging. Reach for {@link getOrThrowWith} when you need
  * a custom error; prefer `Record.get` whenever absence is a real possibility.
@@ -293,16 +293,16 @@ export const keysAs =
  * import { pipe } from "effect"
  * import { RecordX } from "@nunofyobiz/effect-extras"
  *
- * const record: Record<string, number> = { a: 1, b: 2 }
+ * const prices: Record<string, number> = { mug: 12, notebook: 8 }
  *
- * // data-first
- * assert.deepStrictEqual(RecordX.getOrThrow(record, "a"), 1)
+ * // Read a price when the product is required to exist.
+ * assert.deepStrictEqual(RecordX.getOrThrow(prices, "mug"), 12)
  *
- * // data-last (pipeable)
- * assert.deepStrictEqual(pipe(record, RecordX.getOrThrow("b")), 2)
+ * // The pipeable form retrieves the same price.
+ * assert.deepStrictEqual(pipe(prices, RecordX.getOrThrow("mug")), 12)
  *
- * // missing key throws
- * assert.throws(() => RecordX.getOrThrow(record, "missing"))
+ * // An unlisted product throws instead of silently returning undefined.
+ * assert.throws(() => RecordX.getOrThrow(prices, "lamp"))
  * ```
  *
  * @category unsafe
@@ -338,17 +338,17 @@ export const getOrThrow = dual<
  * import { pipe } from "effect"
  * import { RecordX } from "@nunofyobiz/effect-extras"
  *
- * const record: Record<string, number> = { a: 1 }
- * const onNone = (key: string) => new Error(`no ${key}`)
+ * const prices: Record<string, number> = { mug: 12 }
+ * const onNone = (key: string) => new Error(`No price listed for ${key}`)
  *
- * // data-first
- * assert.deepStrictEqual(RecordX.getOrThrowWith(record, "a", onNone), 1)
+ * // A listed price is returned without creating a failure.
+ * assert.deepStrictEqual(RecordX.getOrThrowWith(prices, "mug", onNone), 12)
  *
- * // data-last (pipeable)
- * assert.deepStrictEqual(pipe(record, RecordX.getOrThrowWith("a", onNone)), 1)
+ * // The pipeable form reads the same price.
+ * assert.deepStrictEqual(pipe(prices, RecordX.getOrThrowWith("mug", onNone)), 12)
  *
- * // missing key throws the custom error
- * assert.throws(() => RecordX.getOrThrowWith(record, "missing", onNone))
+ * // A missing product throws the caller's descriptive error.
+ * assert.throws(() => RecordX.getOrThrowWith(prices, "lamp", onNone), /No price listed for lamp/)
  * ```
  *
  * @category unsafe
@@ -394,14 +394,14 @@ export const getOrThrowWith = dual<
  *   onSome: (n: number) => n + 1,
  * })
  *
- * // data-first: updates an existing entry
- * assert.deepStrictEqual(RecordX.upsert({ a: 1 }, "a", bump), { a: 2 })
+ * // Count another view of a product already in the lookup.
+ * assert.deepStrictEqual(RecordX.upsert({ mug: 1 }, "mug", bump), { mug: 2 })
  *
- * // data-last (pipeable): inserts a missing entry
- * const counts: Record<string, number> = { a: 1 }
- * assert.deepStrictEqual(pipe(counts, RecordX.upsert("b", bump)), {
- *   a: 1,
- *   b: 1,
+ * // The first view of an unlisted product starts its count at one.
+ * const views: Record<string, number> = { mug: 1 }
+ * assert.deepStrictEqual(pipe(views, RecordX.upsert("notebook", bump)), {
+ *   mug: 1,
+ *   notebook: 1,
  * })
  * ```
  *
@@ -445,22 +445,22 @@ export const upsert = dual<
  * import { pipe } from "effect"
  * import { RecordX } from "@nunofyobiz/effect-extras"
  *
- * const items = [
- *   { id: "a", n: 1 },
- *   { id: "b", n: 2 },
- *   { id: "a", n: 3 }, // wins over the earlier "a"
+ * const products = [
+ *   { id: "mug", price: 12 },
+ *   { id: "notebook", price: 8 },
+ *   { id: "mug", price: 10 }, // The later price replaces the earlier mug entry.
  * ]
  *
- * // data-first
+ * // Build a product lookup using the latest entry for each id.
  * assert.deepStrictEqual(
- *   RecordX.collectBy(items, (item) => item.id),
- *   { a: { id: "a", n: 3 }, b: { id: "b", n: 2 } },
+ *   RecordX.collectBy(products, (product) => product.id),
+ *   { mug: { id: "mug", price: 10 }, notebook: { id: "notebook", price: 8 } },
  * )
  *
- * // data-last (pipeable)
+ * // The pipeable form builds the same lookup.
  * assert.deepStrictEqual(
- *   pipe(items, RecordX.collectBy((item) => item.id)),
- *   { a: { id: "a", n: 3 }, b: { id: "b", n: 2 } },
+ *   pipe(products, RecordX.collectBy((product) => product.id)),
+ *   { mug: { id: "mug", price: 10 }, notebook: { id: "notebook", price: 8 } },
  * )
  * ```
  *
@@ -500,19 +500,18 @@ export const collectBy = dual<
  * import { RecordX } from "@nunofyobiz/effect-extras"
  * import { pipe } from "effect"
  *
- * // data-first — nested objects merge, b wins on leaf conflicts
+ * const defaults = { editor: { fontSize: 14, theme: "light" }, plugins: ["spellcheck"] }
+ * const saved = { editor: { theme: "dark" }, plugins: ["formatter"] }
+ *
+ * // Keep the default font size, override the theme, and replace the plugin list.
  * assert.deepStrictEqual(
- *   RecordX.deepMerge({ a: { x: 1 }, b: 2 }, { a: { y: 3 }, c: 4 }),
- *   { a: { x: 1, y: 3 }, b: 2, c: 4 },
+ *   RecordX.deepMerge(defaults, saved),
+ *   { editor: { fontSize: 14, theme: "dark" }, plugins: ["formatter"] },
  * )
  *
- * // arrays are replaced wholesale, not concatenated
- * assert.deepStrictEqual(RecordX.deepMerge({ a: [1, 2] }, { a: [3] }), { a: [3] })
- *
- * // data-last (pipeable) — merges the override onto the piped base
- * assert.deepStrictEqual(pipe({ a: 1 }, RecordX.deepMerge({ b: 2 })), {
- *   a: 1,
- *   b: 2,
+ * // The pipeable form layers saved settings onto the same defaults.
+ * assert.deepStrictEqual(pipe(defaults, RecordX.deepMerge(saved)), {
+ *   editor: { fontSize: 14, theme: "dark" }, plugins: ["formatter"],
  * })
  * ```
  *
@@ -533,27 +532,30 @@ export const deepMerge = dual<
 });
 
 /**
- * {@link deepMerge} as a `Reducer` (monoid) with identity `{}`.
+ * Combines settings or other object-valued layers from left to right using
+ * {@link deepMerge}, with later layers winning on conflicts.
  *
  * `deepMergeReducer.combineAll(layers)` folds an iterable of object layers
- * left-to-right via {@link deepMerge} — the universal "merge N JSON objects into
- * one" fold, replacing a hand-rolled `Array.reduce(layers, {}, deepMerge)`. The
- * `{}` identity is exact for the object-valued layers these folds carry: an empty
- * list yields `{}`, and a single layer is returned unchanged.
+ * left-to-right via {@link deepMerge}. Use it when defaults and multiple sets of
+ * overrides need to become one object. Its `initialValue` is `{}`, an identity
+ * for object-valued layers, but not for every `unknown` value. An empty list
+ * yields `{}`, and a single object layer retains its contents.
  *
  * @example
  * ```ts
  * import { RecordX } from "@nunofyobiz/effect-extras"
  *
+ * // Saved preferences override defaults; workspace settings override both.
  * assert.deepStrictEqual(
  *   RecordX.deepMergeReducer.combineAll([
- *     { a: { x: 1 } },
- *     { a: { y: 2 }, b: 3 },
- *     { b: 4 },
+ *     { editor: { fontSize: 14, theme: "light" } },
+ *     { editor: { theme: "dark" }, autosave: true },
+ *     { autosave: false },
  *   ]),
- *   { a: { x: 1, y: 2 }, b: 4 },
+ *   { editor: { fontSize: 14, theme: "dark" }, autosave: false },
  * )
  *
+ * // No settings layers produce an empty settings object.
  * assert.deepStrictEqual(RecordX.deepMergeReducer.combineAll([]), {})
  * ```
  *
@@ -569,25 +571,28 @@ export const deepMergeReducer: Reducer.Reducer<unknown> = Reducer.make<unknown>(
  * Canonicalizes a JSON value by recursively sorting object keys; arrays keep
  * their order.
  *
- * Two structurally-equal values that differ only in key order canonicalize to
- * the same shape, so `JSON.stringify(canonicalize(x))` is a stable structural
- * key for comparison, deduping, or hashing. Plain objects (per
- * `PredicateX.unsafeIsRecord`) have their keys sorted ascending and their values
- * canonicalized recursively; arrays are canonicalized element-wise in place;
- * everything else passes through unchanged.
+ * Use it for stable serialization or comparison of JSON values that differ only
+ * in object key order. Plain objects (per `PredicateX.unsafeIsRecord`) and arrays
+ * become fresh containers with recursively canonicalized values; other leaves
+ * pass through unchanged. Only own enumerable string keys are retained. Keys
+ * sort ascending, subject to JavaScript's numeric ordering of integer keys.
+ * Array order is preserved and the input is never mutated.
  *
  * @example
  * ```ts
  * import { RecordX } from "@nunofyobiz/effect-extras"
  *
+ * const settings = { theme: "dark", editor: { tabSize: 2, fontSize: 14 } }
+ *
+ * // Different insertion orders now serialize to the same settings string.
  * assert.deepStrictEqual(
- *   JSON.stringify(RecordX.canonicalize({ b: 1, a: { d: 1, c: 2 } })),
- *   JSON.stringify({ a: { c: 2, d: 1 }, b: 1 }),
+ *   JSON.stringify(RecordX.canonicalize(settings)),
+ *   JSON.stringify({ editor: { fontSize: 14, tabSize: 2 }, theme: "dark" }),
  * )
  *
- * // arrays keep their order; primitives pass through
- * assert.deepStrictEqual(RecordX.canonicalize([3, 1, 2]), [3, 1, 2])
- * assert.deepStrictEqual(RecordX.canonicalize("x"), "x")
+ * // Plugin priority stays in array order, and a theme string passes through.
+ * assert.deepStrictEqual(RecordX.canonicalize(["formatter", "spellcheck"]), ["formatter", "spellcheck"])
+ * assert.deepStrictEqual(RecordX.canonicalize("dark"), "dark")
  * ```
  *
  * @category transformations
@@ -620,27 +625,29 @@ export const canonicalize = (value: unknown): unknown =>
  * removed and every ancestor that becomes empty as a result is removed too.
  * Returns `Some(newObject)` when the path existed (so callers can tell something
  * changed), or `None` when it was absent or `object` isn't a plain object. The
- * input is never mutated.
+ * input is never mutated. Use it to remove a nested setting and avoid leaving
+ * empty settings sections behind. An empty path or traversal into a leaf or
+ * array also returns `None`.
  *
  * @example
  * ```ts
  * import { RecordX } from "@nunofyobiz/effect-extras"
  * import { Option, pipe } from "effect"
  *
- * // deletes the leaf and prunes the now-empty parent
+ * // Remove the only editor setting, so the empty editor section disappears too.
  * assert.deepStrictEqual(
- *   RecordX.deleteByPath({ a: { b: 1 } }, ["a", "b"]),
+ *   RecordX.deleteByPath({ editor: { theme: "dark" } }, ["editor", "theme"]),
  *   Option.some({}),
  * )
  *
- * // a sibling key keeps the parent alive
+ * // A saved font size keeps the editor section present after removing the theme.
  * assert.deepStrictEqual(
- *   RecordX.deleteByPath({ a: { b: 1, c: 2 } }, ["a", "b"]),
- *   Option.some({ a: { c: 2 } }),
+ *   RecordX.deleteByPath({ editor: { theme: "dark", fontSize: 14 } }, ["editor", "theme"]),
+ *   Option.some({ editor: { fontSize: 14 } }),
  * )
  *
- * // absent path → None; data-last (pipeable) form
- * assert.deepStrictEqual(pipe({ a: 1 }, RecordX.deleteByPath(["b"])), Option.none())
+ * // An unsaved setting has nothing to delete, including in the pipeable form.
+ * assert.deepStrictEqual(pipe({ theme: "dark" }, RecordX.deleteByPath(["zoom"])), Option.none())
  * ```
  *
  * @category combining
