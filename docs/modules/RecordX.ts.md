@@ -399,6 +399,7 @@ Added in v0.0.0
 
 Modifies the value at `key` in `self` with `f`, leaving the record unchanged
 if the key doesn't exist.
+Use it to adjust a saved setting only when the user has already supplied it.
 
 `Record.modify` returns `Option<Record>` — `None` when the key is absent.
 This helper provides the common "do nothing if absent" semantics. The
