@@ -1,6 +1,5 @@
-import { expect } from "@effect/vitest";
 import { Array, Option, Order, Predicate, pipe } from "effect";
-import { assert, describe, expectTypeOf, test, vi } from "vitest";
+import { assert, describe, expect, expectTypeOf, test, vi } from "vitest";
 import {
   canonicalize,
   collectBy,
@@ -462,12 +461,13 @@ describe("Record utils", () => {
         // @ts-expect-error - lamp is missing from this narrow product record
         getOrThrowWith({ mug: 12 }, "lamp", onNone);
       };
+      let caught: unknown;
       try {
         lookup();
-        expect.unreachable("A missing product must throw");
       } catch (error) {
-        expect(error).toBe(failure);
+        caught = error;
       }
+      expect(caught).toBe(failure);
       expect(onNone.mock.calls).toStrictEqual([["lamp"]]);
     });
 
