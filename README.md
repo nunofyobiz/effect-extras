@@ -184,7 +184,7 @@ matching subpath (`@nunofyobiz/effect-extras/ArrayX`); see
 | `NonNullableX` | Non-nullable assertions (`fromNullableOrThrow`, exported as `nn`)          |
 | `NumberX`      | Number helpers                                                             |
 | `OptionX`      | Option helpers and rendering bridges                                       |
-| `OrderX`       | `Order` helpers (`rankedEnum`)                                             |
+| `OrderX`       | `Order` helpers (`rankedEnum`, `byPriority`)                               |
 | `PredicateX`   | Compound predicates (`isNonEmptyString`, `matchRefine`)                    |
 | `PromiseX`     | Promise helpers                                                            |
 | `RecordX`      | Record manipulation (`modifyIfExists`, `upsert`, `collectBy`)              |
