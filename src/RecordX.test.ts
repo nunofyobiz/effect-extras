@@ -1280,13 +1280,50 @@ describe("Record utils", () => {
         path: ["theme"],
         expected: Option.some({}),
       },
-      { input: {}, path: ["toString"], expected: Option.some({}) },
+      // Inherited properties are absent paths: no own key was deleted.
+      { input: {}, path: ["toString"], expected: Option.none() },
+      { input: {}, path: ["__proto__", "toString"], expected: Option.none() },
+      { input: {}, path: ["constructor", "name"], expected: Option.none() },
+      {
+        input: { editor: {} },
+        path: ["editor", "toString"],
+        expected: Option.none(),
+      },
     ])("both forms delete $path from $input", ({ input, path, expected }) => {
       const original = structuredClone(input);
       const dataFirst = deleteByPath(input, path);
       expect(dataFirst).toStrictEqual(expected);
       expect(pipe(input, deleteByPath(path))).toStrictEqual(dataFirst);
       // The original settings retain every key and nested value.
+      expect(input).toStrictEqual(original);
+    });
+
+    test("deletes through an own constructor key without mutating it", () => {
+      const constructor = { name: "saved" };
+      const input = { constructor };
+      const dataFirst = deleteByPath(input, ["constructor", "name"]);
+      expect(dataFirst).toStrictEqual(Option.some({}));
+      expect(pipe(input, deleteByPath(["constructor", "name"]))).toStrictEqual(
+        dataFirst,
+      );
+      // The original root still owns the same child, which retains its name.
+      expect(Object.keys(input)).toStrictEqual(["constructor"]);
+      expect(input.constructor).toBe(constructor);
+      expect(constructor).toStrictEqual({ name: "saved" });
+    });
+
+    test.each<{ input: unknown; path: readonly string[] }>([
+      { input: { toString: "saved" }, path: ["toString"] },
+      {
+        input: { ["__proto__"]: { toString: "saved" } },
+        path: ["__proto__", "toString"],
+      },
+    ])("deletes own prototype-named keys at $path", ({ input, path }) => {
+      const original = structuredClone(input);
+      const dataFirst = deleteByPath(input, path);
+      expect(dataFirst).toStrictEqual(Option.some({}));
+      expect(pipe(input, deleteByPath(path))).toStrictEqual(dataFirst);
+      // The original record still owns its prototype-named keys.
       expect(input).toStrictEqual(original);
     });
 

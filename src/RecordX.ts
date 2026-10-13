@@ -666,17 +666,19 @@ export const deleteByPath = dual<
             const [head, rest] = Array.unprepend(nonEmptyPath);
             return Match.value(rest).pipe(
               Match.when(Array.isReadonlyArrayEmpty<string>, () =>
-                head in record
+                Record.has(record, head)
                   ? Option.some(Record.remove(record, head))
                   : Option.none(),
               ),
               Match.orElse(() =>
-                Option.map(deleteByPath(record[head], rest), (newChild) =>
-                  PredicateX.unsafeIsRecord(newChild) &&
-                  Record.isEmptyRecord(newChild)
-                    ? Record.remove(record, head)
-                    : { ...record, [head]: newChild },
-                ),
+                Record.has(record, head)
+                  ? Option.map(deleteByPath(record[head], rest), (newChild) =>
+                      PredicateX.unsafeIsRecord(newChild) &&
+                      Record.isEmptyRecord(newChild)
+                        ? Record.remove(record, head)
+                        : { ...record, [head]: newChild },
+                    )
+                  : Option.none(),
               ),
             );
           }),
