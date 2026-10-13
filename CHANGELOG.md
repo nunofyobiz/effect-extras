@@ -1,5 +1,11 @@
 # @nunofyobiz/effect-extras
 
+## 4.1.1
+
+### Patch Changes
+
+- [#69](https://github.com/nunofyobiz/effect-extras/pull/69) [`12ad99b`](https://github.com/nunofyobiz/effect-extras/commit/12ad99bad1fb1554cb992c3542b67fd23419258e) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Ship RecordX docs with practical settings and product-lookup examples, clarify canonicalization and reducer identity, and strengthen the behavioral specification with edge-case and dual-call tests. Public types are unchanged. `deleteByPath` now returns `None` for paths that only resolve through inherited properties.
+
 ## 4.1.0
 
 ### Minor Changes
