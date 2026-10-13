@@ -9,4 +9,5 @@ if git diff --cached --name-only --diff-filter=ACMR \
   git add docs/
 fi
 
-pnpm exec lint-staged
+# Worktrees share refs/stash, so keep hook edits local even when a task fails.
+pnpm exec lint-staged --no-stash
