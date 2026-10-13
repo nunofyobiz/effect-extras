@@ -16,6 +16,8 @@
 
 If a hook blocks a commit, read the output, fix the surfaced issue, re-stage, and commit again — don't bypass with `--no-verify`. CI re-runs commitlint on PRs as a backstop.
 
+The hook runs `lint-staged --no-stash` because worktrees share `refs/stash`. If a task fails, its edits remain in the index instead of being reverted; review them, fix the failure, and re-stage before retrying.
+
 ## Commit signing
 
 > Provenance: the rationale paragraph below is adapted from StoryCut's
