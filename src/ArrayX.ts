@@ -3,8 +3,73 @@
  *
  * @since 0.0.0
  */
-import { Array, Equivalence, Option, Order, Predicate, pipe } from "effect";
+import {
+  Array,
+  Equal,
+  Equivalence,
+  Option,
+  Order,
+  Predicate,
+  pipe,
+} from "effect";
 import { dual } from "effect/Function";
+
+/**
+ * Checks whether two collections hold the same values, ignoring order and
+ * duplicate counts. Values are compared with `Equal.equals` unless an
+ * equivalence is supplied.
+ *
+ * Accepts finite iterables and consumes them when called, including single-use
+ * generators. Neither collection's contents are mutated.
+ *
+ * @example
+ * ```ts
+ * import { pipe } from "effect"
+ * import { ArrayX } from "@nunofyobiz/effect-extras"
+ *
+ * const selectedTags = ["music", "travel", "music"]
+ * // Reordering tags and repeating a selection do not change the selected values.
+ * assert.strictEqual(ArrayX.sameSet(selectedTags, ["travel", "music"]), true)
+ * // Removing a selected tag does change the collection's values.
+ * assert.strictEqual(pipe(selectedTags, ArrayX.sameSet(["music"])), false)
+ * ```
+ *
+ * @category predicates
+ * @since 0.0.0
+ */
+export const sameSet = dual<
+  <A>(
+    that: Iterable<A>,
+    isEquivalent?: Equivalence.Equivalence<A>,
+  ) => (self: Iterable<A>) => boolean,
+  <A>(
+    self: Iterable<A>,
+    that: Iterable<A>,
+    isEquivalent?: Equivalence.Equivalence<A>,
+  ) => boolean
+>(
+  (arguments_) =>
+    arguments_.length >= 2 &&
+    !Predicate.isFunction(arguments_[1]) &&
+    !Predicate.isUndefined(arguments_[1]),
+  <A>(
+    self: Iterable<A>,
+    that: Iterable<A>,
+    isEquivalent: Equivalence.Equivalence<A> = Equal.equals,
+  ): boolean => {
+    const left = Array.fromIterable(self);
+    const right = self === that ? left : Array.fromIterable(that);
+
+    return (
+      Array.every(left, (value) =>
+        Array.some(right, (other) => isEquivalent(value, other)),
+      ) &&
+      Array.every(right, (value) =>
+        Array.some(left, (other) => isEquivalent(value, other)),
+      )
+    );
+  },
+);
 
 /**
  * Returns a shallow copy of `array` between `start` (inclusive) and `end`
