@@ -1,5 +1,5 @@
 import { Option, Result } from "effect";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "@effect/vitest";
 import { fromOption } from "./ResultX.js";
 
 describe("Result utils", () => {
