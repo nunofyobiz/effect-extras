@@ -37,7 +37,17 @@ pnpm lint
 ESLint. Formatting is part of lint (via `eslint-plugin-prettier`) — there is no separate Prettier
 step. Auto-fix with `pnpm lint:fix`. Don't disable rules to make checks pass unless explicitly asked.
 
-### 3. Tests
+### 3. Mermaid diagrams
+
+```bash
+pnpm lint:mermaid
+```
+
+Select when the diff touches a fenced `mermaid` block. Parses every block in tracked Markdown with
+Mermaid's own parser (jsdom shim, no browser) and prints file, starting line, and parser error on
+failure. Syntax only: it does not show layout or readability.
+
+### 4. Tests
 
 ```bash
 pnpm test
@@ -45,7 +55,7 @@ pnpm test
 
 `vitest run`. A single file: `pnpm vitest run src/ArrayX.test.ts`.
 
-### 4. Build
+### 5. Build
 
 ```bash
 pnpm build
@@ -54,7 +64,7 @@ pnpm build
 `tsc` + `babel` → `dist/` (ESM + `.d.ts`, one file per module). Catches `exports` / entry-point
 problems that unit tests miss.
 
-### 5. Packaging (needs a prior build)
+### 6. Packaging (needs a prior build)
 
 ```bash
 pnpm publint
@@ -63,7 +73,7 @@ pnpm publint
 Validates the published packaging (`exports` map, `types` conditions, ESM correctness) against
 `dist/`.
 
-### 6. Tree-shaking budgets (needs a prior build)
+### 7. Tree-shaking budgets (needs a prior build)
 
 ```bash
 pnpm treeshake
@@ -71,7 +81,7 @@ pnpm treeshake
 
 `size-limit`: enforces the per-function tree-shaking byte budgets in `.size-limit.json`.
 
-### 7. Dead code / unused deps
+### 8. Dead code / unused deps
 
 ```bash
 pnpm knip
@@ -81,7 +91,7 @@ Detects unused files, exports, dependencies, and types. Fix the cause — delete
 up the missing reference — rather than suppressing the finding in `knip.json`; see
 [Forbidden shortcuts](../../../docs/development/verification.md#forbidden-shortcuts-when-fixing-failures).
 
-### 8. API docs
+### 9. API docs
 
 ```bash
 pnpm docgen
@@ -97,7 +107,7 @@ after touching JSDoc.
 pnpm check-all
 ```
 
-Runs **tc → lint → test → build → publint → treeshake → knip → docgen** in order — the same checks
+Runs **tc → lint → lint:mermaid → test → build → publint → treeshake → knip → docgen** in order — the same checks
 CI runs. Reserve it for before claiming a task done; while committing or pushing, select the
 individual checks the diff touches instead.
 
@@ -119,6 +129,7 @@ After running checks, report:
 | `renovate-config` | `renovate-config-validator --strict`         | `renovate.json5` is valid                     |
 | `typecheck`       | `pnpm tc` (Node 22 and 24)                   | Types compile                                 |
 | `lint`            | `pnpm lint`                                  | ESLint + formatting                           |
+| `mermaid`         | `pnpm lint:mermaid`                          | Mermaid diagrams parse (syntax only)          |
 | `knip`            | `pnpm knip`                                  | No unused files / exports / deps              |
 | `test`            | `pnpm test` (Node 22 and 24)                 | Tests pass                                    |
 | `effect-compat`   | `pnpm tc` + `pnpm test` (floor effect)       | Oldest `effect` the peer range promises works |
