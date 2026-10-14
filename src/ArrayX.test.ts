@@ -1,4 +1,6 @@
+import { describe, expect, expectTypeOf, test, vi } from "@effect/vitest";
 import {
+  Data,
   Equal,
   Equivalence,
   Match,
@@ -7,7 +9,6 @@ import {
   Predicate,
   pipe,
 } from "effect";
-import { describe, expect, test, vi } from "vitest";
 import {
   categorize,
   chunkBy,
@@ -19,12 +20,119 @@ import {
   insertUniq,
   mapRightAccum,
   maxOption,
+  sameSet,
   slice,
   takeFirstWhere,
   takeLastWhere,
 } from "./ArrayX.js";
+import { ArrayX } from ".";
 
 describe("Array utils", () => {
+  describe("sameSet", () => {
+    test.each([
+      { self: [], that: [], expected: true },
+      { self: [], that: [1], expected: false },
+      { self: [1], that: [], expected: false },
+      { self: [1], that: [1], expected: true },
+      { self: [1], that: [2], expected: false },
+      { self: [1, 2, 3], that: [3, 1, 2], expected: true },
+      { self: [1, 1, 2], that: [2, 1], expected: true },
+      { self: [1, 2], that: [2, 1, 1], expected: true },
+      { self: [1], that: [1, 2], expected: false },
+      { self: [1, 2], that: [1], expected: false },
+    ])("compares $self and $that", ({ self, that, expected }) => {
+      expect(sameSet(self, that)).toBe(expected);
+      expect(pipe(self, sameSet(that))).toBe(expected);
+      expect(sameSet(self, that, Equivalence.Number)).toBe(expected);
+      expect(pipe(self, sameSet(that, Equivalence.Number))).toBe(expected);
+      expect(sameSet(self, that, undefined)).toBe(expected);
+      expect(pipe(self, sameSet(that, undefined))).toBe(expected);
+    });
+
+    test("uses Equal.equals for distinct structural values", () => {
+      class Tag extends Data.Class<{ readonly name: string }> {}
+      const left = new Tag({ name: "music" });
+      const right = new Tag({ name: "music" });
+      expect(left).not.toBe(right);
+      expect(sameSet([left], [right])).toBe(true);
+      expect(sameSet([left], [new Tag({ name: "travel" })])).toBe(false);
+    });
+
+    test("a custom equivalence replaces the default comparison", () => {
+      const ignoreCase: Equivalence.Equivalence<string> = (self, that) =>
+        self.toLowerCase() === that.toLowerCase();
+      expect(sameSet(["Music"], ["music"])).toBe(false);
+      expect(sameSet(["Music"], ["music"], ignoreCase)).toBe(true);
+      expect(pipe(["Music"], sameSet(["music"], ignoreCase))).toBe(true);
+      expect(sameSet(["Music"], ["travel"], ignoreCase)).toBe(false);
+      expect(pipe(["Music"], sameSet(["travel"], ignoreCase))).toBe(false);
+    });
+
+    test("accepts Sets and leaves collection contents unchanged", () => {
+      const left = Object.freeze([1, 1, 2]);
+      const that = new Set([2, 1]);
+      expect(sameSet(left, that)).toBe(true);
+      expect(sameSet(that, left)).toBe(true);
+      // These assertions target the original collections, not the result.
+      expect(left).toStrictEqual([1, 1, 2]);
+      expect([...that]).toStrictEqual([2, 1]);
+    });
+
+    function* values() {
+      yield 1;
+      yield 2;
+      yield 1;
+    }
+
+    test("materializes single-use generators on either side", () => {
+      expect(sameSet(values(), [2, 1])).toBe(true);
+      expect(sameSet([2, 1], values())).toBe(true);
+      expect(sameSet(values(), values())).toBe(true);
+      expect(sameSet(values(), [1])).toBe(false);
+      expect(sameSet([1], values())).toBe(false);
+    });
+
+    test("reuses the snapshot when both inputs are the same generator", () => {
+      const input = values();
+      expect(sameSet(input, input)).toBe(true);
+    });
+
+    test("does not consume generators until the curried function is applied", () => {
+      const visit = vi.fn();
+      function* tags() {
+        visit();
+        yield "music";
+      }
+      const compare = sameSet(tags());
+      expect(visit).not.toHaveBeenCalled();
+      expect(compare(["music"])).toBe(true);
+      expect(visit).toHaveBeenCalledExactlyOnceWith();
+    });
+
+    test("infers every overload and rejects a mismatched equivalence", () => {
+      expectTypeOf(sameSet([1], [1])).toEqualTypeOf<boolean>();
+      expectTypeOf(
+        sameSet([1], [1], Equivalence.Number),
+      ).toEqualTypeOf<boolean>();
+      expectTypeOf(sameSet([1])).toEqualTypeOf<
+        (self: Iterable<number>) => boolean
+      >();
+      expectTypeOf(sameSet([1], Equivalence.Number)).toEqualTypeOf<
+        (self: Iterable<number>) => boolean
+      >();
+      expectTypeOf(pipe([1], sameSet([1]))).toEqualTypeOf<boolean>();
+      expectTypeOf(
+        pipe([1], sameSet([1], Equivalence.Number)),
+      ).toEqualTypeOf<boolean>();
+      // @ts-expect-error - string equivalence cannot compare numeric elements
+      expect(sameSet([1], [2], Equivalence.String)).toBe(false);
+    });
+
+    test("is reachable through the root ArrayX namespace", () => {
+      expect(ArrayX.sameSet([1, 2], [2, 1])).toBe(true);
+    });
+  });
+
   describe("slice", () => {
     test("empty array", () => {
       expect(slice([], 0, 0)).toStrictEqual([]);

@@ -31,6 +31,8 @@ Added in v0.0.0
   - [slice](#slice)
   - [takeFirstWhere](#takefirstwhere)
   - [takeLastWhere](#takelastwhere)
+- [predicates](#predicates)
+  - [sameSet](#sameset)
 
 ---
 
@@ -479,6 +481,42 @@ const isEven = (n: number): n is number => n % 2 === 0
 
 assert.deepStrictEqual(pipe([3, 4, 1, 2, 5], ArrayX.takeLastWhere(isEven, Order.Number)), Option.some(4))
 assert.deepStrictEqual(pipe([1, 3, 5], ArrayX.takeLastWhere(isEven, Order.Number)), Option.none())
+```
+
+Added in v0.0.0
+
+# predicates
+
+## sameSet
+
+Checks whether two collections hold the same values, ignoring order and
+duplicate counts. Values are compared with `Equal.equals` unless an
+equivalence is supplied.
+
+Accepts finite iterables and consumes them when called, including single-use
+generators. Neither collection's contents are mutated.
+
+**Signature**
+
+```ts
+export declare const sameSet: (<A>(
+  that: Iterable<A>,
+  isEquivalent?: Equivalence.Equivalence<A>
+) => (self: Iterable<A>) => boolean) &
+  (<A>(self: Iterable<A>, that: Iterable<A>, isEquivalent?: Equivalence.Equivalence<A>) => boolean)
+```
+
+**Example**
+
+```ts
+import { pipe } from "effect"
+import { ArrayX } from "@nunofyobiz/effect-extras"
+
+const selectedTags = ["music", "travel", "music"]
+// Reordering tags and repeating a selection do not change the selected values.
+assert.strictEqual(ArrayX.sameSet(selectedTags, ["travel", "music"]), true)
+// Removing a selected tag does change the collection's values.
+assert.strictEqual(pipe(selectedTags, ArrayX.sameSet(["music"])), false)
 ```
 
 Added in v0.0.0
