@@ -1,3 +1,4 @@
+import { describe, expect, expectTypeOf, test, vi } from "@effect/vitest";
 import {
   Equal,
   Equivalence,
@@ -7,7 +8,6 @@ import {
   Predicate,
   pipe,
 } from "effect";
-import { describe, expect, test, vi } from "vitest";
 import {
   categorize,
   chunkBy,
@@ -19,12 +19,384 @@ import {
   insertUniq,
   mapRightAccum,
   maxOption,
+  mergeByWhere,
   slice,
   takeFirstWhere,
   takeLastWhere,
 } from "./ArrayX.js";
+import { ArrayX } from ".";
 
 describe("Array utils", () => {
+  describe("mergeByWhere", () => {
+    const styles = [
+      { name: "data-first", merge: mergeByWhere },
+      {
+        name: "data-last",
+        merge: <A, K>(
+          existing: readonly A[],
+          incoming: Iterable<A>,
+          keyOf: (value: A) => K,
+          isPreferred: (candidate: A, existing: A) => boolean,
+        ): readonly A[] =>
+          pipe(existing, mergeByWhere(incoming, keyOf, isPreferred)),
+      },
+    ];
+    const item = (id: string, revision: number) => ({ id, revision });
+    const keyOf = (value: ReturnType<typeof item>) => value.id;
+    const newer = (
+      candidate: ReturnType<typeof item>,
+      existing: ReturnType<typeof item>,
+    ) => candidate.revision > existing.revision;
+
+    describe.each(styles)("$name", ({ merge }) => {
+      test.each([{ existing: [] }, { existing: [item("a", 1)] }])(
+        "empty incoming preserves existing $existing",
+        ({ existing }) => {
+          const result = merge(existing, [], keyOf, newer);
+          expect(result).toStrictEqual(existing);
+          expect(result).toBe(existing);
+        },
+      );
+
+      test("appends a single item to empty existing without comparing", () => {
+        const existing: ReturnType<typeof item>[] = [];
+        const candidate = item("a", 1);
+        const preferred = vi.fn(newer);
+        const result = merge(existing, [candidate], keyOf, preferred);
+        expect(result).toStrictEqual([candidate]);
+        expect(result).not.toBe(existing);
+        expect(preferred).not.toHaveBeenCalled();
+      });
+
+      test.each([0, 1, 2])("replaces only the item at index %i", (index) => {
+        const existing = [item("a", 1), item("b", 1), item("c", 1)];
+        const original = existing.at(index);
+        if (Predicate.isUndefined(original)) {
+          throw new TypeError("Missing test fixture");
+        }
+        const candidate = item(original.id, 2);
+        const result = merge(existing, [candidate], keyOf, newer);
+        expect(result).toStrictEqual(
+          existing.map((value, position) =>
+            position === index ? candidate : value,
+          ),
+        );
+        expect(result[index]).toBe(candidate);
+        expect(result).not.toBe(existing);
+        for (const [position, value] of existing.entries()) {
+          expect(result[position]).toBe(position === index ? candidate : value);
+        }
+      });
+
+      test("accepts or rejects a single matching update", () => {
+        const original = item("a", 2);
+        const existing = [original];
+        const accepted = item("a", 3);
+        const rejected = merge(existing, [item("a", 1)], keyOf, newer);
+        expect(rejected).toStrictEqual([original]);
+        expect(rejected).toBe(existing);
+        const result = merge(existing, [accepted], keyOf, newer);
+        expect(result).toStrictEqual([accepted]);
+        expect(result[0]).toBe(accepted);
+        expect(result).not.toBe(existing);
+      });
+
+      test("compares repeats against current winners and keeps append order", () => {
+        const a = item("a", 1);
+        const b = item("b", 4);
+        const a2 = item("a", 2);
+        const a3 = item("a", 3);
+        const c = item("c", 1);
+        const c2 = item("c", 2);
+        const d = item("d", 1);
+        const preferred = vi.fn(newer);
+        const existing = [a, b];
+        const incoming = [c, a2, d, a, c2, c, a3, b];
+        const result = merge(existing, incoming, keyOf, preferred);
+        expect(result).toStrictEqual([a3, b, c2, d]);
+        expect(result).not.toBe(existing);
+        expect(preferred.mock.calls).toStrictEqual([
+          [a2, a],
+          [a, a2],
+          [c2, c],
+          [c, c2],
+          [a3, a2],
+          [b, b],
+        ]);
+      });
+
+      test.each(["array", "set", "generator"])(
+        "reduces an empty existing array from a %s in first-key order",
+        (kind) => {
+          const a = item("a", 1);
+          const b = item("b", 3);
+          const a2 = item("a", 2);
+          const values = [a, b, a2, item("b", 2), a];
+          function* updates() {
+            yield* values;
+          }
+          const incoming = Match.value(kind).pipe(
+            Match.when("array", () => values),
+            Match.when("set", () => new Set(values)),
+            Match.orElse(() => updates()),
+          );
+          const existing: ReturnType<typeof item>[] = [];
+          const result = merge(existing, incoming, keyOf, newer);
+          expect(result).toStrictEqual([a2, b]);
+          expect(result).not.toBe(existing);
+          const remaining = Match.value(kind).pipe(
+            Match.when("array", () => values),
+            Match.when("set", () => [...new Set(values)]),
+            Match.orElse(() => []),
+          );
+          expect([...incoming]).toStrictEqual(remaining);
+        },
+      );
+
+      test("matches NaN and signed-zero keys with SameValueZero", () => {
+        const existing = [
+          { key: Number.NaN, value: 1 },
+          { key: 0, value: 1 },
+        ];
+        const incoming = [
+          { key: Number.NaN, value: 2 },
+          { key: -0, value: 2 },
+        ];
+        const result = merge(
+          existing,
+          incoming,
+          (value) => value.key,
+          () => true,
+        );
+        expect(result).toStrictEqual(incoming);
+        expect(result).not.toBe(existing);
+      });
+
+      test("matches shared object keys and keeps distinct objects separate", () => {
+        const key = { id: "a" };
+        const original = { key, value: 1 };
+        const replacement = { key, value: 2 };
+        const appended = { key: { id: "a" }, value: 3 };
+        const existing = [original];
+        const result = merge(
+          existing,
+          [replacement, appended],
+          (value) => value.key,
+          () => true,
+        );
+        expect(result).toStrictEqual([replacement, appended]);
+        expect(result).not.toBe(existing);
+      });
+
+      test("supports nullish keys", () => {
+        const existing = [
+          { key: null, value: 1 },
+          { key: undefined, value: 2 },
+        ];
+        const incoming = [
+          { key: undefined, value: 3 },
+          { key: null, value: 4 },
+        ];
+        const result = merge(
+          existing,
+          incoming,
+          (value) => value.key,
+          () => true,
+        );
+        expect(result).toStrictEqual([incoming[1], incoming[0]]);
+        expect(result).not.toBe(existing);
+      });
+
+      test("only the first existing duplicate participates in comparisons", () => {
+        const first = item("a", 1);
+        const duplicate = item("a", 10);
+        const a2 = item("a", 2);
+        const a3 = item("a", 3);
+        const existing = [first, duplicate];
+        const preferred = vi.fn(newer);
+        const result = merge(existing, [a2, first, a3], keyOf, preferred);
+        expect(result).toStrictEqual([a3, duplicate]);
+        expect(result[1]).toBe(duplicate);
+        expect(result).not.toBe(existing);
+        expect(preferred.mock.calls).toStrictEqual([
+          [a2, first],
+          [first, a2],
+          [a3, a2],
+        ]);
+      });
+
+      test("all rejected updates retain the original array", () => {
+        const existing = [item("a", 2), item("b", 3)];
+        const result = merge(
+          existing,
+          [item("b", 1), item("a", 1)],
+          keyOf,
+          newer,
+        );
+        expect(result).toStrictEqual(existing);
+        expect(result).toBe(existing);
+      });
+
+      test("accepted identical references retain the original array", () => {
+        const existing = [item("a", 1), item("b", 2)];
+        const preferred = vi.fn(() => true);
+        const result = merge(existing, existing, keyOf, preferred);
+        expect(result).toStrictEqual(existing);
+        expect(result).toBe(existing);
+        expect(preferred).toHaveBeenCalledTimes(2);
+      });
+
+      test("restoring every original reference returns the original array", () => {
+        const a = item("a", 1);
+        const b = item("b", 1);
+        const existing = [a, b];
+        const result = merge(
+          existing,
+          [item("a", 2), item("b", 2), a, b],
+          keyOf,
+          () => true,
+        );
+        expect(result).toStrictEqual([a, b]);
+        expect(result).toBe(existing);
+      });
+
+      test("structurally equal replacements still produce a fresh array", () => {
+        const existing = [item("a", 1)];
+        const candidate = item("a", 1);
+        const result = merge(existing, [candidate], keyOf, () => true);
+        expect(result).toStrictEqual(existing);
+        expect(result[0]).toBe(candidate);
+        expect(result).not.toBe(existing);
+      });
+
+      test("element identity uses Object.is for NaN and signed zeros", () => {
+        const nan = [Number.NaN];
+        expect(
+          merge(
+            nan,
+            [Number.NaN],
+            (value) => value,
+            () => true,
+          ),
+        ).toBe(nan);
+        const existing = [0];
+        const result = merge(
+          existing,
+          [-0],
+          (value) => value,
+          () => true,
+        );
+        expect(result).toStrictEqual([-0]);
+        expect(result).not.toBe(existing);
+        expect(
+          merge(
+            existing,
+            [-0, 0],
+            (value) => value,
+            () => true,
+          ),
+        ).toBe(existing);
+      });
+
+      test("nullish elements are values, not missing positions", () => {
+        const existing = [undefined, null];
+        const preferred = vi.fn(() => true);
+        expect(
+          merge(existing, [undefined, null], (value) => value, preferred),
+        ).toBe(existing);
+        expect(preferred.mock.calls).toStrictEqual([
+          [undefined, undefined],
+          [null, null],
+        ]);
+        const result = merge(
+          [null],
+          [undefined, null],
+          () => "same",
+          () => true,
+        );
+        expect(result).toStrictEqual([null]);
+        expect(
+          merge(
+            [],
+            [undefined, null, undefined],
+            (value) => value,
+            () => true,
+          ),
+        ).toStrictEqual([undefined, null]);
+      });
+
+      test("does not mutate frozen arrays or their elements", () => {
+        const a = Object.freeze(item("a", 1));
+        const b = Object.freeze(item("b", 2));
+        const update = Object.freeze(item("a", 3));
+        const appended = Object.freeze(item("c", 1));
+        const existing = Object.freeze([a, b]);
+        const incoming = Object.freeze([update, appended]);
+        const result = merge(existing, incoming, keyOf, newer);
+        expect(result).toStrictEqual([update, b, appended]);
+        expect(result).not.toBe(existing);
+        // Reasserting on the original inputs confirms neither was mutated.
+        expect(existing).toStrictEqual([item("a", 1), item("b", 2)]);
+        expect(incoming).toStrictEqual([item("a", 3), item("c", 1)]);
+      });
+
+      test("rejects a non-iterable incoming value at runtime", () => {
+        // @ts-expect-error - untyped callers can supply a non-iterable incoming object
+        expect(() => merge([], {}, keyOf, newer)).toThrow(TypeError);
+      });
+
+      test("infers an exactly readonly result from mutable and readonly inputs", () => {
+        const mutable = [item("a", 1)];
+        const readonly = Object.freeze([item("a", 2)]);
+        expectTypeOf(merge(mutable, readonly, keyOf, newer)).toEqualTypeOf<
+          readonly ReturnType<typeof item>[]
+        >();
+        expectTypeOf(merge(readonly, mutable, keyOf, newer)).toEqualTypeOf<
+          readonly ReturnType<typeof item>[]
+        >();
+        expect(merge(mutable, readonly, keyOf, newer)).toStrictEqual(readonly);
+      });
+    });
+
+    test("infers the element type in the direct and piped public overloads", () => {
+      const existing = [{ id: "a", revision: 1 }];
+      const incoming = Object.freeze([{ id: "a", revision: 2 }]);
+      const direct = mergeByWhere(
+        existing,
+        incoming,
+        (value) => value.id,
+        (candidate, current) => candidate.revision > current.revision,
+      );
+      const piped = pipe(
+        existing,
+        mergeByWhere(
+          incoming,
+          (value) => value.id,
+          (candidate, current) => candidate.revision > current.revision,
+        ),
+      );
+      expectTypeOf(direct).toEqualTypeOf<
+        readonly { id: string; revision: number }[]
+      >();
+      expectTypeOf(piped).toEqualTypeOf<
+        readonly { id: string; revision: number }[]
+      >();
+      expect(piped).toStrictEqual(direct);
+    });
+
+    test("is exposed through the root ArrayX namespace", () => {
+      expect(ArrayX.mergeByWhere).toBe(mergeByWhere);
+      expect(
+        ArrayX.mergeByWhere(
+          [1],
+          [2],
+          () => "key",
+          (candidate, current) => candidate > current,
+        ),
+      ).toStrictEqual([2]);
+    });
+  });
+
   describe("slice", () => {
     test("empty array", () => {
       expect(slice([], 0, 0)).toStrictEqual([]);

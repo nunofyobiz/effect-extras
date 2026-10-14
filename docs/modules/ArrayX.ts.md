@@ -16,6 +16,7 @@ Added in v0.0.0
 
 - [combinators](#combinators)
   - [insertUniq](#insertuniq)
+  - [mergeByWhere](#mergebywhere)
 - [filtering](#filtering)
   - [compactNullable](#compactnullable)
   - [filterHead](#filterhead)
@@ -80,6 +81,83 @@ assert.deepStrictEqual(ArrayX.insertUniq(["a", "b", "c", "d"], { item: "a", inse
 
 // Insert a brand-new item; unknown destination falls through to the end
 assert.deepStrictEqual(ArrayX.insertUniq(["a", "b"], { item: "new", insertToBeLeftOf: null }), ["a", "b", "new"])
+```
+
+Added in v0.0.0
+
+## mergeByWhere
+
+Merges keyed updates into an existing array, keeping existing positions and
+replacing a value only when `isPreferred(candidate, currentWinner)` is true.
+New keys are appended in first-appearance order; repeated incoming keys are
+compared against their current winner. With an empty `existing`, this reduces
+any iterable to one winner per key.
+
+Neither input is mutated. Returns the original `existing` reference when the
+final elements are unchanged according to `Object.is`, even if an incoming
+value temporarily replaced an element and a later value restored it.
+
+Keys use SameValueZero, like a JavaScript `Map`: `NaN` matches `NaN`, and signed
+zeros match. For structured keys, derive a primitive key in `keyOf` rather than
+a fresh object. Existing keys are expected to be unique; if they repeat, only
+the first occurrence is compared and possibly replaced. Later duplicates stay
+in their original positions.
+
+**Signature**
+
+```ts
+export declare const mergeByWhere: (<A, K>(
+  incoming: Iterable<A>,
+  keyOf: (value: A) => K,
+  isPreferred: (candidate: A, existing: A) => boolean
+) => (existing: readonly A[]) => readonly A[]) &
+  (<A, K>(
+    existing: readonly A[],
+    incoming: Iterable<A>,
+    keyOf: (value: A) => K,
+    isPreferred: (candidate: A, existing: A) => boolean
+  ) => readonly A[])
+```
+
+**Example**
+
+```ts
+import { ArrayX } from "@nunofyobiz/effect-extras"
+
+const cached = [
+  { id: "groceries", title: "Buy bread", revision: 2 },
+  { id: "laundry", title: "Wash towels", revision: 3 }
+]
+const server = [
+  { id: "laundry", title: "Wash towels", revision: 1 },
+  { id: "groceries", title: "Buy bread and milk", revision: 4 },
+  { id: "plants", title: "Water plants", revision: 1 }
+]
+
+// Update groceries in place, keep the newer cached laundry, and append plants.
+assert.deepStrictEqual(
+  ArrayX.mergeByWhere(
+    cached,
+    server,
+    (task) => task.id,
+    (candidate, current) => candidate.revision > current.revision
+  ),
+  [
+    { id: "groceries", title: "Buy bread and milk", revision: 4 },
+    { id: "laundry", title: "Wash towels", revision: 3 },
+    { id: "plants", title: "Water plants", revision: 1 }
+  ]
+)
+// Rejected updates leave the cached array reference unchanged.
+assert.strictEqual(
+  ArrayX.mergeByWhere(
+    cached,
+    cached,
+    (task) => task.id,
+    (candidate, current) => candidate.revision > current.revision
+  ),
+  cached
+)
 ```
 
 Added in v0.0.0

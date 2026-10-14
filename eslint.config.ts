@@ -55,6 +55,11 @@ const config = defineConfig([
     plugins: {
       vitest,
     },
+    settings: {
+      vitest: {
+        vitestImports: ["@effect/vitest"],
+      },
+    },
     rules: {
       ...vitest.configs.recommended.rules,
     },

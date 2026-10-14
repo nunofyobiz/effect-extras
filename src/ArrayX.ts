@@ -7,6 +7,116 @@ import { Array, Equivalence, Option, Order, Predicate, pipe } from "effect";
 import { dual } from "effect/Function";
 
 /**
+ * Merges keyed updates into an existing array, keeping existing positions and
+ * replacing a value only when `isPreferred(candidate, currentWinner)` is true.
+ * New keys are appended in first-appearance order; repeated incoming keys are
+ * compared against their current winner. With an empty `existing`, this reduces
+ * any iterable to one winner per key.
+ *
+ * Neither input is mutated. Returns the original `existing` reference when the
+ * final elements are unchanged according to `Object.is`, even if an incoming
+ * value temporarily replaced an element and a later value restored it.
+ *
+ * Keys use SameValueZero, like a JavaScript `Map`: `NaN` matches `NaN`, and signed
+ * zeros match. For structured keys, derive a primitive key in `keyOf` rather than
+ * a fresh object. Existing keys are expected to be unique; if they repeat, only
+ * the first occurrence is compared and possibly replaced. Later duplicates stay
+ * in their original positions.
+ *
+ * @example
+ * ```ts
+ * import { ArrayX } from "@nunofyobiz/effect-extras"
+ *
+ * const cached = [
+ *   { id: "groceries", title: "Buy bread", revision: 2 },
+ *   { id: "laundry", title: "Wash towels", revision: 3 },
+ * ]
+ * const server = [
+ *   { id: "laundry", title: "Wash towels", revision: 1 },
+ *   { id: "groceries", title: "Buy bread and milk", revision: 4 },
+ *   { id: "plants", title: "Water plants", revision: 1 },
+ * ]
+ *
+ * // Update groceries in place, keep the newer cached laundry, and append plants.
+ * assert.deepStrictEqual(
+ *   ArrayX.mergeByWhere(cached, server, (task) => task.id,
+ *     (candidate, current) => candidate.revision > current.revision),
+ *   [
+ *     { id: "groceries", title: "Buy bread and milk", revision: 4 },
+ *     { id: "laundry", title: "Wash towels", revision: 3 },
+ *     { id: "plants", title: "Water plants", revision: 1 },
+ *   ],
+ * )
+ * // Rejected updates leave the cached array reference unchanged.
+ * assert.strictEqual(
+ *   ArrayX.mergeByWhere(cached, cached, (task) => task.id,
+ *     (candidate, current) => candidate.revision > current.revision),
+ *   cached,
+ * )
+ * ```
+ *
+ * @category combinators
+ * @since 0.0.0
+ */
+export const mergeByWhere = dual<
+  <A, K>(
+    incoming: Iterable<A>,
+    keyOf: (value: A) => K,
+    isPreferred: (candidate: A, existing: A) => boolean,
+  ) => (existing: readonly A[]) => readonly A[],
+  <A, K>(
+    existing: readonly A[],
+    incoming: Iterable<A>,
+    keyOf: (value: A) => K,
+    isPreferred: (candidate: A, existing: A) => boolean,
+  ) => readonly A[]
+>(
+  4,
+  <A, K>(
+    existing: readonly A[],
+    incoming: Iterable<A>,
+    keyOf: (value: A) => K,
+    isPreferred: (candidate: A, existing: A) => boolean,
+  ): readonly A[] => {
+    const positions = new Map<K, { index: number; winner: A }>();
+    for (const [index, winner] of existing.entries()) {
+      const key = keyOf(winner);
+      if (!positions.has(key)) {
+        positions.set(key, { index, winner });
+      }
+    }
+
+    let result: A[] | undefined;
+    for (const candidate of incoming) {
+      const key = keyOf(candidate);
+      const position = positions.get(key);
+      if (Predicate.isUndefined(position)) {
+        result = result ?? [...existing];
+        positions.set(key, { index: result.length, winner: candidate });
+        result.push(candidate);
+        continue;
+      }
+      if (
+        isPreferred(candidate, position.winner) &&
+        !Object.is(candidate, position.winner)
+      ) {
+        result = result ?? [...existing];
+        result[position.index] = candidate;
+        position.winner = candidate;
+      }
+    }
+
+    if (Predicate.isUndefined(result)) {
+      return existing;
+    }
+    return result.length === existing.length &&
+      result.every((value, index) => Object.is(value, existing[index]))
+      ? existing
+      : result;
+  },
+);
+
+/**
  * Returns a shallow copy of `array` between `start` (inclusive) and `end`
  * (exclusive), as a pipeable, dual-form alias for `Array.prototype.slice`.
  *
