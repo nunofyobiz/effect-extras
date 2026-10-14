@@ -1,23 +1,27 @@
 /**
  * A value carrying a left payload, a right payload, or both at once.
- * Use InclusiveOr when at least one of two independent pieces of data must be
- * available. Its three variants exclude the state where neither side exists;
- * left and right have no built-in priority or error/success meaning.
+ * Use InclusiveOr when at least one of two pieces of data must be available:
+ * either side may exist on its own, or both may exist together, and only the
+ * state where neither exists is excluded.
  *
- * Named example scenarios:
+ * The documentation examples share two everyday scenarios. In both, left holds
+ * the warnings or problems and right holds the usable value:
  *
- * - Contact lookup: fetch an email address and a phone number for the same person.
- *   Left contains the email, such as maya@example.com; right contains the phone,
- *   such as +1-415-555-0136. Either detail is useful on its own, and both can be
- *   retained together. If neither is found, Option.none() represents no contact
- *   result outside InclusiveOr.
- * - Contact list pairing: pair email and phone lists for the same people in the
- *   same order. zip keeps unmatched tails; pairing is positional, not a join by ID.
+ * - Sign-up email: a form field is cleaned up before saving. Left is a cleanup or
+ *   validation message such as "Removed surrounding spaces"; right is the usable
+ *   email, such as maya@example.com. Trimming a padded email yields both a
+ *   warning and a usable value; a clean email yields only the value; an email
+ *   that cannot be used yields only the warning.
+ * - Spreadsheet import: a row is imported into a contact list. Left is the list of
+ *   problems found in the row, such as "Phone number is missing"; right is the
+ *   usable contact record, such as `{ name: "Maya", email: "maya@example.com" }`.
+ *   `zip` pairs a list of per-row problems with a list of imported contacts by
+ *   position, not by joining on an identifier.
  *
- * WarnResult relabels left as warnings and right as success. Its derived operations
- * delegate to InclusiveOr and share its logic. The documentation examples differ:
- * WarnResult illustrates success with warnings; InclusiveOr illustrates independent
- * availability, with neither side preferred.
+ * InclusiveOr itself stays generic and gives neither side a built-in meaning;
+ * the roles above are how the examples use it. WarnResult reuses these same
+ * scenarios with warnings = left and success = right, and its derived operations
+ * delegate to InclusiveOr and share its logic.
  *
  * @since 0.0.0
  */
@@ -34,30 +38,39 @@ import {
 import { constUndefined, dual, identity } from "effect/Function";
 
 /**
- * A value with a left payload, a right payload, or both. Use it when at least one
- * of two independent pieces of data must be available, such as a fetched email
- * address or phone number. There is no variant with neither side.
+ * A value with a left payload, a right payload, or both. Use it when a result can
+ * carry warnings, a usable value, or both, such as a cleaned-up sign-up email. There
+ * is no variant with neither side.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { Option } from "effect";
  *
- * type ContactDetails = InclusiveOr.InclusiveOr<string, string>;
- * // Assemble the results of independent email and phone lookups.
- * const fromLookups = (email: string | null, phone: string | null): Option.Option<ContactDetails> =>
- *   InclusiveOr.optionFromNullables({ left: email, right: phone });
- * const email = "maya@example.com";
- * const phone = "+1-415-555-0136";
- * // Either detail is enough; when both are found, retain both.
- * assert.deepStrictEqual(fromLookups(email, null),
- *   Option.some(InclusiveOr.LeftOnly({ left: email })));
- * assert.deepStrictEqual(fromLookups(null, phone),
- *   Option.some(InclusiveOr.RightOnly({ right: phone })));
- * assert.deepStrictEqual(fromLookups(email, phone),
- *   Option.some(InclusiveOr.LeftAndRight({ left: email, right: phone })));
- * // Neither found is represented outside InclusiveOr, which has no such variant.
- * assert.deepStrictEqual(fromLookups(null, null), Option.none());
+ * // Left is a cleanup warning; right is the usable email.
+ * type CleanedEmail = InclusiveOr.InclusiveOr<string, string>;
+ *
+ * const cleanEmail = (typed: string): Option.Option<CleanedEmail> => {
+ *   const email = typed.trim();
+ *   return InclusiveOr.optionFromNullables({
+ *     left: email === typed ? undefined : "Removed surrounding spaces",
+ *     right: email === "" ? undefined : email
+ *   });
+ * };
+ *
+ * // A clean email has only a usable value.
+ * assert.deepStrictEqual(cleanEmail("maya@example.com"),
+ *   Option.some(InclusiveOr.RightOnly({ right: "maya@example.com" })));
+ * // A padded email is saved with a warning: both sides exist.
+ * assert.deepStrictEqual(cleanEmail("  maya@example.com "),
+ *   Option.some(InclusiveOr.LeftAndRight({
+ *     left: "Removed surrounding spaces", right: "maya@example.com"
+ *   })));
+ * // Blank spaces leave a warning but nothing usable.
+ * assert.deepStrictEqual(cleanEmail("   "),
+ *   Option.some(InclusiveOr.LeftOnly({ left: "Removed surrounding spaces" })));
+ * // An empty field has neither, which InclusiveOr cannot represent.
+ * assert.deepStrictEqual(cleanEmail(""), Option.none());
  * ```
  *
  * @category models
@@ -79,17 +92,18 @@ export type InclusiveOr<L, R> = Data.TaggedEnum<{
 }>;
 
 /**
- * A value that carries only a left payload. Use this type when only the first
- * piece of data is available, such as an email address without a phone number.
+ * A value that carries only a left payload. Use this type when only the warnings
+ * or problems exist, such as a sign-up email that could not be cleaned up into
+ * anything usable.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  *
- * // The lookup found Maya's email address but no phone number.
- * const contact: InclusiveOr.LeftOnly<string> =
- *   InclusiveOr.LeftOnly({ left: "maya@example.com" });
- * assert.strictEqual(contact.left, "maya@example.com");
+ * // The typed address was rejected, so there is a warning but no usable email.
+ * const rejected: InclusiveOr.LeftOnly<string> =
+ *   InclusiveOr.LeftOnly({ left: "Email must contain an @" });
+ * assert.strictEqual(rejected.left, "Email must contain an @");
  * ```
  *
  * @category models
@@ -100,17 +114,17 @@ export type LeftOnly<L> = InclusiveOr<L, never> & {
 };
 
 /**
- * A value that carries only a right payload. Use this type when only the second
- * piece of data is available, such as a phone number without an email address.
+ * A value that carries only a right payload. Use this type when only the usable
+ * value exists, such as a sign-up email that needed no cleanup.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  *
- * // The lookup found Maya's phone number but no email address.
- * const contact: InclusiveOr.RightOnly<string> =
- *   InclusiveOr.RightOnly({ right: "+1-415-555-0136" });
- * assert.strictEqual(contact.right, "+1-415-555-0136");
+ * // The typed address was already clean: a usable email and no warnings.
+ * const clean: InclusiveOr.RightOnly<string> =
+ *   InclusiveOr.RightOnly({ right: "maya@example.com" });
+ * assert.strictEqual(clean.right, "maya@example.com");
  * ```
  *
  * @category models
@@ -122,18 +136,21 @@ export type RightOnly<R> = InclusiveOr<never, R> & {
 
 /**
  * A value that carries both payloads.
- * Use it when both pieces of data are available, such as a fetched email address
- * and phone number. Both payloads are retained, even if they are nullish.
+ * Use it when warnings and a usable value exist together, such as a sign-up email
+ * that was cleaned up and saved with a warning. Both payloads are retained, even
+ * if they are nullish.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  *
- * // Both lookups found contact details; retain them together.
- * const contact: InclusiveOr.LeftAndRight<string, string> =
- *   InclusiveOr.LeftAndRight({ left: "maya@example.com", right: "+1-415-555-0136" });
- * assert.deepStrictEqual(contact, {
- *   _tag: "LeftAndRight", left: "maya@example.com", right: "+1-415-555-0136"
+ * // The email was trimmed: keep the warning and the usable value together.
+ * const cleaned: InclusiveOr.LeftAndRight<string, string> =
+ *   InclusiveOr.LeftAndRight({
+ *     left: "Removed surrounding spaces", right: "maya@example.com"
+ *   });
+ * assert.deepStrictEqual(cleaned, {
+ *   _tag: "LeftAndRight", left: "Removed surrounding spaces", right: "maya@example.com"
  * });
  * ```
  *
@@ -145,17 +162,20 @@ export type LeftAndRight<L, R> = InclusiveOr<L, R> & {
 };
 
 /**
- * Either a left-only value or a value with both sides. Use this type when the
- * email address is always available but the phone number may be missing.
+ * Either a left-only value or a value with both sides. Use this type when the left
+ * payload is always present but a right payload may or may not accompany it, such
+ * as a spreadsheet row that always has at least one problem but may still yield a
+ * usable contact.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  *
- * // A fetched email address guarantees one way to reach Maya.
- * const contact: InclusiveOr.WithLeft<string, string> =
- *   InclusiveOr.LeftOnly({ left: "maya@example.com" });
- * assert.strictEqual(contact.left, "maya@example.com");
+ * // This row has a problem and produced no contact, so only the problems exist.
+ * const row: InclusiveOr.WithLeft<string[], { name: string; email: string }> =
+ *   InclusiveOr.LeftOnly({ left: ["Phone number is missing"] });
+ * // The problems can be read without checking which variant it is.
+ * assert.deepStrictEqual(row.left, ["Phone number is missing"]);
  * ```
  *
  * @category models
@@ -164,17 +184,19 @@ export type LeftAndRight<L, R> = InclusiveOr<L, R> & {
 export type WithLeft<L, R> = LeftOnly<L> | LeftAndRight<L, R>;
 
 /**
- * Either a right-only value or a value with both sides. Use this type when the
- * phone number is always available but the email address may be missing.
+ * Either a right-only value or a value with both sides. Use this type when the right
+ * payload is always present but warnings may or may not accompany it, such as a
+ * sign-up email that is always usable but may carry a cleanup warning.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  *
- * // A fetched phone number guarantees one way to reach Maya.
- * const contact: InclusiveOr.WithRight<string, string> =
- *   InclusiveOr.RightOnly({ right: "+1-415-555-0136" });
- * assert.strictEqual(contact.right, "+1-415-555-0136");
+ * // The email is usable here and no warning accompanies it.
+ * const saved: InclusiveOr.WithRight<string, string> =
+ *   InclusiveOr.RightOnly({ right: "maya@example.com" });
+ * // The usable email can be read without checking which variant it is.
+ * assert.strictEqual(saved.right, "maya@example.com");
  * ```
  *
  * @category models
@@ -189,17 +211,18 @@ interface InclusiveOrDefinition extends Data.TaggedEnum.WithGenerics<2> {
 const taggedEnum = Data.taggedEnum<InclusiveOrDefinition>();
 
 /**
- * Creates a value carrying only a left payload. Use it when only the first
- * piece of data is available, such as an email address without a phone number.
- * The supplied payload is preserved, even if it is nullish.
+ * Creates a value carrying only a left payload. Use it when only the warnings or
+ * problems exist, such as an email that could not be used. The supplied payload is
+ * preserved, even if it is nullish.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  *
- * // The lookup found Maya's email address but no phone number.
- * const contact = InclusiveOr.LeftOnly({ left: "maya@example.com" });
- * assert.deepStrictEqual(contact, { _tag: "LeftOnly", left: "maya@example.com" });
+ * // The sign-up email was rejected: there is a warning but no usable value.
+ * const rejected = InclusiveOr.LeftOnly({ left: "Email must contain an @" });
+ * assert.deepStrictEqual(rejected,
+ *   { _tag: "LeftOnly", left: "Email must contain an @" });
  * ```
  *
  * @category constructors
@@ -208,17 +231,17 @@ const taggedEnum = Data.taggedEnum<InclusiveOrDefinition>();
 export const LeftOnly = taggedEnum.LeftOnly;
 
 /**
- * Creates a value carrying only a right payload. Use it when only the second
- * piece of data is available, such as a phone number without an email address.
- * The supplied payload is preserved, even if it is nullish.
+ * Creates a value carrying only a right payload. Use it when only the usable value
+ * exists, such as an email that needed no cleanup. The supplied payload is
+ * preserved, even if it is nullish.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  *
- * // The lookup found Maya's phone number but no email address.
- * const contact = InclusiveOr.RightOnly({ right: "+1-415-555-0136" });
- * assert.deepStrictEqual(contact, { _tag: "RightOnly", right: "+1-415-555-0136" });
+ * // The sign-up email was already clean: a usable value and no warnings.
+ * const clean = InclusiveOr.RightOnly({ right: "maya@example.com" });
+ * assert.deepStrictEqual(clean, { _tag: "RightOnly", right: "maya@example.com" });
  * ```
  *
  * @category constructors
@@ -228,18 +251,21 @@ export const RightOnly = taggedEnum.RightOnly;
 
 /**
  * Creates a value carrying both payloads.
- * Use it when both pieces of data are available, such as a fetched email address
- * and phone number. Both payloads are retained, even if they are nullish.
+ * Use it when warnings and a usable value exist together, such as an email that was
+ * cleaned up and saved with a warning. Both payloads are retained, even if they
+ * are nullish.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  *
- * // Both lookups found contact details; retain them together.
- * const contact =
- *   InclusiveOr.LeftAndRight({ left: "maya@example.com", right: "+1-415-555-0136" });
- * assert.deepStrictEqual(contact, {
- *   _tag: "LeftAndRight", left: "maya@example.com", right: "+1-415-555-0136"
+ * // The email was trimmed and saved: keep the warning with the usable value.
+ * const cleaned = InclusiveOr.LeftAndRight({
+ *   left: "Removed surrounding spaces",
+ *   right: "maya@example.com"
+ * });
+ * assert.deepStrictEqual(cleaned, {
+ *   _tag: "LeftAndRight", left: "Removed surrounding spaces", right: "maya@example.com"
  * });
  * ```
  *
@@ -257,13 +283,13 @@ export const LeftAndRight = taggedEnum.LeftAndRight;
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * const contact = InclusiveOr.LeftAndRight({
- *   left: "maya@example.com",
- *   right: "+1-415-555-0136"
+ * const cleaned = InclusiveOr.LeftAndRight({
+ *   left: "Removed surrounding spaces",
+ *   right: "maya@example.com"
  * });
- * // Recognise a contact with both an email address and a phone number.
- * assert.strictEqual(pipe(contact, InclusiveOr.is("LeftAndRight")), true);
- * assert.strictEqual(InclusiveOr.is("LeftOnly")(contact), false);
+ * // Recognise a sign-up email that has both a warning and a usable value.
+ * assert.strictEqual(pipe(cleaned, InclusiveOr.is("LeftAndRight")), true);
+ * assert.strictEqual(InclusiveOr.is("LeftOnly")(cleaned), false);
  * ```
  *
  * @category guards
@@ -273,29 +299,29 @@ export const is = taggedEnum.$is;
 
 /**
  * Chooses one of three handlers from the value's tag and returns that handler's
- * result. Use it when each combination of available data needs its own handling.
- * It supports both direct and piped calls.
+ * result. Use it when each combination of warnings and usable value needs its own
+ * handling. It supports both direct and piped calls.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * const contact = InclusiveOr.LeftAndRight({
- *   left: "maya@example.com",
- *   right: "+1-415-555-0136"
+ * const cleaned = InclusiveOr.LeftAndRight({
+ *   left: "Removed surrounding spaces",
+ *   right: "maya@example.com"
  * });
  * const describe = {
- *   LeftOnly: ({ left }: InclusiveOr.LeftOnly<string>) => `Email: ${left}`,
- *   RightOnly: ({ right }: InclusiveOr.RightOnly<string>) => `Phone: ${right}`,
+ *   LeftOnly: ({ left }: InclusiveOr.LeftOnly<string>) => `Rejected: ${left}`,
+ *   RightOnly: ({ right }: InclusiveOr.RightOnly<string>) => `Saved ${right}`,
  *   LeftAndRight: ({ left, right }: InclusiveOr.LeftAndRight<string, string>) =>
- *     `Email: ${left}; phone: ${right}`
+ *     `Saved ${right} (${left})`
  * };
- * // A contact with both details displays both ways to reach Maya.
- * assert.strictEqual(pipe(contact, InclusiveOr.match(describe)),
- *   "Email: maya@example.com; phone: +1-415-555-0136");
- * assert.strictEqual(InclusiveOr.match(contact, describe),
- *   pipe(contact, InclusiveOr.match(describe)));
+ * // A cleaned-up email is saved, and the sign-up form mentions the warning.
+ * assert.strictEqual(pipe(cleaned, InclusiveOr.match(describe)),
+ *   "Saved maya@example.com (Removed surrounding spaces)");
+ * assert.strictEqual(InclusiveOr.match(cleaned, describe),
+ *   pipe(cleaned, InclusiveOr.match(describe)));
  * ```
  *
  * @category pattern matching
@@ -305,21 +331,22 @@ export const match = taggedEnum.$match;
 
 /**
  * Creates a value with a mandatory left payload and an optional right companion.
- * Use it when the email address is known but the phone number might be absent.
- * A null or undefined companion produces LeftOnly; any other companion produces
- * LeftAndRight. The mandatory left is preserved even when nullish.
+ * Use it when the warnings or problems are known but a usable value might be
+ * absent. A null or undefined companion produces LeftOnly; any other companion
+ * produces LeftAndRight. The mandatory left is preserved even when nullish.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  *
- * const email = "maya@example.com";
- * const phone = "+1-415-555-0136";
- * // Keep the fetched email address, whether or not the other lookup found data.
- * assert.deepStrictEqual(InclusiveOr.WithLeft({ left: "maya@example.com" }),
- *   InclusiveOr.LeftOnly({ left: "maya@example.com" }));
- * assert.deepStrictEqual(InclusiveOr.WithLeft({ left: email, right: phone }),
- *   InclusiveOr.LeftAndRight({ left: email, right: phone }));
+ * const problems = ["Phone number is missing"];
+ * const contact = { name: "Maya", email: "maya@example.com" };
+ * // A spreadsheet row with problems and no usable contact keeps only the problems.
+ * assert.deepStrictEqual(InclusiveOr.WithLeft({ left: problems }),
+ *   InclusiveOr.LeftOnly({ left: problems }));
+ * // A row that still produced a contact keeps both.
+ * assert.deepStrictEqual(InclusiveOr.WithLeft({ left: problems, right: contact }),
+ *   InclusiveOr.LeftAndRight({ left: problems, right: contact }));
  * ```
  *
  * @category constructors
@@ -338,7 +365,7 @@ export const WithLeft = <L, R>({
 
 /**
  * Creates a value with a mandatory right payload and an optional left companion.
- * Use it when the phone number is known but the email address might be absent.
+ * Use it when the usable value is known but warnings or problems might be absent.
  * A null or undefined companion produces RightOnly; any other companion produces
  * LeftAndRight. The mandatory right is preserved even when nullish.
  *
@@ -346,13 +373,14 @@ export const WithLeft = <L, R>({
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  *
- * const email = "maya@example.com";
- * const phone = "+1-415-555-0136";
- * // Keep the fetched phone number, whether or not the other lookup found data.
- * assert.deepStrictEqual(InclusiveOr.WithRight({ right: "+1-415-555-0136" }),
- *   InclusiveOr.RightOnly({ right: "+1-415-555-0136" }));
- * assert.deepStrictEqual(InclusiveOr.WithRight({ left: email, right: phone }),
- *   InclusiveOr.LeftAndRight({ left: email, right: phone }));
+ * const contact = { name: "Maya", email: "maya@example.com" };
+ * const problems = ["Phone number is missing"];
+ * // A spreadsheet row that imported cleanly keeps only the contact.
+ * assert.deepStrictEqual(InclusiveOr.WithRight({ right: contact }),
+ *   InclusiveOr.RightOnly({ right: contact }));
+ * // A row imported with problems keeps both.
+ * assert.deepStrictEqual(InclusiveOr.WithRight({ left: problems, right: contact }),
+ *   InclusiveOr.LeftAndRight({ left: problems, right: contact }));
  * ```
  *
  * @category constructors
@@ -394,11 +422,21 @@ const optionFromOptions = <L, R>(
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { Option } from "effect";
  *
- * // The email lookup found nothing, but the phone lookup found a number.
- * assert.deepStrictEqual(InclusiveOr.optionFromNullables({ left: null, right: "+1-415-555-0136" }),
- *   Option.some(InclusiveOr.RightOnly({ right: "+1-415-555-0136" })));
- * // With neither detail, there is no contact result to construct.
- * assert.deepStrictEqual(InclusiveOr.optionFromNullables({ left: null, right: undefined }),
+ * // The email was cleaned without a warning: only the usable value exists.
+ * assert.deepStrictEqual(
+ *   InclusiveOr.optionFromNullables({ left: null, right: "maya@example.com" }),
+ *   Option.some(InclusiveOr.RightOnly({ right: "maya@example.com" })));
+ * // A warning and a usable email both exist.
+ * assert.deepStrictEqual(
+ *   InclusiveOr.optionFromNullables({
+ *     left: "Removed surrounding spaces", right: "maya@example.com"
+ *   }),
+ *   Option.some(InclusiveOr.LeftAndRight({
+ *     left: "Removed surrounding spaces", right: "maya@example.com"
+ *   })));
+ * // With neither a warning nor a value, there is nothing to construct.
+ * assert.deepStrictEqual(
+ *   InclusiveOr.optionFromNullables({ left: null, right: undefined }),
  *   Option.none());
  * ```
  *
@@ -424,14 +462,17 @@ export const optionFromNullables = <L, R>({
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  *
- * // Neither lookup found data; fall back to a locally saved email address.
- * const savedEmail = "maya@example.com";
- * const contact = InclusiveOr.fromNullables({
+ * // The sign-up field was empty: report a warning instead of a usable email.
+ * const emptyField = InclusiveOr.fromNullables({
  *   left: null,
  *   right: undefined,
- *   orElse: () => InclusiveOr.LeftOnly({ left: savedEmail })
+ *   orElse: () => InclusiveOr.LeftOnly({ left: "Email is required" })
  * });
- * assert.deepStrictEqual(contact, InclusiveOr.LeftOnly({ left: savedEmail }));
+ * assert.deepStrictEqual(emptyField,
+ *   InclusiveOr.LeftOnly({ left: "Email is required" }));
+ * // Without a fallback, an absent pair is an error.
+ * assert.throws(() => InclusiveOr.fromNullables({ left: null, right: null }),
+ *   { message: "Both left and right are nullable" });
  * ```
  *
  * @category constructors
@@ -451,26 +492,26 @@ export const fromNullables = <L, R>({
   Option.getOrElse(optionFromNullables({ left, right }), orElse);
 
 /**
- * Handles values according to whether a left payload exists. Use it to work with
- * an email address whenever one is available, including when a phone number also
- * exists. LeftOnly and LeftAndRight pass their left to Left; RightOnly passes its
- * right to RightOnly.
+ * Handles values according to whether a left payload exists. Use it to react to the
+ * warnings whenever there are any, including when a usable value also exists.
+ * LeftOnly and LeftAndRight pass their left to Left; RightOnly passes its right to
+ * RightOnly.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * const contact = InclusiveOr.LeftAndRight({
- *   left: "maya@example.com",
- *   right: "+1-415-555-0136"
+ * const cleaned = InclusiveOr.LeftAndRight({
+ *   left: "Removed surrounding spaces",
+ *   right: "maya@example.com"
  * });
- * // Offer an email link when available, otherwise offer a phone link.
- * const link = pipe(contact, InclusiveOr.matchLeft({
- *   Left: (email: string) => `mailto:${email}`,
- *   RightOnly: (phone: string) => `tel:${phone}`
+ * // Show the warning whenever there is one; otherwise confirm the clean email.
+ * const message = pipe(cleaned, InclusiveOr.matchLeft({
+ *   Left: (warning: string) => `Warning: ${warning}`,
+ *   RightOnly: (email: string) => `Saved ${email}`
  * }));
- * assert.strictEqual(link, "mailto:maya@example.com");
+ * assert.strictEqual(message, "Warning: Removed surrounding spaces");
  * ```
  *
  * @category pattern matching
@@ -493,25 +534,25 @@ export const matchLeft =
 
 /**
  * Handles values according to whether a right payload exists. Use it to work with
- * a phone number whenever one is available, including when an email address also
- * exists. RightOnly and LeftAndRight pass their right to Right; LeftOnly passes
- * its left to LeftOnly.
+ * the usable value whenever there is one, including when warnings also exist.
+ * RightOnly and LeftAndRight pass their right to Right; LeftOnly passes its left to
+ * LeftOnly.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * const contact = InclusiveOr.LeftAndRight({
- *   left: "maya@example.com",
- *   right: "+1-415-555-0136"
+ * const cleaned = InclusiveOr.LeftAndRight({
+ *   left: "Removed surrounding spaces",
+ *   right: "maya@example.com"
  * });
- * // Offer a phone link when available, otherwise offer an email link.
- * const link = pipe(contact, InclusiveOr.matchRight({
- *   LeftOnly: (email: string) => `mailto:${email}`,
- *   Right: (phone: string) => `tel:${phone}`
+ * // Use the email whenever there is one; otherwise explain why there is none.
+ * const message = pipe(cleaned, InclusiveOr.matchRight({
+ *   LeftOnly: (warning: string) => `Cannot save: ${warning}`,
+ *   Right: (email: string) => `Saved ${email}`
  * }));
- * assert.strictEqual(link, "tel:+1-415-555-0136");
+ * assert.strictEqual(message, "Saved maya@example.com");
  * ```
  *
  * @category pattern matching
@@ -542,16 +583,16 @@ export const matchRight =
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * const contact = InclusiveOr.LeftOnly({ left: "maya@example.com" });
- * const savedPhone = "+1-415-555-0136";
- * // Keep the fetched email and fill in the phone from locally saved details.
- * const complete = pipe(contact, InclusiveOr.orElse({
- *   orElseLeft: () => "saved@example.com",
- *   orElseRight: () => savedPhone
+ * // This spreadsheet row produced problems but no usable contact.
+ * const row = InclusiveOr.LeftOnly({ left: ["Phone number is missing"] });
+ * // Fill in a placeholder contact; a row without problems would get an empty list.
+ * const complete = pipe(row, InclusiveOr.orElse({
+ *   orElseLeft: (): string[] => [],
+ *   orElseRight: () => ({ name: "Unknown", email: "unknown@example.com" })
  * }));
  * assert.deepStrictEqual(complete, InclusiveOr.LeftAndRight({
- *   left: "maya@example.com",
- *   right: "+1-415-555-0136"
+ *   left: ["Phone number is missing"],
+ *   right: { name: "Unknown", email: "unknown@example.com" }
  * }));
  * ```
  *
@@ -581,11 +622,12 @@ export const orElse = <L2, R2>({
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * // The lookup found only an email; expose the missing phone as undefined.
- * const contact = pipe(InclusiveOr.LeftOnly({ left: "maya@example.com" }),
+ * // The email was rejected: expose the missing usable value as undefined.
+ * const { left: warning, right: email } = pipe(
+ *   InclusiveOr.LeftOnly({ left: "Email must contain an @" }),
  *   InclusiveOr.orUndefined);
- * assert.deepStrictEqual(contact,
- *   InclusiveOr.LeftAndRight({ left: "maya@example.com", right: undefined }));
+ * assert.strictEqual(warning, "Email must contain an @");
+ * assert.strictEqual(email, undefined);
  * ```
  *
  * @category getters
@@ -598,7 +640,7 @@ export const orUndefined = orElse({
 
 /**
  * Reads the left payload, calling a lazy fallback only when that side is missing.
- * Use it to get an email address with a default in one step. A present null or
+ * Use it to get the warnings with a default in one step. A present null or
  * undefined payload does not invoke the fallback.
  *
  * @example
@@ -606,11 +648,17 @@ export const orUndefined = orElse({
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * // The lookup lacks an email address; read it from saved contact details.
- * const saved = "maya@example.com";
- * const detail = pipe(InclusiveOr.RightOnly({ right: "+1-415-555-0136" }),
- *   InclusiveOr.leftOrElse(() => saved));
- * assert.strictEqual(detail, saved);
+ * // A clean email has no warnings; read an empty list instead.
+ * const clean = InclusiveOr.RightOnly({ right: "maya@example.com" });
+ * assert.deepStrictEqual(
+ *   pipe(clean, InclusiveOr.leftOrElse((): string[] => [])), []);
+ * // When a warning exists, it is returned and the fallback is not needed.
+ * const cleaned = InclusiveOr.LeftAndRight({
+ *   left: "Removed surrounding spaces", right: "maya@example.com"
+ * });
+ * assert.strictEqual(
+ *   pipe(cleaned, InclusiveOr.leftOrElse(() => "No warnings")),
+ *   "Removed surrounding spaces");
  * ```
  *
  * @category getters
@@ -630,7 +678,7 @@ export const leftOrElse =
 
 /**
  * Reads the left payload, returning undefined if that side is missing. Use it
- * when an email address can be absent and no default is needed. Present nullish
+ * when there may be no warnings and no default is needed. Present nullish
  * payloads are preserved.
  *
  * @example
@@ -638,9 +686,11 @@ export const leftOrElse =
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * // This contact has no email address to display.
- * assert.strictEqual(pipe(InclusiveOr.RightOnly({ right: "+1-415-555-0136" }),
- *   InclusiveOr.leftOrUndefined), undefined);
+ * // A clean sign-up email has no warning to display.
+ * assert.strictEqual(
+ *   pipe(InclusiveOr.RightOnly({ right: "maya@example.com" }),
+ *     InclusiveOr.leftOrUndefined),
+ *   undefined);
  * ```
  *
  * @category getters
@@ -650,7 +700,7 @@ export const leftOrUndefined = leftOrElse(constUndefined);
 
 /**
  * Reads the right payload, calling a lazy fallback only when that side is missing.
- * Use it to get a phone number with a default in one step. A present null or
+ * Use it to get the usable value with a default in one step. A present null or
  * undefined payload does not invoke the fallback.
  *
  * @example
@@ -658,11 +708,11 @@ export const leftOrUndefined = leftOrElse(constUndefined);
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * // The lookup lacks a phone number; read it from saved contact details.
- * const saved = "+1-415-555-0136";
- * const detail = pipe(InclusiveOr.LeftOnly({ left: "maya@example.com" }),
- *   InclusiveOr.rightOrElse(() => saved));
- * assert.strictEqual(detail, saved);
+ * // The email was rejected, so read a placeholder address instead.
+ * const rejected = InclusiveOr.LeftOnly({ left: "Email must contain an @" });
+ * assert.strictEqual(
+ *   pipe(rejected, InclusiveOr.rightOrElse(() => "unknown@example.com")),
+ *   "unknown@example.com");
  * ```
  *
  * @category getters
@@ -682,7 +732,7 @@ export const rightOrElse =
 
 /**
  * Reads the right payload, returning undefined if that side is missing. Use it
- * when a phone number can be absent and no default is needed. Present nullish
+ * when the usable value can be absent and no default is needed. Present nullish
  * payloads are preserved.
  *
  * @example
@@ -690,9 +740,11 @@ export const rightOrElse =
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * // This contact has no phone number to display.
- * assert.strictEqual(pipe(InclusiveOr.LeftOnly({ left: "maya@example.com" }),
- *   InclusiveOr.rightOrUndefined), undefined);
+ * // The email was rejected, so there is no usable value to save.
+ * assert.strictEqual(
+ *   pipe(InclusiveOr.LeftOnly({ left: "Email must contain an @" }),
+ *     InclusiveOr.rightOrUndefined),
+ *   undefined);
  * ```
  *
  * @category getters
@@ -702,20 +754,25 @@ export const rightOrUndefined = rightOrElse(constUndefined);
 
 /**
  * Reads the right payload as Some, or returns None if that side is missing. Use it
- * to compose an optional phone number with Option helpers. A present null or
- * undefined payload is still Some.
+ * to compose the usable value with Option helpers. A present null or undefined
+ * payload is still Some.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { Option, pipe } from "effect";
  *
- * // Keep the phone number available for an optional contact link.
- * const contact = InclusiveOr.RightOnly({ right: "+1-415-555-0136" });
- * assert.deepStrictEqual(pipe(contact, InclusiveOr.rightOption), Option.some("+1-415-555-0136"));
- * // The other detail alone provides no phone number.
- * assert.deepStrictEqual(pipe(InclusiveOr.LeftOnly({ left: "maya@example.com" }),
- *   InclusiveOr.rightOption), Option.none());
+ * // A cleaned-up email still has a usable value to save.
+ * const cleaned = InclusiveOr.LeftAndRight({
+ *   left: "Removed surrounding spaces", right: "maya@example.com"
+ * });
+ * assert.deepStrictEqual(pipe(cleaned, InclusiveOr.rightOption),
+ *   Option.some("maya@example.com"));
+ * // A rejected email has none.
+ * assert.deepStrictEqual(
+ *   pipe(InclusiveOr.LeftOnly({ left: "Email must contain an @" }),
+ *     InclusiveOr.rightOption),
+ *   Option.none());
  * ```
  *
  * @category getters
@@ -731,20 +788,25 @@ export const rightOption = <L, R>(
 
 /**
  * Reads the left payload as Some, or returns None if that side is missing. Use it
- * to compose an optional email address with Option helpers. A present null or
- * undefined payload is still Some.
+ * to compose the warnings with Option helpers. A present null or undefined payload
+ * is still Some.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { Option, pipe } from "effect";
  *
- * // Keep the email address available for an optional contact link.
- * const contact = InclusiveOr.LeftOnly({ left: "maya@example.com" });
- * assert.deepStrictEqual(pipe(contact, InclusiveOr.leftOption), Option.some("maya@example.com"));
- * // The other detail alone provides no email address.
- * assert.deepStrictEqual(pipe(InclusiveOr.RightOnly({ right: "+1-415-555-0136" }),
- *   InclusiveOr.leftOption), Option.none());
+ * // A cleaned-up email carries a warning to show the user.
+ * const cleaned = InclusiveOr.LeftAndRight({
+ *   left: "Removed surrounding spaces", right: "maya@example.com"
+ * });
+ * assert.deepStrictEqual(pipe(cleaned, InclusiveOr.leftOption),
+ *   Option.some("Removed surrounding spaces"));
+ * // A clean email has none.
+ * assert.deepStrictEqual(
+ *   pipe(InclusiveOr.RightOnly({ right: "maya@example.com" }),
+ *     InclusiveOr.leftOption),
+ *   Option.none());
  * ```
  *
  * @category getters
@@ -759,27 +821,27 @@ export const leftOption = <L, R>(
   })(inclusiveOr);
 
 /**
- * Transforms each present payload and keeps the original tag. Use it when both
- * email addresses and phone numbers need a new representation. A missing side
- * never calls its mapper; the original value is left unchanged.
+ * Transforms each present payload and keeps the original tag. Use it when both the
+ * warnings and the usable value need a new representation. A missing side never
+ * calls its mapper; the original value is left unchanged.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * const contact = InclusiveOr.LeftAndRight({
- *   left: "maya@example.com",
- *   right: "+1-415-555-0136"
+ * const typed = InclusiveOr.LeftAndRight({
+ *   left: "Removed surrounding spaces",
+ *   right: "Maya@Example.com"
  * });
- * // Turn each available contact detail into a link.
- * const links = pipe(contact, InclusiveOr.mapBoth({
- *   mapLeft: (email: string) => `mailto:${email}`,
- *   mapRight: (phone: string) => `tel:${phone}`
+ * // Label the warning for display and normalise the email's case.
+ * const normalised = pipe(typed, InclusiveOr.mapBoth({
+ *   mapLeft: (warning: string) => `Warning: ${warning}`,
+ *   mapRight: (email: string) => email.toLowerCase()
  * }));
- * assert.deepStrictEqual(links,
+ * assert.deepStrictEqual(normalised,
  *   InclusiveOr.LeftAndRight({
- *     left: "mailto:maya@example.com", right: "tel:+1-415-555-0136"
+ *     left: "Warning: Removed surrounding spaces", right: "maya@example.com"
  *   }));
  * ```
  *
@@ -802,27 +864,27 @@ export const mapBoth = <L1, R1, L2, R2>({
 
 /**
  * Transforms each present payload with an Effect and keeps the original tag.
- * Use it when preparing contact details requires effectful work. On a both-sides
- * value, the left effect runs before the right; failure stops execution and fails
- * the result. Missing sides never call their mapper.
+ * Use it when preparing the warnings and the usable value requires effectful work.
+ * On a both-sides value, the left effect runs before the right; failure stops
+ * execution and fails the result. Missing sides never call their mapper.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { Effect, pipe } from "effect";
  *
- * const contact = InclusiveOr.LeftAndRight({
- *   left: "maya@example.com",
- *   right: "+1-415-555-0136"
+ * const typed = InclusiveOr.LeftAndRight({
+ *   left: "Removed surrounding spaces",
+ *   right: "Maya@Example.com"
  * });
- * // Prepare the email link first, then the phone link.
- * const links = pipe(contact, InclusiveOr.mapBothEffect({
- *   mapLeft: (email: string) => Effect.succeed(`mailto:${email}`),
- *   mapRight: (phone: string) => Effect.succeed(`tel:${phone}`)
+ * // Prepare the warning first, then the normalised email.
+ * const prepared = pipe(typed, InclusiveOr.mapBothEffect({
+ *   mapLeft: (warning: string) => Effect.succeed(`Warning: ${warning}`),
+ *   mapRight: (email: string) => Effect.succeed(email.toLowerCase())
  * }));
- * assert.deepStrictEqual(Effect.runSync(links),
+ * assert.deepStrictEqual(Effect.runSync(prepared),
  *   InclusiveOr.LeftAndRight({
- *     left: "mailto:maya@example.com", right: "tel:+1-415-555-0136"
+ *     left: "Warning: Removed surrounding spaces", right: "maya@example.com"
  *   }));
  * ```
  *
@@ -855,7 +917,7 @@ export const mapBothEffect = <L1, R1, L2, R2, EL, ER, RL, RR>({
 
 /**
  * Transforms the left payload, keeping any right payload and the tag.
- * Use it to prepare an email link without changing the phone detail.
+ * Use it to rewrite the warnings without touching the usable value.
  * When left is absent, its mapper is not called.
  *
  * @example
@@ -863,18 +925,17 @@ export const mapBothEffect = <L1, R1, L2, R2, EL, ER, RL, RR>({
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * const contact = InclusiveOr.LeftAndRight({
- *   left: "maya@example.com",
- *   right: "+1-415-555-0136"
+ * const contact = { name: "Maya", email: "maya@example.com" };
+ * const row = InclusiveOr.LeftAndRight({
+ *   left: ["Phone number is missing"],
+ *   right: contact
  * });
- * // Prepare an email link while retaining the phone detail.
- * const mapped = pipe(contact, InclusiveOr.mapLeft((email: string) =>
- *   `mailto:${email}`
+ * // Summarise the row's problems as a count; the imported contact is untouched.
+ * const summary = pipe(row, InclusiveOr.mapLeft(
+ *   (problems: string[]) => problems.length
  * ));
- * assert.deepStrictEqual(mapped,
- *   InclusiveOr.LeftAndRight({
- *     left: "mailto:maya@example.com", right: "+1-415-555-0136"
- *   }));
+ * assert.deepStrictEqual(summary,
+ *   InclusiveOr.LeftAndRight({ left: 1, right: contact }));
  * ```
  *
  * @category mapping
@@ -887,26 +948,26 @@ export const mapLeft = <L1, L2>(
 
 /**
  * Replaces the whole value with a mapper's InclusiveOr when left exists.
- * Use it when processing an email detail produces a fresh contact result.
- * The original opposite payload is discarded, including on LeftAndRight; it is
- * not accumulated. Values without left pass through.
+ * Use it when handling the warnings produces a fresh result, such as escalating a
+ * warning into a rejection. The original opposite payload is discarded, including
+ * on LeftAndRight; it is not accumulated. Values without left pass through.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * const contact = InclusiveOr.LeftAndRight({
- *   left: "maya@example.com",
- *   right: "+1-415-555-0136"
+ * const typed = InclusiveOr.LeftAndRight({
+ *   left: "Email has no domain",
+ *   right: "maya@"
  * });
- * // Create a fresh email-only contact card from the available email.
- * const card = pipe(contact, InclusiveOr.flatMapLeft((email: string) =>
- *   InclusiveOr.LeftOnly({ left: { email } })
+ * // The warning turns out to be blocking, so the email is rejected outright.
+ * const rejected = pipe(typed, InclusiveOr.flatMapLeft((warning: string) =>
+ *   InclusiveOr.LeftOnly({ left: `Rejected: ${warning}` })
  * ));
- * // This is a replacement: the original phone is not merged into the card.
- * assert.deepStrictEqual(card,
- *   InclusiveOr.LeftOnly({ left: { email: "maya@example.com" } }));
+ * // This is a replacement: the unusable "maya@" is dropped, not merged in.
+ * assert.deepStrictEqual(rejected,
+ *   InclusiveOr.LeftOnly({ left: "Rejected: Email has no domain" }));
  * ```
  *
  * @category sequencing
@@ -923,25 +984,26 @@ export const flatMapLeft = <L1, L2, R2>(
 
 /**
  * Transforms the left payload with an Effect, keeping any right payload and the tag.
- * Use it to prepare an email link without changing the phone detail.
- * When left is absent, its mapper is not called. A mapper failure fails the result.
+ * Use it to prepare the warnings with effectful work without touching the usable
+ * value. When left is absent, its mapper is not called. A mapper failure fails the
+ * result.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { Effect, pipe } from "effect";
  *
- * const contact = InclusiveOr.LeftAndRight({
- *   left: "maya@example.com",
- *   right: "+1-415-555-0136"
+ * const cleaned = InclusiveOr.LeftAndRight({
+ *   left: "Removed surrounding spaces",
+ *   right: "maya@example.com"
  * });
- * // Prepare an email link while retaining the phone detail.
- * const mapped = pipe(contact, InclusiveOr.mapLeftEffect((email: string) =>
- *   Effect.succeed(`mailto:${email}`)
+ * // Prepare the warning for display; the usable email is retained as is.
+ * const prepared = pipe(cleaned, InclusiveOr.mapLeftEffect((warning: string) =>
+ *   Effect.succeed(`Warning: ${warning}`)
  * ));
- * assert.deepStrictEqual(Effect.runSync(mapped),
+ * assert.deepStrictEqual(Effect.runSync(prepared),
  *   InclusiveOr.LeftAndRight({
- *     left: "mailto:maya@example.com", right: "+1-415-555-0136"
+ *     left: "Warning: Removed surrounding spaces", right: "maya@example.com"
  *   }));
  * ```
  *
@@ -957,7 +1019,7 @@ export const mapLeftEffect = <L1, L2, EL, RL>(
 
 /**
  * Replaces the whole value with an effectful mapper's InclusiveOr when left exists.
- * Use it when processing an email detail produces a fresh contact result.
+ * Use it when handling the warnings with effectful work produces a fresh result.
  * The original opposite payload is discarded, including on LeftAndRight; it is
  * not accumulated. Values without left pass through in a successful Effect. A mapper
  * failure fails the result.
@@ -967,17 +1029,17 @@ export const mapLeftEffect = <L1, L2, EL, RL>(
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { Effect, pipe } from "effect";
  *
- * const contact = InclusiveOr.LeftAndRight({
- *   left: "maya@example.com",
- *   right: "+1-415-555-0136"
+ * const typed = InclusiveOr.LeftAndRight({
+ *   left: "Email has no domain",
+ *   right: "maya@"
  * });
- * // Create a fresh email-only contact card from the available email.
- * const card = pipe(contact, InclusiveOr.flatMapLeftEffect((email: string) =>
- *   Effect.succeed(InclusiveOr.LeftOnly({ left: { email } }))
+ * // The warning turns out to be blocking, so the email is rejected outright.
+ * const rejected = pipe(typed, InclusiveOr.flatMapLeftEffect((warning: string) =>
+ *   Effect.succeed(InclusiveOr.LeftOnly({ left: `Rejected: ${warning}` }))
  * ));
- * // This is a replacement: the original phone is not merged into the card.
- * assert.deepStrictEqual(Effect.runSync(card),
- *   InclusiveOr.LeftOnly({ left: { email: "maya@example.com" } }));
+ * // This is a replacement: the unusable "maya@" is dropped, not merged in.
+ * assert.deepStrictEqual(Effect.runSync(rejected),
+ *   InclusiveOr.LeftOnly({ left: "Rejected: Email has no domain" }));
  * ```
  *
  * @category sequencing
@@ -996,7 +1058,7 @@ export const flatMapLeftEffect = <L1, L2, R2, EL, RL>(
 
 /**
  * Transforms the right payload, keeping any left payload and the tag.
- * Use it to prepare a phone link without changing the email detail.
+ * Use it to rewrite the usable value without touching the warnings.
  * When right is absent, its mapper is not called.
  *
  * @example
@@ -1004,17 +1066,17 @@ export const flatMapLeftEffect = <L1, L2, R2, EL, RL>(
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * const contact = InclusiveOr.LeftAndRight({
- *   left: "maya@example.com",
- *   right: "+1-415-555-0136"
+ * const typed = InclusiveOr.LeftAndRight({
+ *   left: "Removed surrounding spaces",
+ *   right: "Maya@Example.com"
  * });
- * // Prepare a phone link while retaining the email detail.
- * const mapped = pipe(contact, InclusiveOr.mapRight((phone: string) =>
- *   `tel:${phone}`
+ * // Normalise the email's case; the cleanup warning is retained as is.
+ * const normalised = pipe(typed, InclusiveOr.mapRight((email: string) =>
+ *   email.toLowerCase()
  * ));
- * assert.deepStrictEqual(mapped,
+ * assert.deepStrictEqual(normalised,
  *   InclusiveOr.LeftAndRight({
- *     right: "tel:+1-415-555-0136", left: "maya@example.com"
+ *     right: "maya@example.com", left: "Removed surrounding spaces"
  *   }));
  * ```
  *
@@ -1028,26 +1090,26 @@ export const mapRight = <R1, R2>(
 
 /**
  * Replaces the whole value with a mapper's InclusiveOr when right exists.
- * Use it when processing a phone detail produces a fresh contact result.
- * The original opposite payload is discarded, including on LeftAndRight; it is
- * not accumulated. Values without right pass through.
+ * Use it when handling the usable value produces a fresh result, such as finding
+ * that it is already taken. The original opposite payload is discarded, including
+ * on LeftAndRight; it is not accumulated. Values without right pass through.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * const contact = InclusiveOr.LeftAndRight({
- *   left: "maya@example.com",
- *   right: "+1-415-555-0136"
+ * const cleaned = InclusiveOr.LeftAndRight({
+ *   left: "Removed surrounding spaces",
+ *   right: "maya@example.com"
  * });
- * // Create a fresh phone-only contact card from the available phone.
- * const card = pipe(contact, InclusiveOr.flatMapRight((phone: string) =>
- *   InclusiveOr.RightOnly({ right: { phone } })
+ * // The cleaned email turns out to belong to an existing account.
+ * const rejected = pipe(cleaned, InclusiveOr.flatMapRight((email: string) =>
+ *   InclusiveOr.LeftOnly({ left: `${email} is already registered` })
  * ));
- * // This is a replacement: the original email is not merged into the card.
- * assert.deepStrictEqual(card,
- *   InclusiveOr.RightOnly({ right: { phone: "+1-415-555-0136" } }));
+ * // This is a replacement: the earlier cleanup warning is dropped, not merged in.
+ * assert.deepStrictEqual(rejected,
+ *   InclusiveOr.LeftOnly({ left: "maya@example.com is already registered" }));
  * ```
  *
  * @category sequencing
@@ -1064,25 +1126,26 @@ export const flatMapRight = <L2, R1, R2>(
 
 /**
  * Transforms the right payload with an Effect, keeping any left payload and the tag.
- * Use it to prepare a phone link without changing the email detail.
- * When right is absent, its mapper is not called. A mapper failure fails the result.
+ * Use it to prepare the usable value with effectful work without touching the
+ * warnings. When right is absent, its mapper is not called. A mapper failure fails
+ * the result.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { Effect, pipe } from "effect";
  *
- * const contact = InclusiveOr.LeftAndRight({
- *   left: "maya@example.com",
- *   right: "+1-415-555-0136"
+ * const typed = InclusiveOr.LeftAndRight({
+ *   left: "Removed surrounding spaces",
+ *   right: "Maya@Example.com"
  * });
- * // Prepare a phone link while retaining the email detail.
- * const mapped = pipe(contact, InclusiveOr.mapRightEffect((phone: string) =>
- *   Effect.succeed(`tel:${phone}`)
+ * // Normalise the email's case; the cleanup warning is retained as is.
+ * const prepared = pipe(typed, InclusiveOr.mapRightEffect((email: string) =>
+ *   Effect.succeed(email.toLowerCase())
  * ));
- * assert.deepStrictEqual(Effect.runSync(mapped),
+ * assert.deepStrictEqual(Effect.runSync(prepared),
  *   InclusiveOr.LeftAndRight({
- *     right: "tel:+1-415-555-0136", left: "maya@example.com"
+ *     right: "maya@example.com", left: "Removed surrounding spaces"
  *   }));
  * ```
  *
@@ -1098,27 +1161,28 @@ export const mapRightEffect = <R1, R2, ER, RR>(
 
 /**
  * Replaces the whole value with an effectful mapper's InclusiveOr when right exists.
- * Use it when processing a phone detail produces a fresh contact result.
- * The original opposite payload is discarded, including on LeftAndRight; it is
- * not accumulated. Values without right pass through in a successful Effect. A mapper
- * failure fails the result.
+ * Use it when handling the usable value with effectful work produces a fresh result,
+ * such as finding that it is already taken. The original opposite payload is
+ * discarded, including on LeftAndRight; it is not accumulated. Values without right
+ * pass through in a successful Effect. A mapper failure fails the result.
  *
  * @example
  * ```ts
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { Effect, pipe } from "effect";
  *
- * const contact = InclusiveOr.LeftAndRight({
- *   left: "maya@example.com",
- *   right: "+1-415-555-0136"
+ * const cleaned = InclusiveOr.LeftAndRight({
+ *   left: "Removed surrounding spaces",
+ *   right: "maya@example.com"
  * });
- * // Create a fresh phone-only contact card from the available phone.
- * const card = pipe(contact, InclusiveOr.flatMapRightEffect((phone: string) =>
- *   Effect.succeed(InclusiveOr.RightOnly({ right: { phone } }))
+ * // The cleaned email turns out to belong to an existing account.
+ * const rejected = pipe(cleaned, InclusiveOr.flatMapRightEffect((email: string) =>
+ *   Effect.succeed(
+ *     InclusiveOr.LeftOnly({ left: `${email} is already registered` }))
  * ));
- * // This is a replacement: the original email is not merged into the card.
- * assert.deepStrictEqual(Effect.runSync(card),
- *   InclusiveOr.RightOnly({ right: { phone: "+1-415-555-0136" } }));
+ * // This is a replacement: the earlier cleanup warning is dropped, not merged in.
+ * assert.deepStrictEqual(Effect.runSync(rejected),
+ *   InclusiveOr.LeftOnly({ left: "maya@example.com is already registered" }));
  * ```
  *
  * @category sequencing
@@ -1148,21 +1212,23 @@ export const flatMapRightEffect = <L2, R1, R2, ER, RR>(
  * import { InclusiveOr } from "@nunofyobiz/effect-extras";
  * import { pipe } from "effect";
  *
- * // These contact lists refer to the same people in the same order.
- * const emails = ["maya@example.com", "lee@example.com"];
- * const phones = ["+1-415-555-0136"];
- * const toContact = (pair: InclusiveOr.InclusiveOr<string, string>) => ({
- *   email: pipe(pair, InclusiveOr.leftOrUndefined),
- *   phone: pipe(pair, InclusiveOr.rightOrUndefined)
+ * // Row 1 and row 2 each list problems, but only row 1 produced a contact.
+ * const problems = [["Phone number is missing"], ["Name is blank"]];
+ * const contacts = [{ name: "Maya", email: "maya@example.com" }];
+ * const toRow = (
+ *   pair: InclusiveOr.InclusiveOr<string[], { name: string; email: string }>
+ * ) => ({
+ *   problems: pipe(pair, InclusiveOr.leftOrElse((): string[] => [])),
+ *   contact: pipe(pair, InclusiveOr.rightOrUndefined)
  * });
- * // Maya has both details; the unmatched second entry contains only Lee's email.
- * const contacts = InclusiveOr.zip(emails, phones, toContact);
- * assert.deepStrictEqual(contacts, [
- *   { email: "maya@example.com", phone: "+1-415-555-0136" },
- *   { email: "lee@example.com", phone: undefined }
+ * // Pairing is by position: the second row has problems but no contact.
+ * const rows = InclusiveOr.zip(problems, contacts, toRow);
+ * assert.deepStrictEqual(rows, [
+ *   { problems: ["Phone number is missing"], contact: contacts[0] },
+ *   { problems: ["Name is blank"], contact: undefined }
  * ]);
- * // The piped form produces the same contact records and unmatched tail.
- * assert.deepStrictEqual(pipe(emails, InclusiveOr.zip(phones, toContact)), contacts);
+ * // The piped form produces the same rows and unmatched tail.
+ * assert.deepStrictEqual(pipe(problems, InclusiveOr.zip(contacts, toRow)), rows);
  * ```
  *
  * @category combinators
