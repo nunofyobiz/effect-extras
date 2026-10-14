@@ -21,7 +21,10 @@ Named example scenarios:
 - Contact list pairing: pair email and phone lists for the same people in the
   same order. zip keeps unmatched tails; pairing is positional, not a join by ID.
 
-WarnResult assigns warnings and success to its sides. Use it for those roles.
+WarnResult relabels left as warnings and right as success. Its derived operations
+delegate to InclusiveOr and share its logic. The documentation examples differ:
+WarnResult illustrates success with warnings; InclusiveOr illustrates independent
+availability, with neither side preferred.
 
 Added in v0.0.0
 
