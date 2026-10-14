@@ -167,6 +167,9 @@ export const fromNullableOption = <A>(
  * runs only for `Some`, and its result passes through unchanged, including
  * falsy values, `null`, and `undefined`.
  *
+ * Also useful in React/JSX when mapping optional data to rendered content:
+ * `None` produces `null`, so nothing is rendered.
+ *
  * @example
  * ```ts
  * import { Option } from "effect"
