@@ -1,5 +1,5 @@
 import { Option, Result } from "effect";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "@effect/vitest";
 import { fromOption } from "./ResultX.js";
 
 describe("Result utils", () => {
@@ -30,6 +30,30 @@ describe("Result utils", () => {
       expect(fromOption(Option.some<string | null>(null))).toStrictEqual(
         Result.succeed(null),
       );
+    });
+
+    test("some(undefined) succeeds while none fails with undefined", () => {
+      const present = fromOption(Option.some(undefined));
+      const absent = fromOption(Option.none());
+
+      expect(Result.isSuccess(present)).toBe(true);
+      expect(present).toStrictEqual(Result.succeed(undefined));
+      expect(Result.isFailure(absent)).toBe(true);
+      expect(absent).toStrictEqual(Result.failVoid);
+    });
+
+    test("bare null throws synchronously", () => {
+      expect(() => {
+        // @ts-expect-error - bare null is not an Option container
+        fromOption(null);
+      }).toThrow(TypeError);
+    });
+
+    test("bare undefined throws synchronously", () => {
+      expect(() => {
+        // @ts-expect-error - bare undefined is not an Option container
+        fromOption(undefined);
+      }).toThrow(TypeError);
     });
 
     test("some(object) → preserves reference identity", () => {
