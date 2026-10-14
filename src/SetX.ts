@@ -6,32 +6,30 @@
 import { dual } from "effect/Function";
 
 /**
- * Runs a mutating function against a copy of `set`, leaving the original
- * untouched, and returns the mutated copy.
+ * Passes a fresh shallow copy of `set` to a mutating function and returns the
+ * callback's exact `Set` result, which need not be that copy.
  *
  * Use it to reuse imperative `Set` mutation code (`.add`, `.delete`) without
  * sacrificing immutability: the callback may freely mutate the set it receives
- * because it operates on a fresh clone. Supports both data-first and data-last
- * (pipeable) call styles.
+ * because it operates on a fresh container. Members keep their original
+ * references, so mutating a member object also affects the original set's member.
+ * Supports both data-first and data-last (pipeable) call styles.
  *
  * @example
  * ```ts
  * import { SetX } from "@nunofyobiz/effect-extras"
- * import { pipe } from "effect"
  *
- * const original = new Set(["a", "b"])
+ * const selectedTags = new Set(["typescript", "testing"])
  *
- * const result = pipe(
- *   original,
- *   SetX.safelyMutate((set) => {
- *     set.delete("a")
- *     return set.add("c")
- *   })
- * )
+ * // Replace the testing tag with documentation in a fresh selection.
+ * const result = SetX.safelyMutate(selectedTags, (tags) => {
+ *   tags.delete("testing")
+ *   return tags.add("documentation")
+ * })
  *
- * assert.deepStrictEqual(result, new Set(["b", "c"]))
- * // The original is left intact
- * assert.deepStrictEqual(original, new Set(["a", "b"]))
+ * assert.deepStrictEqual(result, new Set(["typescript", "documentation"]))
+ * // The original selection still includes testing.
+ * assert.deepStrictEqual(selectedTags, new Set(["typescript", "testing"]))
  * ```
  *
  * @category combinators
@@ -49,25 +47,23 @@ export const safelyMutate = dual<
  * Returns a new `Set` with `value` added, leaving the input set unchanged.
  *
  * When `value` is already present the input set is returned as-is (no copy),
- * making repeated adds of existing members allocation-free. Supports both
+ * making repeated adds of existing members allocation-free. Use it to select a
+ * member without mutating an earlier selection. Supports both
  * data-first and data-last (pipeable) call styles.
  *
  * @example
  * ```ts
  * import { SetX } from "@nunofyobiz/effect-extras"
- * import { pipe } from "effect"
  *
- * // Data-first — adds a new element into a fresh set
- * assert.deepStrictEqual(
- *   SetX.add(new Set(["a", "b"]), "c"),
- *   new Set(["a", "b", "c"])
- * )
+ * const selectedTags = new Set(["typescript", "testing"])
+ * // Select documentation alongside the existing tags.
+ * const result = SetX.add(selectedTags, "documentation")
+ * assert.deepStrictEqual(result, new Set(["typescript", "testing", "documentation"]))
+ * // Selecting an already selected tag reuses the original selection.
+ * assert.strictEqual(SetX.add(selectedTags, "testing"), selectedTags)
  *
- * // Data-last — existing element leaves the set unchanged
- * assert.deepStrictEqual(
- *   pipe(new Set(["a", "b"]), SetX.add("b")),
- *   new Set(["a", "b"])
- * )
+ * // The original selection has no documentation tag.
+ * assert.deepStrictEqual(selectedTags, new Set(["typescript", "testing"]))
  * ```
  *
  * @category combinators
@@ -85,25 +81,23 @@ export const add = dual<
 /**
  * Returns a new `Set` with `value` removed, leaving the input set unchanged.
  *
- * When `value` is absent the input set is returned as-is (no copy). Supports both
+ * When `value` is absent the input set is returned as-is (no copy). Use it to
+ * deselect a member while preserving an earlier selection. Supports both
  * data-first and data-last (pipeable) call styles.
  *
  * @example
  * ```ts
  * import { SetX } from "@nunofyobiz/effect-extras"
- * import { pipe } from "effect"
  *
- * // Data-first — removes an existing element into a fresh set
- * assert.deepStrictEqual(
- *   SetX.remove(new Set(["a", "b", "c"]), "c"),
- *   new Set(["a", "b"])
- * )
+ * const selectedTags = new Set(["typescript", "testing"])
+ * // Deselect testing while keeping typescript selected.
+ * const result = SetX.remove(selectedTags, "testing")
+ * assert.deepStrictEqual(result, new Set(["typescript"]))
+ * // Deselecting an absent tag reuses the original selection.
+ * assert.strictEqual(SetX.remove(selectedTags, "documentation"), selectedTags)
  *
- * // Data-last — absent element leaves the set unchanged
- * assert.deepStrictEqual(
- *   pipe(new Set(["a", "b"]), SetX.remove("z")),
- *   new Set(["a", "b"])
- * )
+ * // The original selection still includes testing.
+ * assert.deepStrictEqual(selectedTags, new Set(["typescript", "testing"]))
  * ```
  *
  * @category combinators
@@ -132,19 +126,20 @@ export const remove = dual<
  * @example
  * ```ts
  * import { SetX } from "@nunofyobiz/effect-extras"
- * import { pipe } from "effect"
  *
- * // Data-first — absent value gets added
+ * const selectedTags = new Set(["typescript", "testing"])
+ * // Select documentation because it is absent, or deselect testing because it is present.
  * assert.deepStrictEqual(
- *   SetX.toggle(new Set(["a", "b"]), "c"),
- *   new Set(["a", "b", "c"])
+ *   SetX.toggle(selectedTags, "documentation"),
+ *   new Set(["typescript", "testing", "documentation"])
  * )
  *
- * // Data-last — present value gets removed
  * assert.deepStrictEqual(
- *   pipe(new Set(["a", "b", "c"]), SetX.toggle("b")),
- *   new Set(["a", "c"])
+ *   SetX.toggle(selectedTags, "testing"),
+ *   new Set(["typescript"])
  * )
+ * // Both updates leave the original selection intact.
+ * assert.deepStrictEqual(selectedTags, new Set(["typescript", "testing"]))
  * ```
  *
  * @category combinators
