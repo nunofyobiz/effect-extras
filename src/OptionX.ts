@@ -50,18 +50,23 @@ export const tupleOf = dual<
  *
  * A shorthand for the "if Some, do something" branch of `Option.match` where the
  * `None` case is a no-op. The callback's return value is ignored — `ifSome`
- * always returns `void`.
+ * always returns `undefined`. Use it to notify another part of your program
+ * when an optional value is present and you do not need to continue a pipeline.
  *
  * @example
  * ```ts
  * import { Option } from "effect"
  * import { OptionX } from "@nunofyobiz/effect-extras"
  *
- * const log: Array<number> = []
- * OptionX.ifSome(Option.some(1), (value) => log.push(value))
- * OptionX.ifSome(Option.none<number>(), (value) => log.push(value))
+ * const notifications: Array<string> = []
+ * const notify = (address: string) => notifications.push(`Notify ${address}`)
+ * // A present contact address records a notification; an absent one records nothing.
+ * const result = OptionX.ifSome(Option.some("sam@example.com"), notify)
+ * OptionX.ifSome(Option.none<string>(), notify)
  *
- * assert.deepStrictEqual(log, [1])
+ * assert.deepStrictEqual(notifications, ["Notify sam@example.com"])
+ * // The array length returned by push is ignored.
+ * assert.strictEqual(result, undefined)
  * ```
  *
  * @category sequencing
@@ -80,22 +85,25 @@ export const ifSome = dual<
  *
  * The pass-through counterpart of {@link ifSome}: it taps into a `Some` value
  * (for logging, metrics, debugging) without breaking a `pipe` chain, since it
- * returns the original `Option`. For `None` it is a no-op.
+ * returns the original `Option` by reference. For `None` it is a no-op.
+ * The callback's return value is ignored.
  *
  * @example
  * ```ts
  * import { Option, pipe } from "effect"
  * import { OptionX } from "@nunofyobiz/effect-extras"
  *
- * const log: Array<number> = []
+ * const selectedProduct = Option.some({ name: "Desk lamp", price: 35 })
+ * const observedNames: Array<string> = []
+ * // Observe the selected product before extracting its display name.
  * const result = pipe(
- *   Option.some(1),
- *   OptionX.inspectSome((value) => log.push(value)),
- *   Option.map((value) => value + 1),
+ *   selectedProduct,
+ *   OptionX.inspectSome((product) => observedNames.push(product.name)),
+ *   Option.map((product) => product.name),
  * )
  *
- * assert.deepStrictEqual(result, Option.some(2))
- * assert.deepStrictEqual(log, [1])
+ * assert.deepStrictEqual(result, Option.some("Desk lamp"))
+ * assert.deepStrictEqual(observedNames, ["Desk lamp"])
  * ```
  *
  * @category sequencing
@@ -123,16 +131,23 @@ export const inspectSome = dual<
  *
  * Handy at boundaries where an `Option` value might itself arrive as `null` or
  * `undefined` (for example an optional field that holds an `Option`): the result
- * is always a well-formed `Option`, never `null`/`undefined`.
+ * is always a well-formed `Option`, never `null`/`undefined`. Only the outer
+ * nullish value is normalized: existing Options are returned by reference,
+ * including `Some(null)` and `Some(undefined)`.
  *
  * @example
  * ```ts
  * import { Option } from "effect"
  * import { OptionX } from "@nunofyobiz/effect-extras"
  *
- * assert.deepStrictEqual(OptionX.fromNullableOption(Option.some(1)), Option.some(1))
- * assert.deepStrictEqual(OptionX.fromNullableOption(null), Option.none())
- * assert.deepStrictEqual(OptionX.fromNullableOption(undefined), Option.none())
+ * const preferences: { theme?: Option.Option<string> | null } = {
+ *   theme: Option.some("dark"),
+ * }
+ * // A saved theme stays the same Option; a missing or null field becomes None.
+ * assert.strictEqual(OptionX.fromNullableOption(preferences.theme), preferences.theme)
+ * assert.deepStrictEqual(OptionX.fromNullableOption({ ...preferences, theme: null }.theme), Option.none())
+ * const noPreferences: { theme?: Option.Option<string> | null } = {}
+ * assert.deepStrictEqual(OptionX.fromNullableOption(noPreferences.theme), Option.none())
  * ```
  *
  * @category constructors
@@ -147,29 +162,25 @@ export const fromNullableOption = <A>(
  * Maps the value of an `Option` when it is `Some`, returning `null` when it is
  * `None`.
  *
- * A shorthand for `pipe(self, Option.map(map), Option.getOrNull)`. The `null`
- * fallback makes it especially convenient in JSX/React, where rendering `null`
- * skips output — `mapSomeOrNull(value, (v) => render(v))` replaces a more verbose
- * `Option.match` with `onNone: () => null`.
+ * A shorthand for `pipe(self, Option.map(map), Option.getOrNull)`. Use it when
+ * building a record whose absent values are represented by `null`. The mapper
+ * runs only for `Some`, and its result passes through unchanged, including
+ * falsy values, `null`, and `undefined`.
  *
  * @example
  * ```ts
- * import { Option, pipe } from "effect"
+ * import { Option } from "effect"
  * import { OptionX } from "@nunofyobiz/effect-extras"
  *
- * // data-first
- * assert.deepStrictEqual(OptionX.mapSomeOrNull(Option.some(1), (v) => v + 1), 2)
- *
- * // None maps to null
- * assert.deepStrictEqual(
- *   OptionX.mapSomeOrNull(Option.none<number>(), (v) => v + 1),
+ * const selectedProduct = Option.some({ name: "Desk lamp", price: 35 })
+ * // Store the product name in a record, using null when nothing is selected.
+ * const selection = {
+ *   productName: OptionX.mapSomeOrNull(selectedProduct, (product) => product.name),
+ * }
+ * assert.deepStrictEqual(selection, { productName: "Desk lamp" })
+ * assert.strictEqual(
+ *   OptionX.mapSomeOrNull(Option.none<{ name: string }>(), (product) => product.name),
  *   null,
- * )
- *
- * // data-last (piped)
- * assert.deepStrictEqual(
- *   pipe(Option.some(1), OptionX.mapSomeOrNull((v) => v + 1)),
- *   2,
  * )
  * ```
  *
@@ -189,30 +200,25 @@ export const mapSomeOrNull = dual<
  *
  * The `undefined`-returning counterpart of {@link mapSomeOrNull}: a shorthand for
  * `pipe(self, Option.map(map), Option.getOrUndefined)`. Reach for it when the
- * consuming API expects `undefined` rather than `null` for "absent" (for example
- * an optional prop or a value spread into an object).
+ * consuming API expects `undefined` rather than `null` for "absent", such as a
+ * function argument that selects a default. The mapper runs only for `Some`,
+ * and its result passes through unchanged, including falsy values, `null`,
+ * and `undefined`.
  *
  * @example
  * ```ts
- * import { Option, pipe } from "effect"
+ * import { Option } from "effect"
  * import { OptionX } from "@nunofyobiz/effect-extras"
  *
- * // data-first
- * assert.deepStrictEqual(
- *   OptionX.mapSomeOrUndefined(Option.some(1), (v) => v + 1),
- *   2,
- * )
- *
- * // None maps to undefined
- * assert.deepStrictEqual(
- *   OptionX.mapSomeOrUndefined(Option.none<number>(), (v) => v + 1),
- *   undefined,
- * )
- *
- * // data-last (piped)
- * assert.deepStrictEqual(
- *   pipe(Option.some(1), OptionX.mapSomeOrUndefined((v) => v + 1)),
- *   2,
+ * const savedConfig = Option.some({ timeoutSeconds: 10 })
+ * const timeoutOrDefault = (seconds: number | undefined) => seconds ?? 30
+ * // Pass a saved timeout to the function; an absent configuration selects its default.
+ * const timeout = OptionX.mapSomeOrUndefined(savedConfig, (config) => config.timeoutSeconds)
+ * assert.strictEqual(timeoutOrDefault(timeout), 10)
+ * const noConfig = Option.none<{ timeoutSeconds: number }>()
+ * assert.strictEqual(
+ *   timeoutOrDefault(OptionX.mapSomeOrUndefined(noConfig, (config) => config.timeoutSeconds)),
+ *   30,
  * )
  * ```
  *
