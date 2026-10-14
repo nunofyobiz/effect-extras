@@ -1,5 +1,5 @@
 import { Array, Number, Order, pipe } from "effect";
-import { describe, expect, test } from "vitest";
+import { describe, expect, expectTypeOf, test, vi } from "vitest";
 import {
   fromNullableOrThrow,
   lift,
@@ -12,6 +12,16 @@ describe("Nullable utils", () => {
   describe("fromNullableOrThrow", () => {
     test("not null", () => {
       expect(fromNullableOrThrow("value")).toBe("value");
+    });
+
+    test("removes both nullish types", () => {
+      const requireSetting = (value: string | null | undefined) => {
+        const result = fromNullableOrThrow(value);
+        expectTypeOf(result).toEqualTypeOf<string>();
+        return result;
+      };
+
+      expect(requireSetting("help@example.com")).toBe("help@example.com");
     });
 
     test("null", () => {
@@ -72,24 +82,31 @@ describe("Nullable utils", () => {
       expect(result).toBe("nullable");
     });
 
-    test("calls the nullable handler with no arguments and the present handler with the value", () => {
-      let nullableArguments: [] | undefined;
-      let presentArguments: [string] | undefined;
+    test.each([null, undefined])(
+      "selects the nullable handler for %s",
+      (value) => {
+        const handlers = {
+          whenNullable: vi.fn(() => "nullable"),
+          whenNotNullable: vi.fn(() => "present"),
+        };
+
+        expect(match(value, handlers)).toBe("nullable");
+        expect(handlers.whenNullable).toHaveBeenCalledExactlyOnceWith();
+        expect(handlers.whenNotNullable).not.toHaveBeenCalled();
+      },
+    );
+
+    test("selects the present handler with the original value", () => {
+      const value = { nickname: "Mira" };
       const handlers = {
-        whenNullable: (...arguments_: []) => {
-          nullableArguments = arguments_;
-          return "nullable";
-        },
-        whenNotNullable: (...arguments_: [string]) => {
-          presentArguments = arguments_;
-          return "present";
-        },
+        whenNullable: vi.fn(() => "Guest"),
+        whenNotNullable: vi.fn((value: { nickname: string }) => value.nickname),
       };
 
-      expect(match(null, handlers)).toBe("nullable");
-      expect(match("value", handlers)).toBe("present");
-      expect(nullableArguments).toStrictEqual([]);
-      expect(presentArguments).toStrictEqual(["value"]);
+      expect(match(value, handlers)).toBe("Mira");
+      expect(handlers.whenNotNullable).toHaveBeenCalledExactlyOnceWith(value);
+      expect(handlers.whenNotNullable.mock.calls[0]?.[0]).toBe(value);
+      expect(handlers.whenNullable).not.toHaveBeenCalled();
     });
 
     test("falsy value", () => {
@@ -125,26 +142,36 @@ describe("Nullable utils", () => {
       ).toBe("present");
     });
 
-    test("works data-first or data-last", () => {
-      // Data-first
-      expect(
-        match({
-          whenNullable: () => "null",
-          whenNotNullable: (value) => value,
-        })(null),
-      ).toBe("null");
-
-      // Data-last
-      expect(
-        pipe(
-          null,
-          match({
-            whenNullable: () => "null",
-            whenNotNullable: (value) => value,
+    test.each([
+      { value: "Mira", expected: "Hello, Mira" },
+      { value: null, expected: "Guest" },
+      { value: undefined, expected: "Guest" },
+    ])(
+      "call styles agree for $value with narrowed callbacks",
+      ({ value, expected }) => {
+        const dataFirst = match(value, {
+          whenNullable: () => "Guest",
+          whenNotNullable: (nickname) => {
+            expectTypeOf(nickname).toEqualTypeOf<string>();
+            return `Hello, ${nickname}`;
+          },
+        });
+        const dataLast = pipe(
+          value,
+          match<string | null | undefined, string>({
+            whenNullable: () => "Guest",
+            whenNotNullable: (nickname) => {
+              expectTypeOf(nickname).toEqualTypeOf<string>();
+              return `Hello, ${nickname}`;
+            },
           }),
-        ),
-      ).toBe("null");
-    });
+        );
+
+        expect(dataFirst).toBe(expected);
+        expect(dataLast).toBe(expected);
+        expect(dataFirst).toBe(dataLast);
+      },
+    );
   });
 
   describe("map", () => {
@@ -169,21 +196,116 @@ describe("Nullable utils", () => {
       ).toBe(true);
     });
 
-    test("works data-first or data-last", () => {
-      // Data-first
-      expect(map(1, (v: number) => v + 1)).toBe(2);
+    test.each([
+      { value: 1, expected: 2 },
+      { value: null, expected: null },
+      { value: undefined, expected: undefined },
+    ])(
+      "call styles agree for $value with narrowed callbacks",
+      ({ value, expected }) => {
+        const dataFirst = map(value, (value) => {
+          expectTypeOf(value).toEqualTypeOf<number>();
+          return value + 1;
+        });
+        const dataLast = pipe(
+          value,
+          map<number | null | undefined, number>((value) => {
+            expectTypeOf(value).toEqualTypeOf<number>();
+            return value + 1;
+          }),
+        );
 
-      // Data-last
-      expect(
-        pipe(
-          1,
-          map((v: number) => v + 1),
-        ),
-      ).toBe(2);
+        expect(dataFirst).toBe(expected);
+        expect(dataLast).toBe(expected);
+        expect(dataFirst).toBe(dataLast);
+      },
+    );
+
+    test.each([null, undefined])("skips the transform for %s", (value) => {
+      const transform = vi.fn((value: { street: string }) => value.street);
+
+      expect(map(value, transform)).toBe(value);
+      expect(transform).not.toHaveBeenCalled();
+    });
+
+    test("transforms the original present value once", () => {
+      const value = { street: "12 Oak Street" };
+      const transform = vi.fn((value: { street: string }) => value.street);
+
+      expect(map(value, transform)).toBe("12 Oak Street");
+      expect(transform).toHaveBeenCalledExactlyOnceWith(value);
+      expect(transform.mock.calls[0]?.[0]).toBe(value);
+    });
+
+    test("preserves only the applicable nullish result types in both call styles", () => {
+      const present = (value: string) => {
+        const result = map(value, (value) => value.length);
+        expectTypeOf(result).toEqualTypeOf<number>();
+        expectTypeOf(
+          pipe(
+            value,
+            map<string, number>((value) => value.length),
+          ),
+        ).toEqualTypeOf<number>();
+        return result;
+      };
+      const nullable = (value: string | null) => {
+        const result = map(value, (value) => value.length);
+        expectTypeOf(result).toEqualTypeOf<number | null>();
+        expectTypeOf(
+          pipe(
+            value,
+            map<string | null, number>((value) => value.length),
+          ),
+        ).toEqualTypeOf<number | null>();
+        return result;
+      };
+      const optional = (value: string | undefined) => {
+        const result = map(value, (value) => value.length);
+        expectTypeOf(result).toEqualTypeOf<number | undefined>();
+        expectTypeOf(
+          pipe(
+            value,
+            map<string | undefined, number>((value) => value.length),
+          ),
+        ).toEqualTypeOf<number | undefined>();
+        return result;
+      };
+      const nullish = (value: string | null | undefined) => {
+        const result = map(value, (value) => value.length);
+        expectTypeOf(result).toEqualTypeOf<number | null | undefined>();
+        expectTypeOf(
+          pipe(
+            value,
+            map<string | null | undefined, number>((value) => value.length),
+          ),
+        ).toEqualTypeOf<number | null | undefined>();
+        return result;
+      };
+
+      expect(present("Mira")).toBe(4);
+      expect(nullable(null)).toBeNull();
+      expect(optional(undefined)).toBeUndefined();
+      expect(nullish("Mira")).toBe(4);
     });
   });
 
   describe("lift", () => {
+    test.each([null, undefined])("skips the transform for %s", (value) => {
+      const transform = vi.fn((value: { nickname: string }) => value.nickname);
+
+      expect(lift(transform)(value)).toBe(value);
+      expect(transform).not.toHaveBeenCalled();
+    });
+
+    test("transforms the original present value once", () => {
+      const value = { nickname: "Mira" };
+      const transform = vi.fn((value: { nickname: string }) => value.nickname);
+
+      expect(lift(transform)(value)).toBe("Mira");
+      expect(transform).toHaveBeenCalledExactlyOnceWith(value);
+      expect(transform.mock.calls[0]?.[0]).toBe(value);
+    });
     test("on non-nullable", () => {
       expect(pipe(1, lift(Number.sum(1)))).toBe(2);
     });
@@ -215,6 +337,59 @@ describe("Nullable utils", () => {
   });
 
   describe("nullableOrder", () => {
+    test.each<{
+      strategy: "value-null" | "null-value";
+      nullAgainstValue: number;
+      valueAgainstNull: number;
+    }>([
+      { strategy: "value-null", nullAgainstValue: 1, valueAgainstNull: -1 },
+      { strategy: "null-value", nullAgainstValue: -1, valueAgainstNull: 1 },
+    ])(
+      "call styles agree for $strategy",
+      ({ strategy, nullAgainstValue, valueAgainstNull }) => {
+        const dataFirst = nullableOrder(Order.Number, strategy);
+        const dataLast = pipe(Order.Number, nullableOrder(strategy));
+        const cases: readonly (readonly [
+          number | null,
+          number | null,
+          number,
+        ])[] = [
+          [2, 2, 0],
+          [1, 2, -1],
+          [2, 1, 1],
+          [null, 2, nullAgainstValue],
+          [2, null, valueAgainstNull],
+          [null, null, 0],
+        ];
+
+        for (const [left, right, expected] of cases) {
+          expect(dataFirst(left, right)).toBe(expected);
+          expect(dataLast(left, right)).toBe(expected);
+          expect(dataFirst(left, right)).toBe(dataLast(left, right));
+        }
+
+        expect(Array.sort([], dataFirst)).toStrictEqual([]);
+        expect(Array.sort([2], dataFirst)).toStrictEqual([2]);
+        expect(Array.sort([null], dataFirst)).toStrictEqual([null]);
+      },
+    );
+
+    test.each<{
+      strategy: "value-null" | "null-value";
+      expected: (number | null)[];
+    }>([
+      { strategy: "value-null", expected: [3, 2, 1, null, null] },
+      { strategy: "null-value", expected: [null, null, 3, 2, 1] },
+    ])(
+      "preserves descending present order for $strategy",
+      ({ strategy, expected }) => {
+        const order = nullableOrder(Order.flip(Order.Number), strategy);
+
+        expect(Array.sort([null, 1, 3, null, 2], order)).toStrictEqual(
+          expected,
+        );
+      },
+    );
     test("strategy: value-null", () => {
       const nullableNumberOrder = nullableOrder("value-null")(Order.Number);
 
@@ -235,26 +410,17 @@ describe("Nullable utils", () => {
       const nullsLast = nullableOrder(Order.Number, "value-null");
       const nullsFirst = nullableOrder(Order.Number, "null-value");
 
-      expect(Reflect.apply(nullsLast, undefined, [undefined, 0])).toBe(1);
-      expect(Reflect.apply(nullsLast, undefined, [undefined, null])).toBe(0);
-      expect(Reflect.apply(nullsLast, undefined, [0, 1])).toBe(-1);
-      expect(Reflect.apply(nullsFirst, undefined, [undefined, 0])).toBe(-1);
-      expect(Reflect.apply(nullsFirst, undefined, [0, 1])).toBe(-1);
-      expect(
-        Reflect.apply(nullsLast, undefined, [globalThis.Number.NaN, null]),
-      ).toBe(-1);
-      expect(
-        Reflect.apply(nullableOrder(Order.String, "value-null"), undefined, [
-          "",
-          null,
-        ]),
-      ).toBe(-1);
-      expect(
-        Reflect.apply(nullableOrder(Order.Boolean, "null-value"), undefined, [
-          false,
-          null,
-        ]),
-      ).toBe(1);
+      // @ts-expect-error - undefined against a number is outside the nulls-last comparator's domain
+      expect(nullsLast(undefined, 0)).toBe(1);
+      // @ts-expect-error - undefined against null is outside the nulls-last comparator's domain
+      expect(nullsLast(undefined, null)).toBe(0);
+      expect(nullsLast(0, 1)).toBe(-1);
+      // @ts-expect-error - undefined against a number is outside the nulls-first comparator's domain
+      expect(nullsFirst(undefined, 0)).toBe(-1);
+      expect(nullsFirst(0, 1)).toBe(-1);
+      expect(nullsLast(globalThis.Number.NaN, null)).toBe(-1);
+      expect(nullableOrder(Order.String, "value-null")("", null)).toBe(-1);
+      expect(nullableOrder(Order.Boolean, "null-value")(false, null)).toBe(1);
     });
   });
 });
