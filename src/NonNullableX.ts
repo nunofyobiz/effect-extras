@@ -20,11 +20,19 @@ import { dual } from "effect/Function";
  * ```ts
  * import { NonNullableX } from "@nunofyobiz/effect-extras"
  *
- * assert.deepStrictEqual(NonNullableX.fromNullableOrThrow("value"), "value")
+ * const settings: { supportEmail: string | null } = {
+ *   supportEmail: "help@example.com"
+ * }
+ * // A required setting can be used directly after checking this trusted boundary.
+ * assert.deepStrictEqual(
+ *   NonNullableX.fromNullableOrThrow(settings.supportEmail, "supportEmail"),
+ *   "help@example.com"
+ * )
  *
+ * // A missing setting names the field that needs attention.
  * assert.throws(
- *   () => NonNullableX.fromNullableOrThrow(null, "varName"),
- *   /Value is nullable: null \(variable name: varName\)/
+ *   () => NonNullableX.fromNullableOrThrow(null, "supportEmail"),
+ *   /Value is nullable: null \(variable name: supportEmail\)/
  * )
  * ```
  *
@@ -58,25 +66,25 @@ export const fromNullableOrThrow = <A>(
  * import { NonNullableX } from "@nunofyobiz/effect-extras"
  * import { pipe } from "effect"
  *
- * // Data-first — present value flows through narrowed
+ * // Display the saved nickname when one is present.
  * assert.deepStrictEqual(
- *   NonNullableX.match("value", {
- *     whenNullable: () => "nullable",
- *     whenNotNullable: (value) => value
+ *   NonNullableX.match("Mira", {
+ *     whenNullable: () => "Guest",
+ *     whenNotNullable: (nickname) => `Hello, ${nickname}`
  *   }),
- *   "value"
+ *   "Hello, Mira"
  * )
  *
- * // Data-last — null takes the whenNullable branch
+ * // Without a saved nickname, show a fallback label (data-last).
  * assert.deepStrictEqual(
  *   pipe(
  *     null,
  *     NonNullableX.match({
- *       whenNullable: () => "nullable",
- *       whenNotNullable: (value) => value
+ *       whenNullable: () => "Guest",
+ *       whenNotNullable: (nickname) => `Hello, ${nickname}`
  *     })
  *   ),
- *   "nullable"
+ *   "Guest"
  * )
  * ```
  *
@@ -118,7 +126,7 @@ function matchNullable(
 }
 
 /**
- * Applies `map` to `a` only when it is non-nullish, passing nullish inputs
+ * Transforms `a` only when it is present, passing nullish inputs
  * through unchanged.
  *
  * This is the nullable-preserving map: a present value is transformed to `B`,
@@ -131,15 +139,21 @@ function matchNullable(
  * import { NonNullableX } from "@nunofyobiz/effect-extras"
  * import { pipe } from "effect"
  *
- * // Data-first — present value is transformed
- * assert.deepStrictEqual(NonNullableX.map(1, (v: number) => v + 1), 2)
+ * // Turn a saved delivery address into a display label.
+ * const address = { street: "12 Oak Street" }
+ * assert.deepStrictEqual(
+ *   NonNullableX.map(address, (address) => `Deliver to ${address.street}`),
+ *   "Deliver to 12 Oak Street"
+ * )
  *
- * // Data-last — nullish passes through unchanged
- * const value: number | null = null
+ * // An address that has not been supplied stays missing (data-last).
+ * const missingAddress: typeof address | null = null
  * assert.deepStrictEqual(
  *   pipe(
- *     value,
- *     NonNullableX.map<number | null, number>((v) => v + 1)
+ *     missingAddress,
+ *     NonNullableX.map<typeof address | null, string>(
+ *       (address) => `Deliver to ${address.street}`
+ *     )
  *   ),
  *   null
  * )
@@ -170,7 +184,7 @@ function mapNullable(
 }
 
 /**
- * Lifts a total function `(a: A) => B` into one that tolerates nullish input,
+ * Adapts a function `(a: A) => B` to tolerate nullish input,
  * applying it to present values and passing `null`/`undefined` through unchanged.
  *
  * Where `map` operates on a value, `lift` transforms the function itself,
@@ -181,13 +195,15 @@ function mapNullable(
  * @example
  * ```ts
  * import { NonNullableX } from "@nunofyobiz/effect-extras"
- * import { Number, pipe } from "effect"
+ * import { pipe } from "effect"
  *
- * const addOne = NonNullableX.lift(Number.sum(1))
+ * // Reuse the same trimming transform across optional form fields.
+ * const trimField = NonNullableX.lift((field: string) => field.trim())
  *
- * assert.deepStrictEqual(pipe(1, addOne), 2)
- * assert.deepStrictEqual(pipe(null, addOne), null)
- * assert.deepStrictEqual(pipe(undefined, addOne), undefined)
+ * assert.deepStrictEqual(pipe("  Mira  ", trimField), "Mira")
+ * // Untouched fields keep their original missing value.
+ * assert.deepStrictEqual(pipe(null, trimField), null)
+ * assert.deepStrictEqual(pipe(undefined, trimField), undefined)
  * ```
  *
  * @category mapping
@@ -212,22 +228,23 @@ export const lift =
  * import { NonNullableX } from "@nunofyobiz/effect-extras"
  * import { Array, Order, pipe } from "effect"
  *
- * // "value-null" — nulls sorted last
+ * const deliveryMinutes = [null, 25, 40, null, 30]
+ * // List measured deliveries fastest first, with missing measurements last.
  * assert.deepStrictEqual(
  *   pipe(
- *     [null, 1, 3, null, 2],
+ *     deliveryMinutes,
  *     Array.sort(NonNullableX.nullableOrder(Order.Number, "value-null"))
  *   ),
- *   [1, 2, 3, null, null]
+ *   [25, 30, 40, null, null]
  * )
  *
- * // "null-value" — nulls sorted first (data-last)
+ * // Put missing measurements first so they can be filled in (data-last).
  * assert.deepStrictEqual(
  *   pipe(
- *     [null, 1, 3, null, 2],
+ *     deliveryMinutes,
  *     Array.sort(pipe(Order.Number, NonNullableX.nullableOrder("null-value")))
  *   ),
- *   [null, null, 1, 2, 3]
+ *   [null, null, 25, 30, 40]
  * )
  * ```
  *
