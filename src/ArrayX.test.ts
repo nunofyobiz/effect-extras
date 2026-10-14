@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, test, vi } from "@effect/vitest";
 import {
+  Array,
   Equal,
   Equivalence,
   Match,
@@ -335,6 +336,67 @@ describe("Array utils", () => {
       const tagsOf = vi.fn((entry: number) => [entry]);
       expect(clusterBy([], tagsOf)).toStrictEqual([]);
       expect(tagsOf).not.toHaveBeenCalled();
+    });
+
+    test("allocated sparse arrays visit holes in both call styles", () => {
+      const input = Array.allocate<number>(1);
+      const tagsOf = vi.fn((entry: number | undefined): readonly string[] =>
+        Predicate.isUndefined(entry) ? [] : ["number"],
+      );
+      const expected = [{ entries: [undefined], tags: new Set() }];
+      expect(clusterBy(input, tagsOf)).toStrictEqual(expected);
+      expect(pipe(input, clusterBy(tagsOf))).toStrictEqual(expected);
+      expect(tagsOf.mock.calls).toStrictEqual([[undefined], [undefined]]);
+      // Neither call fills the hole in the caller's array.
+      expect(input).toHaveLength(1);
+      expect(Object.keys(input)).toStrictEqual([]);
+    });
+
+    test("multiple untagged holes each retain their own occurrence", () => {
+      const input = Array.allocate<number | undefined>(3);
+      const tagsOf = vi.fn((): readonly string[] => []);
+      expect(clusterBy(input, tagsOf)).toStrictEqual([
+        { entries: [undefined], tags: new Set() },
+        { entries: [undefined], tags: new Set() },
+        { entries: [undefined], tags: new Set() },
+      ]);
+      expect(tagsOf.mock.calls).toStrictEqual([
+        [undefined],
+        [undefined],
+        [undefined],
+      ]);
+    });
+
+    test("holes, explicit undefined, and populated entries cluster without changing sparse input", () => {
+      const input = Array.allocate<number | undefined>(5);
+      input[1] = 2;
+      input[2] = undefined;
+      input[3] = 4;
+      Object.freeze(input);
+      const tagsOf = vi.fn((entry: number | undefined) => [
+        Predicate.isUndefined(entry) ? "missing" : "number",
+      ]);
+      const result = clusterBy(input, tagsOf);
+      expect(result).toStrictEqual([
+        {
+          entries: [undefined, undefined, undefined],
+          tags: new Set(["missing"]),
+        },
+        { entries: [2, 4], tags: new Set(["number"]) },
+      ]);
+      expect(tagsOf.mock.calls).toStrictEqual([
+        [undefined],
+        [2],
+        [undefined],
+        [4],
+        [undefined],
+      ]);
+      // The original holes and explicitly present undefined stay distinct in input.
+      expect(input).toHaveLength(5);
+      expect(Object.keys(input)).toStrictEqual(["1", "2", "3"]);
+      expect(input[1]).toBe(2);
+      expect(input[2]).toBeUndefined();
+      expect(input[3]).toBe(4);
     });
 
     test("single entry keeps its identity and deduplicates tags", () => {

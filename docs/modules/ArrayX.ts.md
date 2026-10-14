@@ -290,6 +290,7 @@ Clusters follow their first entry's input position, and entries keep input
 order even when a later entry connects earlier clusters. Each cluster contains
 the union of its entries' tags; an entry without tags forms its own cluster.
 Every input occurrence is retained, without mutating entries or their tags.
+Sparse array holes are visited as `undefined`, just like array iteration.
 
 Tags use native Map/Set equality (SameValueZero): objects compare by identity,
 NaN equals NaN, and positive and negative zero are equal. `tagsOf` is called

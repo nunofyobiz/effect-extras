@@ -381,6 +381,7 @@ export function categorize<A>(
  * order even when a later entry connects earlier clusters. Each cluster contains
  * the union of its entries' tags; an entry without tags forms its own cluster.
  * Every input occurrence is retained, without mutating entries or their tags.
+ * Sparse array holes are visited as `undefined`, just like array iteration.
  *
  * Tags use native Map/Set equality (SameValueZero): objects compare by identity,
  * NaN equals NaN, and positive and negative zero are equal. `tagsOf` is called
@@ -423,12 +424,12 @@ export const clusterBy = dual<
     readonly tags: ReadonlySet<K>;
   }[]
 >(2, <A, K>(self: readonly A[], tagsOf: (entry: A) => Iterable<K>) => {
-  const parents = self.map((_, index) => index);
-  const sizes = self.map(() => 1);
-  const occurrences = self.map((entry) => ({
+  const occurrences = [...self].map((entry) => ({
     entry,
     tags: [...tagsOf(entry)],
   }));
+  const parents = occurrences.map((_, index) => index);
+  const sizes = occurrences.map(() => 1);
   const tagNodes = new Map<K, number>();
 
   const find = (index: number): number => {
