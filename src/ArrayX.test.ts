@@ -1,4 +1,6 @@
+import { describe, expect, expectTypeOf, test, vi } from "@effect/vitest";
 import {
+  Array,
   Equal,
   Equivalence,
   Match,
@@ -7,10 +9,10 @@ import {
   Predicate,
   pipe,
 } from "effect";
-import { describe, expect, test, vi } from "vitest";
 import {
   categorize,
   chunkBy,
+  clusterBy,
   compactNullable,
   filterHead,
   filterMapNullable,
@@ -23,6 +25,7 @@ import {
   takeFirstWhere,
   takeLastWhere,
 } from "./ArrayX.js";
+import { ArrayX } from "./index.js";
 
 describe("Array utils", () => {
   describe("slice", () => {
@@ -325,6 +328,259 @@ describe("Array utils", () => {
         odd: [1, 3, 5],
         even: [2, 4, 6],
       });
+    });
+  });
+
+  describe("clusterBy", () => {
+    test("empty input never extracts tags", () => {
+      const tagsOf = vi.fn((entry: number) => [entry]);
+      expect(clusterBy([], tagsOf)).toStrictEqual([]);
+      expect(tagsOf).not.toHaveBeenCalled();
+    });
+
+    test("allocated sparse arrays visit holes in both call styles", () => {
+      const input = Array.allocate<number>(1);
+      const tagsOf = vi.fn((entry: number | undefined): readonly string[] =>
+        Predicate.isUndefined(entry) ? [] : ["number"],
+      );
+      const expected = [{ entries: [undefined], tags: new Set() }];
+      expect(clusterBy(input, tagsOf)).toStrictEqual(expected);
+      expect(pipe(input, clusterBy(tagsOf))).toStrictEqual(expected);
+      expect(tagsOf.mock.calls).toStrictEqual([[undefined], [undefined]]);
+      // Neither call fills the hole in the caller's array.
+      expect(input).toHaveLength(1);
+      expect(Object.keys(input)).toStrictEqual([]);
+    });
+
+    test("multiple untagged holes each retain their own occurrence", () => {
+      const input = Array.allocate<number | undefined>(3);
+      const tagsOf = vi.fn((): readonly string[] => []);
+      expect(clusterBy(input, tagsOf)).toStrictEqual([
+        { entries: [undefined], tags: new Set() },
+        { entries: [undefined], tags: new Set() },
+        { entries: [undefined], tags: new Set() },
+      ]);
+      expect(tagsOf.mock.calls).toStrictEqual([
+        [undefined],
+        [undefined],
+        [undefined],
+      ]);
+    });
+
+    test("holes, explicit undefined, and populated entries cluster without changing sparse input", () => {
+      const input = Array.allocate<number | undefined>(5);
+      input[1] = 2;
+      input[2] = undefined;
+      input[3] = 4;
+      Object.freeze(input);
+      const tagsOf = vi.fn((entry: number | undefined) => [
+        Predicate.isUndefined(entry) ? "missing" : "number",
+      ]);
+      const result = clusterBy(input, tagsOf);
+      expect(result).toStrictEqual([
+        {
+          entries: [undefined, undefined, undefined],
+          tags: new Set(["missing"]),
+        },
+        { entries: [2, 4], tags: new Set(["number"]) },
+      ]);
+      expect(tagsOf.mock.calls).toStrictEqual([
+        [undefined],
+        [2],
+        [undefined],
+        [4],
+        [undefined],
+      ]);
+      // The original holes and explicitly present undefined stay distinct in input.
+      expect(input).toHaveLength(5);
+      expect(Object.keys(input)).toStrictEqual(["1", "2", "3"]);
+      expect(input[1]).toBe(2);
+      expect(input[2]).toBeUndefined();
+      expect(input[3]).toBe(4);
+    });
+
+    test("single entry keeps its identity and deduplicates tags", () => {
+      const entry = { tags: ["a", "a", "b"] };
+      const result = clusterBy([entry], (entry) => entry.tags);
+      expect(result).toStrictEqual([
+        { entries: [entry], tags: new Set(["a", "b"]) },
+      ]);
+      expect(result[0].entries[0]).toBe(entry);
+    });
+
+    test("untagged occurrences each form their own cluster", () => {
+      const entry = { tags: [] };
+      expect(clusterBy([entry, entry], (entry) => entry.tags)).toStrictEqual([
+        { entries: [entry], tags: new Set() },
+        { entries: [entry], tags: new Set() },
+      ]);
+    });
+
+    test("direct overlap and disjoint clusters agree in both call styles", () => {
+      const input = [
+        { name: "Alice", tags: ["hiking", "climbing"] },
+        { name: "Bob", tags: ["painting"] },
+        { name: "Carol", tags: ["climbing", "camping"] },
+      ];
+      const tagsOf = (entry: (typeof input)[number]) => entry.tags;
+      const expected = [
+        {
+          entries: [input[0], input[2]],
+          tags: new Set(["hiking", "climbing", "camping"]),
+        },
+        { entries: [input[1]], tags: new Set(["painting"]) },
+      ];
+      expect(clusterBy(input, tagsOf)).toStrictEqual(expected);
+      expect(pipe(input, clusterBy(tagsOf))).toStrictEqual(expected);
+      expect(ArrayX.clusterBy(input, tagsOf)).toStrictEqual(expected);
+    });
+
+    test("multi-step chain merges entries without a common tag across all entries", () => {
+      const input = [["a"], ["a", "b"], ["b", "c"], ["c", "d"], ["d"]];
+      expect(clusterBy(input, (tags) => tags)).toStrictEqual([
+        { entries: input, tags: new Set(["a", "b", "c", "d"]) },
+      ]);
+    });
+
+    test("late bridge preserves cluster position and interleaved entry order", () => {
+      const unrelated = { name: "U", tags: ["u"] };
+      const first = { name: "A", tags: ["a"] };
+      const second = { name: "B", tags: ["b"] };
+      const firstAgain = { name: "A2", tags: ["a"] };
+      const other = { name: "C", tags: ["c"] };
+      const link = { name: "L", tags: ["b", "a"] };
+      const input = [unrelated, first, second, firstAgain, other, link];
+      const result = clusterBy(input, (entry) => entry.tags);
+      expect(result).toStrictEqual([
+        { entries: [unrelated], tags: new Set(["u"]) },
+        {
+          entries: [first, second, firstAgain, link],
+          tags: new Set(["a", "b"]),
+        },
+        { entries: [other], tags: new Set(["c"]) },
+      ]);
+      expect(result.flatMap((cluster) => cluster.entries)).toHaveLength(
+        input.length,
+      );
+      for (const [index, entry] of [
+        first,
+        second,
+        firstAgain,
+        link,
+      ].entries()) {
+        expect(result[1].entries[index]).toBe(entry);
+      }
+    });
+
+    test("one-shot tag generators are extracted and consumed once per occurrence", () => {
+      const first = (function* () {
+        yield "a";
+        yield "b";
+      })();
+      const second = (function* () {
+        yield "b";
+        yield "c";
+      })();
+      const tagsOf = vi.fn((tags: Iterable<string>) => tags);
+      expect(clusterBy([first, second], tagsOf)).toStrictEqual([
+        { entries: [first, second], tags: new Set(["a", "b", "c"]) },
+      ]);
+      expect(tagsOf.mock.calls).toStrictEqual([[first], [second]]);
+      expect([...first]).toStrictEqual([]);
+      expect([...second]).toStrictEqual([]);
+    });
+
+    test("repeated references remain separate input occurrences", () => {
+      const entry = { tags: new Set(["a"]) };
+      const tagsOf = vi.fn(
+        (entry: { tags: ReadonlySet<string> }) => entry.tags,
+      );
+      const result = clusterBy([entry, entry, entry], tagsOf);
+      expect(result).toStrictEqual([
+        { entries: [entry, entry, entry], tags: new Set(["a"]) },
+      ]);
+      expect(tagsOf.mock.calls).toStrictEqual([[entry], [entry], [entry]]);
+      for (const occurrence of result[0].entries) {
+        expect(occurrence).toBe(entry);
+      }
+    });
+
+    test("object tags compare by identity", () => {
+      const shared = { interest: "hiking" };
+      const distinct = { interest: "hiking" };
+      const input = [[shared], [distinct], [shared]];
+      const result = clusterBy(input, (tags) => tags);
+      expect(result).toStrictEqual([
+        { entries: [input[0], input[2]], tags: new Set([shared]) },
+        { entries: [input[1]], tags: new Set([distinct]) },
+      ]);
+      expect(result[0].tags.has(distinct)).toBe(false);
+      expect(result[1].tags.has(shared)).toBe(false);
+    });
+
+    test("special primitive and nullish tags use native equality", () => {
+      const input = [
+        [Number.NaN],
+        [Number.NaN],
+        [0],
+        [-0],
+        [null],
+        [null],
+        [undefined],
+        [undefined],
+      ];
+      expect(clusterBy(input, (tags) => tags)).toStrictEqual([
+        { entries: [input[0], input[1]], tags: new Set([Number.NaN]) },
+        { entries: [input[2], input[3]], tags: new Set([0]) },
+        { entries: [input[4], input[5]], tags: new Set([null]) },
+        { entries: [input[6], input[7]], tags: new Set([undefined]) },
+      ]);
+    });
+
+    test("input array, entries, and caller-owned tag collections remain unchanged", () => {
+      const firstTags = Object.freeze(["a", "b"]);
+      const secondTags = new Set(["b", "c"]);
+      const first = Object.freeze({ tags: firstTags });
+      const second = Object.freeze({ tags: secondTags });
+      const input = Object.freeze([first, second]);
+      const result = clusterBy(input, (entry) => entry.tags);
+      expect(result).toStrictEqual([
+        { entries: [first, second], tags: new Set(["a", "b", "c"]) },
+      ]);
+      // Re-assert the caller's original references after checking the output.
+      expect(input).toStrictEqual([first, second]);
+      expect(first.tags).toBe(firstTags);
+      expect(second.tags).toBe(secondTags);
+      expect(firstTags).toStrictEqual(["a", "b"]);
+      expect(secondTags).toStrictEqual(new Set(["b", "c"]));
+      expect(result[0].tags).not.toBe(secondTags);
+    });
+
+    test("non-iterable callback results throw at runtime", () => {
+      expect(() =>
+        // @ts-expect-error - untyped callers can return a non-iterable tag value
+        clusterBy([1], () => 42),
+      ).toThrow(TypeError);
+    });
+
+    test("both overloads infer readonly entry and tag types", () => {
+      interface Entry {
+        readonly name: string;
+        readonly tags: ReadonlySet<number>;
+      }
+      const input: readonly Entry[] = [{ name: "Alice", tags: new Set([1]) }];
+      const tagsOf = (entry: Entry) => entry.tags;
+      const dataFirst = clusterBy(input, tagsOf);
+      const dataLast = pipe(input, clusterBy(tagsOf));
+      type Clusters = readonly {
+        readonly entries: readonly Entry[];
+        readonly tags: ReadonlySet<number>;
+      }[];
+      expectTypeOf(dataFirst).toEqualTypeOf<Clusters>();
+      expectTypeOf(dataLast).toEqualTypeOf<Clusters>();
+      expectTypeOf(dataFirst[0].entries[0]).toEqualTypeOf<Entry>();
+      expectTypeOf(dataLast[0].tags).toEqualTypeOf<ReadonlySet<number>>();
+      expect(dataFirst).toStrictEqual(dataLast);
     });
   });
 

@@ -375,6 +375,114 @@ export function categorize<A>(
 }
 
 /**
+ * Groups entries that share tags, directly or through a chain of other entries.
+ *
+ * Clusters follow their first entry's input position, and entries keep input
+ * order even when a later entry connects earlier clusters. Each cluster contains
+ * the union of its entries' tags; an entry without tags forms its own cluster.
+ * Every input occurrence is retained, without mutating entries or their tags.
+ * Sparse array holes are visited as `undefined`, just like array iteration.
+ *
+ * Tags use native Map/Set equality (SameValueZero): objects compare by identity,
+ * NaN equals NaN, and positive and negative zero are equal. `tagsOf` is called
+ * once per input occurrence and its iterable is consumed once.
+ *
+ * @example
+ * ```ts
+ * import { ArrayX } from "@nunofyobiz/effect-extras"
+ *
+ * const alice = { name: "Alice", interests: ["hiking"] }
+ * const bob = { name: "Bob", interests: ["painting"] }
+ * const carol = { name: "Carol", interests: ["cooking"] }
+ * const dana = { name: "Dana", interests: ["painting", "hiking"] }
+ *
+ * // Dana connects Alice's and Bob's interest groups. Their original order stays.
+ * assert.deepStrictEqual(
+ *   ArrayX.clusterBy([alice, bob, carol, dana], (person) => person.interests),
+ *   [
+ *     { entries: [alice, bob, dana], tags: new Set(["hiking", "painting"]) },
+ *     { entries: [carol], tags: new Set(["cooking"]) },
+ *   ],
+ * )
+ * ```
+ *
+ * @category folding
+ * @since 0.0.0
+ */
+export const clusterBy = dual<
+  <A, K>(
+    tagsOf: (entry: A) => Iterable<K>,
+  ) => (self: readonly A[]) => readonly {
+    readonly entries: readonly A[];
+    readonly tags: ReadonlySet<K>;
+  }[],
+  <A, K>(
+    self: readonly A[],
+    tagsOf: (entry: A) => Iterable<K>,
+  ) => readonly {
+    readonly entries: readonly A[];
+    readonly tags: ReadonlySet<K>;
+  }[]
+>(2, <A, K>(self: readonly A[], tagsOf: (entry: A) => Iterable<K>) => {
+  const occurrences = [...self].map((entry) => ({
+    entry,
+    tags: [...tagsOf(entry)],
+  }));
+  const parents = occurrences.map((_, index) => index);
+  const sizes = occurrences.map(() => 1);
+  const tagNodes = new Map<K, number>();
+
+  const find = (index: number): number => {
+    let root = index;
+    while (parents[root] !== root) {
+      root = parents[root];
+    }
+    while (parents[index] !== index) {
+      const parent = parents[index];
+      parents[index] = root;
+      index = parent;
+    }
+    return root;
+  };
+
+  for (const [index, { tags }] of occurrences.entries()) {
+    for (const tag of tags) {
+      const previous = tagNodes.get(tag);
+      if (Predicate.isUndefined(previous)) {
+        tagNodes.set(tag, index);
+        continue;
+      }
+      let root = find(index);
+      let previousRoot = find(previous);
+      if (root === previousRoot) {
+        continue;
+      }
+      if (sizes[root] < sizes[previousRoot]) {
+        [root, previousRoot] = [previousRoot, root];
+      }
+      parents[previousRoot] = root;
+      sizes[root] = sizes[root] + sizes[previousRoot];
+    }
+  }
+
+  // Assemble only after membership is final, so late links cannot reorder entries.
+  const clusters = new Map<number, { entries: A[]; tags: Set<K> }>();
+  for (const [index, { entry, tags }] of occurrences.entries()) {
+    const root = find(index);
+    let cluster = clusters.get(root);
+    if (Predicate.isUndefined(cluster)) {
+      cluster = { entries: [], tags: new Set<K>() };
+      clusters.set(root, cluster);
+    }
+    cluster.entries.push(entry);
+    for (const tag of tags) {
+      cluster.tags.add(tag);
+    }
+  }
+  return [...clusters.values()];
+});
+
+/**
  * Removes all `null` and `undefined` elements from `array`, narrowing the
  * element type to `NonNullable<A>`.
  *

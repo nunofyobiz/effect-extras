@@ -45,6 +45,7 @@ const config = defineConfig([
   {
     plugins: { import: importX },
     settings: {
+      vitest: { vitestImports: ["@effect/vitest"] },
       "import-x/resolver": {
         typescript: { project: "./tsconfig.eslint.json" },
         node: true,
@@ -207,7 +208,8 @@ const config = defineConfig([
       "import/no-useless-path-segments": [
         "error",
         {
-          noUselessIndex: true,
+          // Explicit index.js paths are required by Node's ESM resolver.
+          noUselessIndex: false,
         },
       ],
       "sort-imports": [

@@ -24,6 +24,7 @@ Added in v0.0.0
 - [folding](#folding)
   - [~~categorize~~](#categorize)
   - [chunkBy](#chunkby)
+  - [clusterBy](#clusterby)
   - [mapRightAccum](#maprightaccum)
 - [getters](#getters)
   - [findFirstWithIndex2d](#findfirstwithindex2d)
@@ -275,6 +276,54 @@ assert.deepStrictEqual(
     { group: true, values: [2, 4] },
     { group: false, values: [1, 3] },
     { group: true, values: [6] }
+  ]
+)
+```
+
+Added in v0.0.0
+
+## clusterBy
+
+Groups entries that share tags, directly or through a chain of other entries.
+
+Clusters follow their first entry's input position, and entries keep input
+order even when a later entry connects earlier clusters. Each cluster contains
+the union of its entries' tags; an entry without tags forms its own cluster.
+Every input occurrence is retained, without mutating entries or their tags.
+Sparse array holes are visited as `undefined`, just like array iteration.
+
+Tags use native Map/Set equality (SameValueZero): objects compare by identity,
+NaN equals NaN, and positive and negative zero are equal. `tagsOf` is called
+once per input occurrence and its iterable is consumed once.
+
+**Signature**
+
+```ts
+export declare const clusterBy: (<A, K>(
+  tagsOf: (entry: A) => Iterable<K>
+) => (self: readonly A[]) => readonly { readonly entries: readonly A[]; readonly tags: ReadonlySet<K> }[]) &
+  (<A, K>(
+    self: readonly A[],
+    tagsOf: (entry: A) => Iterable<K>
+  ) => readonly { readonly entries: readonly A[]; readonly tags: ReadonlySet<K> }[])
+```
+
+**Example**
+
+```ts
+import { ArrayX } from "@nunofyobiz/effect-extras"
+
+const alice = { name: "Alice", interests: ["hiking"] }
+const bob = { name: "Bob", interests: ["painting"] }
+const carol = { name: "Carol", interests: ["cooking"] }
+const dana = { name: "Dana", interests: ["painting", "hiking"] }
+
+// Dana connects Alice's and Bob's interest groups. Their original order stays.
+assert.deepStrictEqual(
+  ArrayX.clusterBy([alice, bob, carol, dana], (person) => person.interests),
+  [
+    { entries: [alice, bob, dana], tags: new Set(["hiking", "painting"]) },
+    { entries: [carol], tags: new Set(["cooking"]) }
   ]
 )
 ```
