@@ -54,7 +54,7 @@ pnpm check-all
 pnpm pack --dry-run
 ```
 
-`check-all` is tc → lint → test → build → publint → treeshake → knip → docgen. `pack --dry-run` confirms `files` produce a
+`check-all` is tc → lint → lint:mermaid → test → build → publint → treeshake → knip → docgen. `pack --dry-run` confirms `files` produce a
 publishable tarball **without contacting the registry** (a real `publish --dry-run` errors once the
 package exists, since the branch sits at an already-published version). If anything fails → stop,
 surface it.

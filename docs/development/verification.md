@@ -51,18 +51,22 @@ Before claiming a task done, run **`pnpm check-all`**. It runs, in order:
 1. `pnpm tc` — `tsc --noEmit` (src + tests)
 2. `pnpm lint` — ESLint flat config (formatting included via `eslint-plugin-prettier`; no separate
    Prettier step)
-3. `pnpm test` — Vitest (`@effect/vitest`)
-4. `pnpm build` — `tsc` + `babel` (ESM, one output file + `.d.ts` per module, with
+3. `pnpm lint:mermaid` — finds every fenced `mermaid` block in tracked Markdown and parses it with
+   Mermaid's own parser under a jsdom DOM shim (no browser). A failure prints the file, the line
+   where the block starts, and the parser error. It validates **syntax only**: it does not show
+   layout or readability, and a diagram that parses can still render badly or misstate the prose.
+4. `pnpm test` — Vitest (`@effect/vitest`)
+5. `pnpm build` — `tsc` + `babel` (ESM, one output file + `.d.ts` per module, with
    `/*#__PURE__*/` annotations — see [Tree-shaking & packaging](./tree-shaking-and-packaging.md))
-5. `pnpm publint` — `publint`: validates the published packaging (`exports` map, `types` conditions,
+6. `pnpm publint` — `publint`: validates the published packaging (`exports` map, `types` conditions,
    ESM correctness) against `dist/` (needs a prior `build`)
-6. `pnpm treeshake` — `size-limit`: enforces the per-function tree-shaking byte budgets in
+7. `pnpm treeshake` — `size-limit`: enforces the per-function tree-shaking byte budgets in
    `.size-limit.json` (needs a prior `build`)
-7. `pnpm knip` — unused files / exports / deps
-8. `pnpm docgen` — `@effect/docgen`: type-checks every JSDoc `@example` (via `tsx`) and regenerates
+8. `pnpm knip` — unused files / exports / deps
+9. `pnpm docgen` — `@effect/docgen`: type-checks every JSDoc `@example` (via `tsx`) and regenerates
    the API docs under `docs/` from the source
 
-While iterating, run the individual checks (faster). CI mirrors these as one job per check, plus:
+While iterating, run the individual checks (faster). CI mirrors these as one job per check (including `mermaid` for `pnpm lint:mermaid`), plus:
 `commitlint` on PR commits, a `renovate-config-validator --strict` job, a `pack --dry-run`
 that catches `files` / tarball misconfigurations before a real release (it uses `pnpm pack`, not
 `publish --dry-run`: the latter computes a dist-tag against the live registry and errors once the
