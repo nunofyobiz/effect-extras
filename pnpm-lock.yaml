@@ -30,11 +30,11 @@ importers:
         specifier: 0.5.2
         version: 0.5.2(tsx@4.22.4)(typescript@6.0.3)
       '@effect/language-service':
-        specifier: 0.86.2
-        version: 0.86.2
+        specifier: 0.87.4
+        version: 0.87.4
       '@effect/vitest':
-        specifier: 4.0.2
-        version: 4.0.2(effect@4.0.2)(vitest@5.0.3)
+        specifier: 4.0.4
+        version: 4.0.4(effect@4.0.4)(vitest@5.0.3)
       '@eslint-community/eslint-plugin-eslint-comments':
         specifier: 4.7.2
         version: 4.7.2(eslint@10.2.1(jiti@2.7.0))
@@ -66,8 +66,8 @@ importers:
         specifier: 20.5.3
         version: 20.5.3(@types/node@24.12.2)(conventional-commits-parser@6.4.0)(typescript@6.0.3)
       effect:
-        specifier: 4.0.2
-        version: 4.0.2
+        specifier: 4.0.4
+        version: 4.0.4
       eslint:
         specifier: 10.2.1
         version: 10.2.1(jiti@2.7.0)
@@ -357,8 +357,8 @@ packages:
       tsx: ^4.1.0
       typescript: ^5.2.2
 
-  '@effect/language-service@0.86.2':
-    resolution: {integrity: sha512-SaPln+8srOqDJDUwNTDmP5e+IYpEDr9+1epGznnsLqu8xvo6VnxyWARdeLpqvZJlb0Pgy9ca7ppqvvdWbHPXAg==}
+  '@effect/language-service@0.87.4':
+    resolution: {integrity: sha512-AfFn4K45l84LtbQSwoPWc06nrg7OzfV3uJOnIUqimSOWTCIsY1IKBXZfjSsVTq7jDuL9Jtoz8//bZp9+rkEihg==}
     hasBin: true
 
   '@effect/markdown-toc@0.1.0':
@@ -366,10 +366,10 @@ packages:
     engines: {node: '>=0.10.0'}
     hasBin: true
 
-  '@effect/vitest@4.0.2':
-    resolution: {integrity: sha512-Zb72nu7iUy3rNdBp9J1Xu5oUQGwJ8cOYsUwmYgujj88aqyvASRDjOS01SjlcPViqf77csduetKdCJTVndMNfzw==}
+  '@effect/vitest@4.0.4':
+    resolution: {integrity: sha512-l5KN46RbDVpqZxWzwXZtX6FVQiyzd+/hTYqL543uSDRo7hC0m19IeICh6O9U/nqCtfersqsNZnBjgHFfkuHsBw==}
     peerDependencies:
-      effect: ^4.0.2
+      effect: ^4.0.4
       vitest: '>=5.0.0 <6.0.0'
 
   '@emnapi/core@1.10.0':
@@ -1626,8 +1626,8 @@ packages:
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
 
-  effect@4.0.2:
-    resolution: {integrity: sha512-YeYnLqSFrL4+tCOXRrfNP03w8FILoF/wDl+ukraJAGzXrjcS383W7LAAvGBbLatEyktmLxRq+9xJinx7QzXW5A==}
+  effect@4.0.4:
+    resolution: {integrity: sha512-Sr50OeVSC3M5UkoUYUhFf3EULryhGaZZUf6OzDHTvaznOw7HRlxOKdF3/4nvQXHL22StOyMG3Cvo8Bt7xUp+Ng==}
 
   electron-to-chromium@1.5.366:
     resolution: {integrity: sha512-OlRuhb688YTCzzU3gXPLn6nGyd+F+53INE1qaKKlu6kETErE8FYsyDh0XqXEU+uBRn0MpCzz2vfNwORhkap8qg==}
@@ -1946,6 +1946,7 @@ packages:
   git-raw-commits@5.0.1:
     resolution: {integrity: sha512-Y+csSm2GD/PCSh6Isd/WiMjNAydu0VBiG9J7EdQsNA5P9uXvLayqjmTsNlK5Gs9IhblFZqOU0yid5Il5JPoLiQ==}
     engines: {node: '>=18'}
+    deprecated: Deprecated and no longer maintained. Use @conventional-changelog/git-client instead.
     hasBin: true
 
   glob-parent@5.1.2:
@@ -3519,7 +3520,7 @@ snapshots:
       tsx: 4.22.4
       typescript: 6.0.3
 
-  '@effect/language-service@0.86.2': {}
+  '@effect/language-service@0.87.4': {}
 
   '@effect/markdown-toc@0.1.0':
     dependencies:
@@ -3536,9 +3537,9 @@ snapshots:
       repeat-string: 1.6.1
       strip-color: 0.1.0
 
-  '@effect/vitest@4.0.2(effect@4.0.2)(vitest@5.0.3)':
+  '@effect/vitest@4.0.4(effect@4.0.4)(vitest@5.0.3)':
     dependencies:
-      effect: 4.0.2
+      effect: 4.0.4
       vitest: 5.0.3(@types/node@24.12.2)(@vitest/coverage-v8@5.0.3)(vite@8.0.16(@types/node@24.12.2)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
   '@emnapi/core@1.10.0':
@@ -4532,7 +4533,7 @@ snapshots:
 
   eastasianwidth@0.2.0: {}
 
-  effect@4.0.2: {}
+  effect@4.0.4: {}
 
   electron-to-chromium@1.5.366: {}
 
@@ -5870,7 +5871,7 @@ snapshots:
   vite@8.0.16(@types/node@24.12.2)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0):
     dependencies:
       lightningcss: 1.32.0
-      picomatch: 4.0.4
+      picomatch: 4.0.7
       postcss: 8.5.15
       rolldown: 1.0.3
       tinyglobby: 0.2.17
