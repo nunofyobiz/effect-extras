@@ -12,8 +12,45 @@ import {
   pick,
   pickPartial,
 } from "./SchemaX.js";
+import type { MakeIn } from "./SchemaX.js";
 
 describe("Schema utils", () => {
+  describe("MakeIn", () => {
+    test("equals the decoded type without constructor defaults", () => {
+      const Profile = Schema.Struct({
+        name: Schema.String,
+        age: Schema.Number,
+      });
+      expectTypeOf<MakeIn<typeof Profile>>().toEqualTypeOf<
+        typeof Profile.Type
+      >();
+      const input: MakeIn<typeof Profile> = { name: "Ada", age: 36 };
+      expect(Profile.make(input)).toStrictEqual({ name: "Ada", age: 36 });
+    });
+
+    test("constructor defaults are optional in input and required in output", () => {
+      const Settings = Schema.Struct({
+        username: Schema.String,
+        theme: Schema.String.pipe(
+          Schema.withConstructorDefault(Effect.succeed("light")),
+        ),
+      });
+      expectTypeOf<MakeIn<typeof Settings>>().toEqualTypeOf<{
+        readonly username: string;
+        readonly theme?: string;
+      }>();
+      expectTypeOf<typeof Settings.Type>().toEqualTypeOf<{
+        readonly username: string;
+        readonly theme: string;
+      }>();
+      const input: MakeIn<typeof Settings> = { username: "ada" };
+      expect(Settings.make(input)).toStrictEqual({
+        username: "ada",
+        theme: "light",
+      });
+    });
+  });
+
   describe("TrimmedNonEmptyString", () => {
     it.effect("decoding non-whitespace string", () =>
       Effect.gen(function* () {
@@ -167,6 +204,22 @@ describe("Schema utils", () => {
       }),
     );
 
+    it.effect("encoding preserves the existing normalization order", () =>
+      Effect.gen(function* () {
+        // Encoding escapes spaces before trimming; they remain percent-encoded.
+        expect(yield* Schema.encodeEffect(URLSafeFilePath)("  a/b.txt  ")).toBe(
+          "%20%20a%2Fb.txt%20%20",
+        );
+        expect(yield* Schema.encodeEffect(URLSafeFilePath)("   ")).toBe(
+          "%20%20%20",
+        );
+        const empty = yield* Effect.result(
+          Schema.encodeEffect(URLSafeFilePath)(""),
+        );
+        expect(Result.isFailure(empty)).toBe(true);
+      }),
+    );
+
     it.effect("empty input fails the non-empty refinement", () =>
       Effect.gen(function* () {
         const result = yield* Effect.result(
@@ -178,6 +231,54 @@ describe("Schema utils", () => {
   });
 
   describe("IntFromString", () => {
+    it.effect("rejects negative overflow in both directions", () =>
+      Effect.gen(function* () {
+        expect(
+          Result.isFailure(
+            yield* Effect.result(
+              Schema.decodeEffect(IntFromString)("-9007199254740992"),
+            ),
+          ),
+        ).toBe(true);
+        expect(
+          Result.isFailure(
+            yield* Effect.result(
+              Schema.encodeEffect(IntFromString)(Number.MIN_SAFE_INTEGER - 1),
+            ),
+          ),
+        ).toBe(true);
+      }),
+    );
+
+    it.effect("rejects non-finite numbers in both directions", () =>
+      Effect.gen(function* () {
+        for (const value of [Number.NaN, Infinity, -Infinity]) {
+          expect(
+            Result.isFailure(
+              yield* Effect.result(
+                Schema.decodeEffect(IntFromString)(String(value)),
+              ),
+            ),
+          ).toBe(true);
+          expect(
+            Result.isFailure(
+              yield* Effect.result(Schema.encodeEffect(IntFromString)(value)),
+            ),
+          ).toBe(true);
+        }
+      }),
+    );
+
+    it.effect("encodes both safe-integer endpoints", () =>
+      Effect.gen(function* () {
+        expect(
+          yield* Schema.encodeEffect(IntFromString)(Number.MIN_SAFE_INTEGER),
+        ).toBe("-9007199254740991");
+        expect(
+          yield* Schema.encodeEffect(IntFromString)(Number.MAX_SAFE_INTEGER),
+        ).toBe("9007199254740991");
+      }),
+    );
     it.effect("decodes a safe integer string to a number", () =>
       Effect.gen(function* () {
         const result = yield* Schema.decodeEffect(IntFromString)("42");
@@ -339,6 +440,7 @@ describe("Schema utils", () => {
       Effect.gen(function* () {
         const result = yield* Schema.decodeEffect(NonNegative)(0n);
         expect(result).toBe(0n);
+        expect(yield* Schema.encodeEffect(NonNegative)(0n)).toBe(0n);
       }),
     );
 
@@ -346,6 +448,7 @@ describe("Schema utils", () => {
       Effect.gen(function* () {
         const result = yield* Schema.decodeEffect(NonNegative)(7n);
         expect(result).toBe(7n);
+        expect(yield* Schema.encodeEffect(NonNegative)(7n)).toBe(7n);
       }),
     );
 
@@ -365,6 +468,8 @@ describe("Schema utils", () => {
 
         expect(yield* Schema.decodeEffect(NonNegative)(-5)).toBe(0);
         expect(yield* Schema.decodeEffect(NonNegative)(7)).toBe(7);
+        expect(yield* Schema.decodeEffect(NonNegative)(0)).toBe(0);
+        expect(yield* Schema.encodeEffect(NonNegative)(7)).toBe(7);
         expect(yield* Schema.encodeEffect(NonNegative)(-5)).toBe(0);
         expect(yield* Schema.encodeEffect(NonNegative)(0)).toBe(0);
       }),
@@ -376,6 +481,8 @@ describe("Schema utils", () => {
 
         expect(yield* Schema.decodeEffect(AtMostTen)(15)).toBe(10);
         expect(yield* Schema.decodeEffect(AtMostTen)(7)).toBe(7);
+        expect(yield* Schema.decodeEffect(AtMostTen)(10)).toBe(10);
+        expect(yield* Schema.encodeEffect(AtMostTen)(7)).toBe(7);
         expect(yield* Schema.encodeEffect(AtMostTen)(15)).toBe(10);
         expect(yield* Schema.encodeEffect(AtMostTen)(10)).toBe(10);
       }),
@@ -388,6 +495,11 @@ describe("Schema utils", () => {
         expect(yield* Schema.decodeEffect(Percent)(-5)).toBe(0);
         expect(yield* Schema.decodeEffect(Percent)(125)).toBe(100);
         expect(yield* Schema.decodeEffect(Percent)(50)).toBe(50);
+        expect(yield* Schema.decodeEffect(Percent)(0)).toBe(0);
+        expect(yield* Schema.decodeEffect(Percent)(100)).toBe(100);
+        expect(yield* Schema.encodeEffect(Percent)(0)).toBe(0);
+        expect(yield* Schema.encodeEffect(Percent)(100)).toBe(100);
+        expect(yield* Schema.encodeEffect(Percent)(50)).toBe(50);
         expect(yield* Schema.encodeEffect(Percent)(-5)).toBe(0);
         expect(yield* Schema.encodeEffect(Percent)(125)).toBe(100);
       }),
@@ -407,7 +519,45 @@ describe("Schema utils", () => {
         const Pinned = clamp({ min: 5, max: 5 })(Schema.Number);
 
         expect(yield* Schema.decodeEffect(Pinned)(0)).toBe(5);
+        expect(yield* Schema.decodeEffect(Pinned)(5)).toBe(5);
+        expect(yield* Schema.decodeEffect(Pinned)(10)).toBe(5);
+        expect(yield* Schema.encodeEffect(Pinned)(0)).toBe(5);
+        expect(yield* Schema.encodeEffect(Pinned)(5)).toBe(5);
         expect(yield* Schema.encodeEffect(Pinned)(10)).toBe(5);
+      }),
+    );
+
+    it.effect("pins NaN under each bound configuration", () =>
+      Effect.gen(function* () {
+        // Effect's number order puts NaN below every other number.
+        const LowerOnly = clamp({ min: 0 })(Schema.Number);
+        const UpperOnly = clamp({ max: 100 })(Schema.Number);
+        const TwoSided = clamp({ min: 0, max: 100 })(Schema.Number);
+        const Unbounded = clamp({})(Schema.Number);
+        expect(yield* Schema.decodeEffect(LowerOnly)(Number.NaN)).toBe(0);
+        expect(yield* Schema.encodeEffect(LowerOnly)(Number.NaN)).toBe(0);
+        expect(yield* Schema.decodeEffect(UpperOnly)(Number.NaN)).toBeNaN();
+        expect(yield* Schema.encodeEffect(UpperOnly)(Number.NaN)).toBeNaN();
+        expect(yield* Schema.decodeEffect(TwoSided)(Number.NaN)).toBe(0);
+        expect(yield* Schema.encodeEffect(TwoSided)(Number.NaN)).toBe(0);
+        expect(yield* Schema.decodeEffect(Unbounded)(Number.NaN)).toBeNaN();
+        expect(yield* Schema.encodeEffect(Unbounded)(Number.NaN)).toBeNaN();
+      }),
+    );
+
+    it.effect("clamps infinities only on the bounded side", () =>
+      Effect.gen(function* () {
+        const LowerOnly = clamp({ min: 0 })(Schema.Number);
+        const UpperOnly = clamp({ max: 100 })(Schema.Number);
+        const TwoSided = clamp({ min: 0, max: 100 })(Schema.Number);
+        for (const convert of [Schema.decodeEffect, Schema.encodeEffect]) {
+          expect(yield* convert(LowerOnly)(-Infinity)).toBe(0);
+          expect(yield* convert(LowerOnly)(Infinity)).toBe(Infinity);
+          expect(yield* convert(UpperOnly)(-Infinity)).toBe(-Infinity);
+          expect(yield* convert(UpperOnly)(Infinity)).toBe(100);
+          expect(yield* convert(TwoSided)(-Infinity)).toBe(0);
+          expect(yield* convert(TwoSided)(Infinity)).toBe(100);
+        }
       }),
     );
 
@@ -533,6 +683,17 @@ describe("Schema utils", () => {
       b: Schema.Number,
       c: Schema.Boolean,
     });
+
+    it.effect("ignores an omitted key absent from the source struct", () =>
+      Effect.gen(function* () {
+        // @ts-expect-error - key is absent from the source struct
+        const Omitted = omit(Source, "missing");
+        expect(Omitted.fields).toStrictEqual(Source.fields);
+        expect(
+          yield* Schema.decodeEffect(Omitted)({ a: "hello", b: 42, c: true }),
+        ).toStrictEqual({ a: "hello", b: 42, c: true });
+      }),
+    );
 
     it.effect("omits a single field", () =>
       Effect.gen(function* () {
@@ -742,6 +903,41 @@ describe("Schema utils", () => {
         expect(withSymbol).toStrictEqual({ text: "hi", [key]: 1 });
       });
     });
+  });
+
+  describe("struct helper encoding", () => {
+    it.effect(
+      "preserves transformations and rejects invalid refined fields",
+      () =>
+        Effect.gen(function* () {
+          const Source = Schema.Struct({
+            name: Schema.NonEmptyString,
+            quantity: IntFromString,
+            active: Schema.Boolean,
+          });
+          const Picked = pick(Source, "name", "quantity");
+          const Omitted = omit(Source, "active");
+          const Partial = partial(Source);
+          const PickedPartial = pickPartial(Source, "name", "quantity");
+          for (const schema of [Picked, Omitted, Partial, PickedPartial]) {
+            expect(
+              yield* Schema.encodeEffect(schema)({ name: "Ada", quantity: 12 }),
+            ).toStrictEqual({ name: "Ada", quantity: "12" });
+            const bad = yield* Effect.result(
+              Schema.encodeEffect(schema)({ name: "", quantity: 12 }),
+            );
+            expect(Result.isFailure(bad)).toBe(true);
+          }
+          expect(yield* Schema.encodeEffect(Partial)({})).toStrictEqual({});
+          expect(yield* Schema.encodeEffect(PickedPartial)({})).toStrictEqual(
+            {},
+          );
+          const bad = yield* Effect.result(
+            Schema.decodeEffect(PickedPartial)({ name: "" }),
+          );
+          expect(Result.isFailure(bad)).toBe(true);
+        }),
+    );
   });
 
   describe("pickPartial", () => {
