@@ -4,15 +4,37 @@
  * @since 0.0.0
  */
 import {
+  Array,
   BigInt,
   Effect,
   Number,
+  Option,
   Predicate,
   Schema,
   SchemaGetter,
   SchemaIssue,
   Struct,
 } from "effect";
+import type { SchemaAST } from "effect";
+
+type TransformUri = (
+  transform: (
+    path: string,
+    options: SchemaAST.ParseOptions,
+  ) => Effect.Effect<string, SchemaIssue.Issue>,
+) => SchemaGetter.Getter<string, string>;
+
+// Effect renamed transformOrFail to transformEffect after our supported floor.
+const uriGetters: {
+  readonly transformEffect?: TransformUri;
+  readonly transformOrFail?: TransformUri;
+} = SchemaGetter;
+const transformUri = Option.getOrThrow(
+  Array.findFirst(
+    [uriGetters.transformEffect, uriGetters.transformOrFail],
+    Predicate.isNotUndefined,
+  ),
+);
 
 /**
  * Trims a string on decode and encode and requires non-empty content, useful
@@ -79,7 +101,7 @@ export const TrimmedNonEmptyString = Schema.NonEmptyString.pipe(
  */
 export const URLSafeFilePath = TrimmedNonEmptyString.pipe(
   Schema.decode({
-    decode: SchemaGetter.transformEffect((path, options) =>
+    decode: transformUri((path, options) =>
       Effect.try({
         try: () => decodeURIComponent(path),
         catch: () =>
@@ -90,7 +112,7 @@ export const URLSafeFilePath = TrimmedNonEmptyString.pipe(
           ),
       }),
     ),
-    encode: SchemaGetter.transformEffect((path, options) =>
+    encode: transformUri((path, options) =>
       Effect.try({
         try: () => encodeURIComponent(path),
         catch: () =>
