@@ -252,8 +252,8 @@ const EXCEL_COLUMNS_BASE_CHARS = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
  * Converts a `0`-indexed column number into its bijective base-26 spreadsheet
  * label (`A`, `B`, …, `Z`, `AA`, `AB`, …).
  *
- * Returns `None` for a negative `index`; every non-negative index maps to a
- * `Some` label. Indexing is `0`-based here, so `0` is `"A"` and `25` is `"Z"`,
+ * Returns `None` for any `index` that is not a non-negative safe integer.
+ * Valid indexes return a `Some` label. Indexing is `0`-based here, so `0` is `"A"` and `25` is `"Z"`,
  * unlike the `1`-based numbering shown in most spreadsheet references.
  *
  * @example
@@ -261,8 +261,11 @@ const EXCEL_COLUMNS_BASE_CHARS = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
  * import { Option } from "effect"
  * import { NumberX } from "@nunofyobiz/effect-extras"
  *
+ * // Label columns in a spreadsheet export, starting with column A at index 0.
  * assert.deepStrictEqual(NumberX.indexToExcel(0), Option.some("A"))
  * assert.deepStrictEqual(NumberX.indexToExcel(26), Option.some("AA"))
+ * // A fractional column index cannot identify a spreadsheet column.
+ * assert.deepStrictEqual(NumberX.indexToExcel(26.5), Option.none())
  * assert.deepStrictEqual(NumberX.indexToExcel(-1), Option.none())
  * ```
  *
@@ -270,7 +273,7 @@ const EXCEL_COLUMNS_BASE_CHARS = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
  * @since 0.0.0
  */
 export const indexToExcel = (index: number): Option.Option<string> => {
-  if (index < 0) {
+  if (!Number.isSafeInteger(index) || index < 0) {
     return Option.none();
   }
 

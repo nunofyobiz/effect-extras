@@ -132,7 +132,16 @@ describe("lib/number", () => {
     expect(indexToExcel(18_278)).toStrictEqual(Option.some("AAAA"));
     expect(indexToExcel(-Infinity)).toStrictEqual(Option.none());
     expect(indexToExcel(-0)).toStrictEqual(Option.some("A"));
-    expect(indexToExcel(Number.NaN)).toStrictEqual(Option.some("undefined"));
-    expect(indexToExcel(26.5)).toStrictEqual(Option.some("Aundefined"));
+    expect(Option.isSome(indexToExcel(Number.MAX_SAFE_INTEGER))).toBe(true);
+
+    // Only non-negative safe integers identify columns; invalid inputs return None.
+    expect(indexToExcel(Number.NaN)).toStrictEqual(Option.none());
+    expect(indexToExcel(26.5)).toStrictEqual(Option.none());
+    expect(indexToExcel(Infinity)).toStrictEqual(Option.none());
+    expect(indexToExcel(0.5)).toStrictEqual(Option.none());
+    expect(indexToExcel(-0.5)).toStrictEqual(Option.none());
+    expect(indexToExcel(2 ** 53)).toStrictEqual(Option.none());
+    // @ts-expect-error - untyped callers can pass null instead of a numeric column index
+    expect(indexToExcel(null)).toStrictEqual(Option.none());
   });
 });
