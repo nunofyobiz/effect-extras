@@ -23,22 +23,13 @@ Added in v0.0.0
 
 ## fromOption
 
-Lifts an `Option` into a `Result` with a `void` failure: `Some(value)` becomes
-`Result.succeed(value)` and `None` becomes `Result.failVoid`.
+Converts optional data into a `Result` with a `void` failure. `Some(value)`
+preserves its payload as a success, even when the payload is `undefined`;
+`None` becomes a failure containing `undefined` (`Result.failVoid`).
 
 Useful with `Array.filterMap` and `Record.filterMap`, which use
 `Result`-returning predicates: a `Success` keeps the value and a `Failure`
 drops it.
-
-```ts
-import { Array } from "effect"
-import { ResultX } from "@nunofyobiz/effect-extras"
-
-declare const items: ReadonlyArray<number>
-declare const maybeTransform: (item: number) => import("effect").Option.Option<string>
-
-Array.filterMap(items, (item) => ResultX.fromOption(maybeTransform(item)))
-```
 
 Effect ships `Result.fromOption(option, onNone)`, which requires an `onNone`
 thunk. This helper specializes it to the common "drop the item, no error
@@ -53,11 +44,19 @@ export declare const fromOption: <A>(option: Option.Option<A>) => Result.Result<
 **Example**
 
 ```ts
-import { Option, Result } from "effect"
+import { Array, Option, Result } from "effect"
 import { ResultX } from "@nunofyobiz/effect-extras"
 
-assert.deepStrictEqual(ResultX.fromOption(Option.some(1)), Result.succeed(1))
-assert.deepStrictEqual(ResultX.fromOption(Option.none<number>()), Result.failVoid)
+const settings = { theme: "dark", autosave: true }
+const available = Option.some(settings)
+const missing = Option.none<typeof settings>()
+
+// Available settings are preserved; missing settings need no error details.
+assert.deepStrictEqual(ResultX.fromOption(available), Result.succeed(settings))
+assert.deepStrictEqual(ResultX.fromOption(missing), Result.failVoid)
+
+// Select only the available settings entries: failures drop missing entries.
+assert.deepStrictEqual(Array.filterMap([available, missing], ResultX.fromOption), [settings])
 ```
 
 Added in v0.0.0
