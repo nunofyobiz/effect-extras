@@ -93,6 +93,30 @@ describe("Schema utils", () => {
   });
 
   describe("URLSafeFilePath", () => {
+    it.effect("malformed percent-escapes fail decoding without a defect", () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.result(
+          Schema.decodeEffect(URLSafeFilePath)("%"),
+        );
+        expect(Result.isFailure(result)).toBe(true);
+        if (Result.isFailure(result)) {
+          expect(Schema.isSchemaError(result.failure)).toBe(true);
+        }
+      }),
+    );
+
+    it.effect("lone surrogates fail encoding without a defect", () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.result(
+          Schema.encodeEffect(URLSafeFilePath)("\uD800"),
+        );
+        expect(Result.isFailure(result)).toBe(true);
+        if (Result.isFailure(result)) {
+          expect(Schema.isSchemaError(result.failure)).toBe(true);
+        }
+      }),
+    );
+
     it.effect("decoding expands percent-escapes", () =>
       Effect.gen(function* () {
         const result = yield* Schema.decodeEffect(URLSafeFilePath)("a%2Fb.txt");

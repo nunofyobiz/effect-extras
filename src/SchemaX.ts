@@ -5,10 +5,12 @@
  */
 import {
   BigInt,
+  Effect,
   Number,
   Predicate,
   Schema,
   SchemaGetter,
+  SchemaIssue,
   Struct,
 } from "effect";
 
@@ -74,8 +76,28 @@ export const TrimmedNonEmptyString = Schema.NonEmptyString.pipe(
  */
 export const URLSafeFilePath = TrimmedNonEmptyString.pipe(
   Schema.decode({
-    decode: SchemaGetter.transform((path) => decodeURIComponent(path)),
-    encode: SchemaGetter.transform((path) => encodeURIComponent(path)),
+    decode: SchemaGetter.transformEffect((path, options) =>
+      Effect.try({
+        try: () => decodeURIComponent(path),
+        catch: () =>
+          new SchemaIssue.InvalidValue(
+            { expected: "a valid URI component" },
+            path,
+            options,
+          ),
+      }),
+    ),
+    encode: SchemaGetter.transformEffect((path, options) =>
+      Effect.try({
+        try: () => encodeURIComponent(path),
+        catch: () =>
+          new SchemaIssue.InvalidValue(
+            { expected: "a URI-encodable string" },
+            path,
+            options,
+          ),
+      }),
+    ),
   }),
 );
 
