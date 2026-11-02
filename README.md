@@ -201,6 +201,7 @@ matching subpath (`@nunofyobiz/effect-extras/ArrayX`); see
 pnpm install
 pnpm tc          # typecheck (src + tests)
 pnpm lint        # ESLint (formatting included via eslint-plugin-prettier)
+pnpm lint:mermaid # parse every Mermaid diagram in tracked Markdown (syntax only)
 pnpm test        # vitest run
 pnpm build       # emit dist/ (one ESM file + .d.ts per module): tsc + babel
 pnpm publint     # validate packaging (exports map, types, ESM) — needs a build
