@@ -38,22 +38,15 @@ Added in v0.0.0
 
 ## insertUniq
 
-Inserts or moves a unique item in an array at a specified position.
+Inserts or moves an item before another item, removing existing copies of the
+item first. Use it to reorder a list of string or number identifiers without
+mutating the original array.
 
-**Assumption**: Items should be unique in the array based on standard equality.
-
-**Happy case**: If the item doesn't exist in the array and the destination reference item is found:
-The new item is inserted before the destination reference item
-
-**Item not found in array**:
-
-- If destination reference item is found: The new item is inserted before the destination reference item
-- If destination reference item is not found: The new item is inserted at the end of the array
-
-**Item found but duplicated**:
-
-- If destination reference item is found: All existing copies are removed, then a single copy is inserted before the destination reference item
-- If destination reference item is not found: All existing copies are removed, then a single copy is inserted at the end of the array
+The item is inserted before the first matching destination remaining after
+removal. A null or missing destination appends it to the end. When the
+destination equals the item, removal leaves no destination, so it also appends.
+Comparisons use strict equality (`===`): strings and numbers are distinct,
+signed zeros are equal, and `NaN` never matches or gets removed.
 
 **Signature**
 
@@ -70,16 +63,23 @@ export declare const insertUniq: (<A extends string | number>(config: {
 ```ts
 import { ArrayX } from "@nunofyobiz/effect-extras"
 
-// Move an existing item to sit just before "c"
-assert.deepStrictEqual(ArrayX.insertUniq(["a", "b", "c", "d"], { item: "a", insertToBeLeftOf: "c" }), [
-  "b",
-  "a",
-  "c",
-  "d"
+const shopping = ["bread", "milk", "apples", "coffee"]
+// Move bread just before apples; the original shopping list stays unchanged.
+assert.deepStrictEqual(ArrayX.insertUniq(shopping, { item: "bread", insertToBeLeftOf: "apples" }), [
+  "milk",
+  "bread",
+  "apples",
+  "coffee"
 ])
 
-// Insert a brand-new item; unknown destination falls through to the end
-assert.deepStrictEqual(ArrayX.insertUniq(["a", "b"], { item: "new", insertToBeLeftOf: null }), ["a", "b", "new"])
+// Add eggs at the end when no destination is requested.
+assert.deepStrictEqual(ArrayX.insertUniq(shopping, { item: "eggs", insertToBeLeftOf: null }), [
+  "bread",
+  "milk",
+  "apples",
+  "coffee",
+  "eggs"
+])
 ```
 
 Added in v0.0.0
@@ -88,8 +88,8 @@ Added in v0.0.0
 
 ## compactNullable
 
-Removes all `null` and `undefined` elements from `array`, narrowing the
-element type to `NonNullable<A>`.
+Removes all `null` and `undefined` elements from a list. Use it to turn a list
+of optional values into a list of present values, with type `NonNullable<A>`.
 
 Falsy-but-present values such as `0` and `""` are kept — only nullish values
 are dropped. Use it to clean up an array of optionals into a dense array of
@@ -106,7 +106,9 @@ export declare const compactNullable: <A>(array: A[]) => NonNullable<A>[]
 ```ts
 import { ArrayX } from "@nunofyobiz/effect-extras"
 
-assert.deepStrictEqual(ArrayX.compactNullable([1, null, 2, undefined, 0, ""]), [1, 2, 0, ""])
+const invitees = ["Amira", null, "Ben", undefined, "Chloe"]
+// Remove missing names before printing the invitation list.
+assert.deepStrictEqual(ArrayX.compactNullable(invitees), ["Amira", "Ben", "Chloe"])
 ```
 
 Added in v0.0.0
@@ -115,6 +117,7 @@ Added in v0.0.0
 
 Drops the leading elements of `array` until `predicate` first holds, keeping
 everything from the first match onward.
+Use it to trim an unusable prefix while preserving the rest of a list.
 
 The first matching element and all subsequent elements are retained
 regardless of whether they match — only the prefix _before_ the first match
@@ -130,19 +133,30 @@ export declare const filterHead: (<A>(predicate: Predicate.Predicate<A>) => (arr
 **Example**
 
 ```ts
-import { Predicate } from "effect"
 import { ArrayX } from "@nunofyobiz/effect-extras"
 
-// Trims the leading strings, then keeps everything (including the trailing "b")
-assert.deepStrictEqual(ArrayX.filterHead(["a", 1, 2, "b"], Predicate.isNumber), [1, 2, "b"])
+const readingList = [
+  { title: "Dune", available: false },
+  { title: "The Hobbit", available: true },
+  { title: "Foundation", available: false }
+]
+// Start at the first available book, retaining later books even if unavailable.
+assert.deepStrictEqual(
+  ArrayX.filterHead(readingList, (book) => book.available),
+  [
+    { title: "The Hobbit", available: true },
+    { title: "Foundation", available: false }
+  ]
+)
 ```
 
 Added in v0.0.0
 
 ## ~~filterMapNullable~~
 
-Maps `f` over `array` and drops every result that is `null` or `undefined`,
-narrowing the element type to `NonNullable<B>`.
+Transforms each element and drops results that are `null` or `undefined`.
+Use Effect's `Array.flatMapNullishOr` for new code that maps optional results;
+the result type is narrowed to `NonNullable<B>`.
 
 A nullable-friendly `Array.filterMap`: where `filterMap` expects `f` to
 return an `Option`, this accepts a function returning `B | null` (or
@@ -174,6 +188,7 @@ Added in v0.0.0
 
 Drops the trailing elements of `array` after `predicate` last holds, keeping
 everything up to and including the last match.
+Use it to trim an unusable suffix while preserving the earlier list.
 
 The mirror of {@link filterHead}: the last matching element and all preceding
 elements are retained regardless of whether they match — only the suffix
@@ -190,11 +205,21 @@ export declare const filterTail: (<A>(predicate: Predicate.Predicate<A>) => (arr
 **Example**
 
 ```ts
-import { Predicate } from "effect"
 import { ArrayX } from "@nunofyobiz/effect-extras"
 
-// Keeps the leading "a" and trims the trailing strings after the last number
-assert.deepStrictEqual(ArrayX.filterTail(["a", 1, 2, "b"], Predicate.isNumber), ["a", 1, 2])
+const readingList = [
+  { title: "Dune", available: false },
+  { title: "The Hobbit", available: true },
+  { title: "Foundation", available: false }
+]
+// End at the last available book, retaining earlier books even if unavailable.
+assert.deepStrictEqual(
+  ArrayX.filterTail(readingList, (book) => book.available),
+  [
+    { title: "Dune", available: false },
+    { title: "The Hobbit", available: true }
+  ]
+)
 ```
 
 Added in v0.0.0
@@ -203,8 +228,9 @@ Added in v0.0.0
 
 ## ~~categorize~~
 
-Groups `items` into a partial record keyed by the category each item maps to
-via `categorize`.
+Collects items into arrays under their category names, preserving their order
+within each category. Use Effect's `Array.groupBy` for new category-based
+grouping code.
 
 Each item is appended to the array under its category, preserving input
 order. The result is `Partial<Record<C, A[]>>` because not every possible
@@ -238,11 +264,14 @@ Added in v0.0.0
 ## chunkBy
 
 Splits `array` into runs of consecutive elements that share the same group
-value, where the group is derived by `chunk` and compared with the provided
+value. Use it to segment a list while keeping separate runs with the same key
+separate. The group is derived by `chunk` and compared with the provided
 `Equivalence`.
 
 Only _adjacent_ elements are grouped: a new run starts every time the group
-value changes from the previous element. Each entry in the result carries the
+value differs from the first group value of the current run. The comparator
+receives `(firstGroup, currentGroup)`, and `chunk` is called once per element
+in input order. Each entry in the result carries the
 `group` value and the non-empty array of `values` that produced it, preserving
 input order. An empty input yields an empty array. Use it for run-length-style
 segmentation; reach for `Array.groupBy` instead when you want all elements
@@ -268,13 +297,25 @@ export declare const chunkBy: (<A, B>(
 import { Equivalence } from "effect"
 import { ArrayX } from "@nunofyobiz/effect-extras"
 
-// Group adjacent numbers by parity
+const calendar = [
+  { day: "Monday", title: "Dentist" },
+  { day: "Monday", title: "Lunch" },
+  { day: "Tuesday", title: "Book club" },
+  { day: "Monday", title: "Call Mum" }
+]
+// Group consecutive entries by day; the later Monday entry starts a separate run.
 assert.deepStrictEqual(
-  ArrayX.chunkBy([2, 4, 1, 3, 6], (n) => n % 2 === 0, Equivalence.Boolean),
+  ArrayX.chunkBy(calendar, (entry) => entry.day, Equivalence.String),
   [
-    { group: true, values: [2, 4] },
-    { group: false, values: [1, 3] },
-    { group: true, values: [6] }
+    {
+      group: "Monday",
+      values: [
+        { day: "Monday", title: "Dentist" },
+        { day: "Monday", title: "Lunch" }
+      ]
+    },
+    { group: "Tuesday", values: [{ day: "Tuesday", title: "Book club" }] },
+    { group: "Monday", values: [{ day: "Monday", title: "Call Mum" }] }
   ]
 )
 ```
@@ -290,6 +331,8 @@ Identical to `Array.mapAccum`, except the traversal order is reversed: `f` is
 called on the last element first, and the resulting array is returned in the
 original (left-to-right) order. Use it when each element's mapped value
 depends on state accumulated from the elements that follow it.
+Callback indices count traversal steps: the last input element receives index
+zero, the next-to-last receives one, and so on.
 
 **Signature**
 
@@ -306,10 +349,25 @@ export declare const mapRightAccum: (<A, B, C>(
 ```ts
 import { ArrayX } from "@nunofyobiz/effect-extras"
 
-// Running suffix-sum: each slot holds the sum of itself and everything after it
+const playlist = [
+  { title: "Morning Walk", minutes: 3 },
+  { title: "Sea Breeze", minutes: 4 },
+  { title: "Home Again", minutes: 2 }
+]
+// Each track shows the minutes left from its start through the end of the playlist.
 assert.deepStrictEqual(
-  ArrayX.mapRightAccum([1, 2, 3], 0, (total, n) => [total + n, total + n]),
-  [6, [6, 5, 3]]
+  ArrayX.mapRightAccum(playlist, 0, (remaining, track) => [
+    remaining + track.minutes,
+    { title: track.title, remaining: remaining + track.minutes }
+  ]),
+  [
+    9,
+    [
+      { title: "Morning Walk", remaining: 9 },
+      { title: "Sea Breeze", remaining: 6 },
+      { title: "Home Again", remaining: 2 }
+    ]
+  ]
 )
 ```
 
@@ -321,6 +379,7 @@ Added in v0.0.0
 
 Finds the first element of a 2-dimensional array (row-major order) matching
 `predicate`, returning it alongside its row and column indices.
+Use it to locate a value in nested lists without flattening away its position.
 
 Scans rows top-to-bottom and, within each row, left-to-right. On a match
 returns `Option.some([value, rowIndex, columnIndex])`; if no element matches
@@ -341,14 +400,15 @@ export declare const findFirstWithIndex2d: (<A>(
 import { Option } from "effect"
 import { ArrayX } from "@nunofyobiz/effect-extras"
 
-const grid = [
-  ["A", "B", "C"],
-  ["D", "E", "F"]
+const shelves = [
+  ["Dune", "Foundation"],
+  ["The Hobbit", "Piranesi", "Earthsea"]
 ]
 
+// Piranesi is on the second shelf in the second slot (indices start at zero).
 assert.deepStrictEqual(
-  ArrayX.findFirstWithIndex2d(grid, (cell) => cell === "E"),
-  Option.some(["E", 1, 1])
+  ArrayX.findFirstWithIndex2d(shelves, (book) => book === "Piranesi"),
+  Option.some(["Piranesi", 1, 1])
 )
 ```
 
@@ -373,11 +433,17 @@ export declare const maxOption: (<A>(order: Order.Order<A>) => (array: A[]) => O
 **Example**
 
 ```ts
-import { Option, Order, pipe } from "effect"
+import { Option, Order } from "effect"
 import { ArrayX } from "@nunofyobiz/effect-extras"
 
-assert.deepStrictEqual(pipe([3, 7, 2], ArrayX.maxOption(Order.Number)), Option.some(7))
-assert.deepStrictEqual(pipe([], ArrayX.maxOption(Order.Number)), Option.none())
+const cart = [
+  { name: "Tea", price: 4 },
+  { name: "Coffee", price: 9 }
+]
+const byPrice = Order.mapInput(Order.Number, (product: { price: number }) => product.price)
+// Pick the most expensive product; an empty cart has no maximum.
+assert.deepStrictEqual(ArrayX.maxOption(cart, byPrice), Option.some(cart[1]))
+assert.deepStrictEqual(ArrayX.maxOption([], byPrice), Option.none())
 ```
 
 Added in v0.0.0
@@ -385,7 +451,7 @@ Added in v0.0.0
 ## slice
 
 Returns a shallow copy of `array` between `start` (inclusive) and `end`
-(exclusive), as a pipeable, dual-form alias for `Array.prototype.slice`.
+(exclusive). Use it to select a portion of a list inside an Effect pipeline.
 
 `Array.prototype.slice` is already non-mutating (it returns a shallow copy),
 but it isn't pipeable. This helper makes it composable inside `pipe(...)`
@@ -404,20 +470,20 @@ export declare const slice: (<A>(start: number, end: number) => (array: readonly
 import { pipe } from "effect"
 import { ArrayX } from "@nunofyobiz/effect-extras"
 
-// data-first
-assert.deepStrictEqual(ArrayX.slice([1, 2, 3, 4], 1, 3), [2, 3])
+const guests = ["Amira", "Ben", "Chloe", "Diego"]
+// Select the middle two guests without changing the invitation list.
+assert.deepStrictEqual(ArrayX.slice(guests, 1, 3), ["Ben", "Chloe"])
 
-// data-last (pipeable)
-assert.deepStrictEqual(pipe([1, 2, 3, 4], ArrayX.slice(1, 3)), [2, 3])
+assert.deepStrictEqual(pipe(guests, ArrayX.slice(1, 3)), ["Ben", "Chloe"])
 ```
 
 Added in v0.0.0
 
 ## takeFirstWhere
 
-Returns the smallest element of `array` (per `order`) that matches
-`predicate`, narrowed to the refined type `B`, or `Option.none()` if none
-match.
+Picks the smallest matching element according to `order`, or returns
+`Option.none()` if nothing matches. Use it to find the lowest-ranked eligible
+item, regardless of its position in the list.
 
 Combines a refinement filter with `Array.min`: only elements satisfying
 `predicate` are considered, and the minimum of those (by `order`) is
@@ -437,22 +503,33 @@ export declare const takeFirstWhere: (<A, B extends A>(
 **Example**
 
 ```ts
-import { Option, Order, pipe } from "effect"
+import { Option, Order } from "effect"
 import { ArrayX } from "@nunofyobiz/effect-extras"
 
-const isEven = (n: number): n is number => n % 2 === 0
+type Product = { name: string; price: number; available: boolean }
+const cart: Product[] = [
+  { name: "Tea", price: 4, available: false },
+  { name: "Coffee", price: 9, available: true },
+  { name: "Bread", price: 5, available: true }
+]
+const isAvailable = (product: Product): product is Product => product.available
+const byPrice = Order.mapInput(Order.Number, (product: Product) => product.price)
+// Ignore unavailable tea and choose the cheapest available product.
 
-assert.deepStrictEqual(pipe([3, 4, 1, 2, 5], ArrayX.takeFirstWhere(isEven, Order.Number)), Option.some(2))
-assert.deepStrictEqual(pipe([1, 3, 5], ArrayX.takeFirstWhere(isEven, Order.Number)), Option.none())
+assert.deepStrictEqual(
+  ArrayX.takeFirstWhere(cart, isAvailable, byPrice),
+  Option.some({ name: "Bread", price: 5, available: true })
+)
+assert.deepStrictEqual(ArrayX.takeFirstWhere([], isAvailable, byPrice), Option.none())
 ```
 
 Added in v0.0.0
 
 ## takeLastWhere
 
-Returns the largest element of `array` (per `order`) that matches
-`predicate`, narrowed to the refined type `B`, or `Option.none()` if none
-match.
+Picks the largest matching element according to `order`, or returns
+`Option.none()` if nothing matches. Use it to find the highest-ranked eligible
+item, regardless of its position in the list.
 
 The mirror of {@link takeFirstWhere}: only elements satisfying `predicate`
 are considered, and the maximum of those (by `order`) is returned. The
@@ -472,13 +549,24 @@ export declare const takeLastWhere: (<A, B extends A>(
 **Example**
 
 ```ts
-import { Option, Order, pipe } from "effect"
+import { Option, Order } from "effect"
 import { ArrayX } from "@nunofyobiz/effect-extras"
 
-const isEven = (n: number): n is number => n % 2 === 0
+type Product = { name: string; price: number; available: boolean }
+const cart: Product[] = [
+  { name: "Tea", price: 4, available: true },
+  { name: "Coffee", price: 9, available: false },
+  { name: "Bread", price: 5, available: true }
+]
+const isAvailable = (product: Product): product is Product => product.available
+const byPrice = Order.mapInput(Order.Number, (product: Product) => product.price)
+// Ignore unavailable coffee and choose the most expensive available product.
 
-assert.deepStrictEqual(pipe([3, 4, 1, 2, 5], ArrayX.takeLastWhere(isEven, Order.Number)), Option.some(4))
-assert.deepStrictEqual(pipe([1, 3, 5], ArrayX.takeLastWhere(isEven, Order.Number)), Option.none())
+assert.deepStrictEqual(
+  ArrayX.takeLastWhere(cart, isAvailable, byPrice),
+  Option.some({ name: "Bread", price: 5, available: true })
+)
+assert.deepStrictEqual(ArrayX.takeLastWhere([], isAvailable, byPrice), Option.none())
 ```
 
 Added in v0.0.0
