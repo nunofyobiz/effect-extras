@@ -1,6 +1,7 @@
 import { Schema, pipe } from "effect";
 import { describe, expect, test } from "vitest";
 import * as FormDataX from "./FormDataX.js";
+import * as SchemaX from "./SchemaX.js";
 
 describe("FormDataX", () => {
   // Note: v4's Schema.fromFormData handles FormData → record parsing internally,
@@ -68,16 +69,30 @@ describe("FormDataX", () => {
       expect(result).toStrictEqual({ tags: ["a", "b", "c"] });
     });
 
-    test("data-last (piped)", () => {
+    test("data-first and data-last agree inside pipe", () => {
       const formData = new FormData();
       formData.append("name", "John");
+      const schema = Schema.Struct({ name: Schema.String });
 
-      const result = pipe(
-        formData,
-        FormDataX.decodeSync(Schema.Struct({ name: Schema.String })),
+      const dataFirst = pipe(formData, (value) =>
+        FormDataX.decodeSync(value, schema),
       );
+      const dataLast = pipe(formData, FormDataX.decodeSync(schema));
 
-      expect(result).toStrictEqual({ name: "John" });
+      expect(dataFirst).toStrictEqual({ name: "John" });
+      expect(dataLast).toStrictEqual(dataFirst);
+    });
+
+    test("throws when a submitted field fails numeric validation", () => {
+      const formData = new FormData();
+      formData.append("teamSize", "abc");
+
+      expect(() =>
+        FormDataX.decodeSync(
+          formData,
+          Schema.Struct({ teamSize: SchemaX.IntFromString }),
+        ),
+      ).toThrow();
     });
 
     test("throws on a validation failure (missing required field)", () => {

@@ -23,11 +23,10 @@ Added in v0.0.0
 
 ## toBinary
 
-Converts a `boolean` to its binary digit: `1` for `true`, `0` for `false`.
+Converts `true` to `1` and `false` to `0`.
 
-Useful when a numeric flag is required — summing booleans to count how many
-predicates hold, or feeding a bit into bitwise math or an external API that
-expects `0`/`1` rather than `false`/`true`.
+Use it to store a feature flag in a numeric field or send it to an API that
+expects a binary digit.
 
 **Signature**
 
@@ -40,8 +39,12 @@ export declare const toBinary: (value: boolean) => 0 | 1
 ```ts
 import { BooleanX } from "@nunofyobiz/effect-extras"
 
-assert.deepStrictEqual(BooleanX.toBinary(true), 1)
-assert.deepStrictEqual(BooleanX.toBinary(false), 0)
+const emailNotificationsEnabled = true
+const betaDashboardEnabled = false
+
+// Store the enabled notification setting as 1 and the disabled beta setting as 0.
+assert.deepStrictEqual(BooleanX.toBinary(emailNotificationsEnabled), 1)
+assert.deepStrictEqual(BooleanX.toBinary(betaDashboardEnabled), 0)
 ```
 
 Added in v0.0.0

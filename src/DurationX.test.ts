@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { DateTime, Duration, Number, pipe } from "effect";
 import { diff, mapAsUnit } from "./DurationX.js";
 
@@ -29,8 +29,11 @@ describe("Duration utils", () => {
       const earlier = DateTime.makeUnsafe(1000);
       const later = DateTime.makeUnsafe(4000);
 
-      expect(diff(later, earlier)).toStrictEqual(Duration.seconds(3));
-      expect(pipe(later, diff(earlier))).toStrictEqual(Duration.seconds(3));
+      const dataFirst = pipe(later, (value) => diff(value, earlier));
+      const dataLast = pipe(later, diff(earlier));
+
+      expect(dataFirst).toStrictEqual(Duration.seconds(3));
+      expect(dataLast).toStrictEqual(dataFirst);
       expect(diff(earlier, later)).toStrictEqual(Duration.zero);
       expect(diff(earlier, earlier)).toStrictEqual(Duration.zero);
     });
@@ -55,10 +58,85 @@ describe("Duration utils", () => {
     });
 
     test("data-first", () => {
-      expect(
-        mapAsUnit(Duration.seconds(4), "second", Number.divideUnsafe(2)),
-      ).toStrictEqual(Duration.seconds(2));
+      const input = Duration.seconds(4);
+      const dataFirst = pipe(input, (value) =>
+        mapAsUnit(value, "second", Number.divideUnsafe(2)),
+      );
+      const dataLast = pipe(input, mapAsUnit("second", Number.divideUnsafe(2)));
+
+      expect(dataFirst).toStrictEqual(Duration.seconds(2));
+      expect(dataLast).toStrictEqual(dataFirst);
     });
+
+    test("maps a zero duration", () => {
+      const map = vi.fn((n: number) => n);
+
+      expect(mapAsUnit(Duration.zero, "second", map)).toStrictEqual(
+        Duration.zero,
+      );
+      expect(map).toHaveBeenCalledWith(0);
+    });
+
+    test("passes a fractional count across a unit boundary", () => {
+      const map = vi.fn((n: number) => n);
+
+      expect(mapAsUnit(Duration.minutes(90), "hour", map)).toStrictEqual(
+        Duration.minutes(90),
+      );
+      expect(map).toHaveBeenCalledWith(1.5);
+    });
+
+    test.each([
+      ["micro", Duration.micros(1n)],
+      ["micros", Duration.micros(1n)],
+      ["nano", Duration.nanos(1n)],
+      ["nanos", Duration.nanos(1n)],
+    ] as const)("rejects a fractional callback result in %s", (unit, input) => {
+      expect(() => mapAsUnit(input, unit, (n) => n / 2)).toThrow(RangeError);
+    });
+
+    test.each(["micro", "micros"] as const)(
+      "rejects a fractional input count in %s",
+      (unit) => {
+        const map = vi.fn((n: number) => n);
+
+        expect(() => mapAsUnit(Duration.nanos(1500n), unit, map)).toThrow(
+          RangeError,
+        );
+        expect(map).toHaveBeenCalledWith(1.5);
+      },
+    );
+
+    test.each(["micro", "micros"] as const)(
+      "passes infinity to the %s callback but requires a finite integer result",
+      (unit) => {
+        const map = vi.fn((n: number) => n);
+
+        expect(() => mapAsUnit(Duration.infinity, unit, map)).toThrow(
+          RangeError,
+        );
+        expect(map).toHaveBeenCalledWith(Infinity);
+        expect(mapAsUnit(Duration.infinity, unit, () => 0)).toStrictEqual(
+          Duration.zero,
+        );
+      },
+    );
+
+    test.each(["nano", "nanos"] as const)(
+      "rejects an unsafe finite count in %s before calling the callback",
+      (unit) => {
+        const map = vi.fn((n: number) => n);
+
+        expect(() =>
+          mapAsUnit(
+            Duration.nanos(BigInt(globalThis.Number.MAX_SAFE_INTEGER) + 1n),
+            unit,
+            map,
+          ),
+        ).toThrow("Value 9007199254740992 is outside safe integer range");
+        expect(map).not.toHaveBeenCalled();
+      },
+    );
 
     // Exercises every branch of the internal `toUnit`/`fromUnit` Match — both
     // the singular and plural spelling of each `Duration.Unit`.
@@ -83,10 +161,16 @@ describe("Duration utils", () => {
       expect(mapAsUnit(input, unit, (n) => n * 2)).toStrictEqual(expected);
     });
 
-    test("throws converting an infinite duration to nanos", () => {
-      expect(() => mapAsUnit(Duration.infinity, "nano", (n) => n)).toThrow(
-        "Duration.toNanos returned None",
-      );
-    });
+    test.each(["nano", "nanos"] as const)(
+      "throws converting an infinite duration to %s before calling the callback",
+      (unit) => {
+        const map = vi.fn((n: number) => n);
+
+        expect(() => mapAsUnit(Duration.infinity, unit, map)).toThrow(
+          "Duration.toNanos returned None",
+        );
+        expect(map).not.toHaveBeenCalled();
+      },
+    );
   });
 });
