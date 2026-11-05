@@ -15,11 +15,52 @@ Added in v0.0.0
 <h2 class="text-delta">Table of contents</h2>
 
 - [ordering](#ordering)
+  - [byPriority](#bypriority)
   - [rankedEnum](#rankedenum)
 
 ---
 
 # ordering
+
+## byPriority
+
+Builds an order that sorts values by their key's position in `priority`,
+with every unlisted key sorting after all listed keys.
+
+Reads `priority` once at construction, so one-shot iterators work and later
+changes to the iterable do not affect the order. Duplicate keys keep their
+first position. Keys match using native `Map` equality (SameValueZero),
+including object identity rather than Effect structural equality.
+
+Values sharing a key and all unlisted values compare as `0`. Compose with
+`Order.combine(byPriority(priority, keyOf), fallback)` to break those ties.
+Each comparison projects each value once and performs two map lookups,
+returning only `-1`, `0`, or `1`.
+
+**Signature**
+
+```ts
+export declare const byPriority: <A, K>(priority: Iterable<K>, keyOf: (value: A) => K) => Order.Order<A>
+```
+
+**Example**
+
+```ts
+import { OrderX } from "@nunofyobiz/effect-extras"
+import { Array } from "effect"
+
+const tasks = [
+  { name: "Water plants", urgency: "routine" },
+  { name: "Fix leak", urgency: "urgent" },
+  { name: "Buy groceries", urgency: "soon" }
+]
+const byUrgency = OrderX.byPriority(["urgent", "soon"], (task: { name: string; urgency: string }) => task.urgency)
+
+// Urgent tasks come first; unlisted routine tasks come last.
+assert.deepStrictEqual(Array.sort(tasks, byUrgency), [tasks[1], tasks[2], tasks[0]])
+```
+
+Added in v4.2.0
 
 ## rankedEnum
 
