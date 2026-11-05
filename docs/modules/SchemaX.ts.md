@@ -35,7 +35,7 @@ Added in v0.0.0
 ## clamp
 
 Transforms a `number` `Schema` by coercing its values into an inclusive
-range on both decode and encode.
+range on both decode and encode. Use it to keep settings within allowed bounds.
 
 Unlike Schema refinements, which reject values outside their range, `clamp`
 maps them to the nearest configured bound. Omit either bound to clamp only
@@ -56,9 +56,10 @@ export declare const clamp: (options: {
 import { Effect, Schema } from "effect"
 import { SchemaX } from "@nunofyobiz/effect-extras"
 
-const Percent = SchemaX.clamp({ min: 0, max: 100 })(Schema.Number)
+const Volume = SchemaX.clamp({ min: 0, max: 100 })(Schema.Number)
 
-assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(Percent)(125)), 100)
+// An oversized volume setting is capped at 100.
+assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(Volume)(125)), 100)
 ```
 
 Added in v0.0.0
@@ -87,13 +88,13 @@ export declare const nonNegativeBigInt: <S extends Schema.Schema<bigint>>(
 import { Effect, Schema } from "effect"
 import { SchemaX } from "@nunofyobiz/effect-extras"
 
-const NonNegative = SchemaX.nonNegativeBigInt(Schema.BigInt)
+const StockCount = SchemaX.nonNegativeBigInt(Schema.BigInt)
 
-// Negative values are clamped up to 0n
-assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(NonNegative)(-5n)), 0n)
+// A stock adjustment below zero is floored at zero.
+assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(StockCount)(-5n)), 0n)
 
-// Non-negative values pass through unchanged
-assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(NonNegative)(7n)), 7n)
+// Available stock is kept as entered.
+assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(StockCount)(7n)), 7n)
 ```
 
 Added in v0.0.0
@@ -103,7 +104,8 @@ Added in v0.0.0
 Returns a new `Schema.Struct` with the named `keys` of `schema` removed.
 
 The complement of {@link pick}. Every surviving field keeps its original
-schema, including any refinements.
+schema, including any refinements. Use it to leave server-managed fields out
+of an editable schema.
 
 **Signature**
 
@@ -123,16 +125,18 @@ export declare const omit: <
 import { Effect, Schema } from "effect"
 import { SchemaX } from "@nunofyobiz/effect-extras"
 
-const Source = Schema.Struct({
-  a: Schema.Number,
-  b: Schema.String,
-  c: Schema.Boolean
+const Profile = Schema.Struct({
+  displayName: Schema.NonEmptyString,
+  bio: Schema.String,
+  joinedAt: Schema.String
 })
 
-const Omitted = SchemaX.omit(Source, "c")
-
-const decoded = Effect.runSync(Schema.decodeEffect(Omitted)({ a: 1, b: "hi" }))
-assert.deepStrictEqual(decoded, { a: 1, b: "hi" })
+// The editor does not ask for the server-managed join date.
+const EditableProfile = SchemaX.omit(Profile, "joinedAt")
+assert.deepStrictEqual(
+  Effect.runSync(Schema.decodeEffect(EditableProfile)({ displayName: "Ada", bio: "Programmer" })),
+  { displayName: "Ada", bio: "Programmer" }
+)
 ```
 
 Added in v0.0.0
@@ -140,7 +144,7 @@ Added in v0.0.0
 ## partial
 
 Returns a new `Schema.Struct` in which every field of `schema` is made
-optional.
+optional. Use it for update payloads containing only changed fields.
 
 Wraps each field in `Schema.optional`. A decoded value may therefore omit any
 field; fields that _are_ present still have to satisfy their original schema,
@@ -160,14 +164,14 @@ export declare const partial: <Fields extends Schema.Struct.Fields>(
 import { Effect, Schema } from "effect"
 import { SchemaX } from "@nunofyobiz/effect-extras"
 
-const Source = Schema.Struct({ a: Schema.Number, b: Schema.String })
-const Partial = SchemaX.partial(Source)
+const Profile = Schema.Struct({
+  displayName: Schema.NonEmptyString,
+  bio: Schema.String
+})
+const Update = SchemaX.partial(Profile)
 
-// All fields may be absent
-assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(Partial)({})), {})
-
-// A present subset still decodes
-assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(Partial)({ a: 1 })), { a: 1 })
+// Send only the changed biography; the display name may be omitted.
+assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(Update)({ bio: "Mathematician" })), { bio: "Mathematician" })
 ```
 
 Added in v0.0.0
@@ -176,7 +180,8 @@ Added in v0.0.0
 
 Returns a new `Schema.Struct` containing only the named `keys` of `schema`.
 
-Each picked field keeps its original schema, including any refinements.
+Use it to select fields for an edit form. Each picked field keeps its original
+schema, including any refinements.
 
 **Signature**
 
@@ -196,16 +201,18 @@ export declare const pick: <
 import { Effect, Schema } from "effect"
 import { SchemaX } from "@nunofyobiz/effect-extras"
 
-const Source = Schema.Struct({
-  a: Schema.Number,
-  b: Schema.String,
-  c: Schema.Boolean
+const Profile = Schema.Struct({
+  displayName: Schema.NonEmptyString,
+  bio: Schema.String,
+  joinedAt: Schema.String
 })
 
-const Picked = SchemaX.pick(Source, "a", "b")
-
-const decoded = Effect.runSync(Schema.decodeEffect(Picked)({ a: 1, b: "hi" }))
-assert.deepStrictEqual(decoded, { a: 1, b: "hi" })
+// Select only the fields shown in the profile editor.
+const EditForm = SchemaX.pick(Profile, "displayName", "bio")
+assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(EditForm)({ displayName: "Ada", bio: "Programmer" })), {
+  displayName: "Ada",
+  bio: "Programmer"
+})
 ```
 
 Added in v0.0.0
@@ -238,17 +245,17 @@ export declare const pickPartial: <
 import { Effect, Schema } from "effect"
 import { SchemaX } from "@nunofyobiz/effect-extras"
 
-const Source = Schema.Struct({
-  a: Schema.Number,
-  b: Schema.String,
-  c: Schema.Boolean
+const Profile = Schema.Struct({
+  displayName: Schema.NonEmptyString,
+  bio: Schema.String,
+  joinedAt: Schema.String
 })
+const Update = SchemaX.pickPartial(Profile, "displayName", "bio")
 
-const Update = SchemaX.pickPartial(Source, "a", "b")
-
-// Only picked fields are known, and each may be omitted
-assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(Update)({})), {})
-assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(Update)({ a: 1 })), { a: 1 })
+// Update the display name without requiring a biography or join date.
+assert.deepStrictEqual(Effect.runSync(Schema.decodeEffect(Update)({ displayName: "Ada Lovelace" })), {
+  displayName: "Ada Lovelace"
+})
 ```
 
 Added in v0.0.0
@@ -257,8 +264,8 @@ Added in v0.0.0
 
 ## IntFromString
 
-A `Schema` that decodes a numeric string into a JS `number`, **failing loudly**
-when the value isn't a safe integer instead of silently rounding it.
+Parses a string as a safe integer and serializes it back to a decimal string.
+Use it for quantity fields that must not silently round large integers.
 
 `Schema.NumberFromString` has no range guard, so a string past
 `Number.MAX_SAFE_INTEGER` — e.g. a Postgres `int8` column, which node-postgres
@@ -293,12 +300,13 @@ export declare const IntFromString: Schema.NumberFromString
 import { Effect, Result, Schema } from "effect"
 import { SchemaX } from "@nunofyobiz/effect-extras"
 
-// A safe integer round-trips
-const decoded = Effect.runSync(Schema.decodeEffect(SchemaX.IntFromString)("42"))
-assert.deepStrictEqual(decoded, 42)
+// Parse a quantity submitted by an order form.
+const quantity = Effect.runSync(Schema.decodeEffect(SchemaX.IntFromString)("12"))
+assert.deepStrictEqual(quantity, 12)
 
-const encoded = Effect.runSync(Schema.encodeEffect(SchemaX.IntFromString)(42))
-assert.deepStrictEqual(encoded, "42")
+// Serialize the quantity when filling the form again.
+const encoded = Effect.runSync(Schema.encodeEffect(SchemaX.IntFromString)(quantity))
+assert.deepStrictEqual(encoded, "12")
 
 // A value past Number.MAX_SAFE_INTEGER fails instead of silently rounding
 const result = Effect.runSync(Effect.result(Schema.decodeEffect(SchemaX.IntFromString)("9223372036854775807")))
@@ -309,7 +317,8 @@ Added in v0.0.0
 
 ## TrimmedNonEmptyString
 
-A `Schema` for a non-empty string that is trimmed on both decode and encode.
+Trims a string on decode and encode and requires non-empty content, useful
+for normalizing required text fields in a form.
 
 Leading and trailing whitespace is stripped, and the resulting value must be
 non-empty — so a whitespace-only input (e.g. `"   "`) fails the
@@ -333,22 +342,24 @@ export declare const TrimmedNonEmptyString: Schema.decodeTo<
 import { Effect, Schema } from "effect"
 import { SchemaX } from "@nunofyobiz/effect-extras"
 
-const decoded = Effect.runSync(Schema.decodeEffect(SchemaX.TrimmedNonEmptyString)("  hello  "))
-assert.deepStrictEqual(decoded, "hello")
+// Trim a submitted username before storing the sign-up form.
+const username = Effect.runSync(Schema.decodeEffect(SchemaX.TrimmedNonEmptyString)("  ada_lovelace  "))
+assert.deepStrictEqual(username, "ada_lovelace")
 ```
 
 Added in v0.0.0
 
 ## URLSafeFilePath
 
-A `Schema` for a URL-safe file path built on top of {@link
-TrimmedNonEmptyString}.
+Decodes a percent-encoded file path and encodes it for use in a URL, built
+on {@link TrimmedNonEmptyString}. Use it for uploaded file names in URL parameters.
 
-On decode the path is `decodeURIComponent`-ed (percent-escapes are expanded);
-on encode it is `encodeURIComponent`-ed back into its URL-safe form. The
-underlying value is also trimmed and required to be non-empty. Use it at the
-boundary between stored/transmitted encoded paths and the decoded paths your
-code works with.
+On decode, trims the encoded input and then expands percent-escapes with
+`decodeURIComponent`. On encode, applies `encodeURIComponent` before trimming,
+so spaces become `%20` rather than being removed. Empty input fails in both
+directions; whitespace-only input fails decoding but encodes as escaped spaces.
+Malformed percent-escapes and strings that cannot be URI-encoded produce schema
+failures.
 
 **Signature**
 
@@ -367,13 +378,13 @@ export declare const URLSafeFilePath: Schema.decodeTo<
 import { Effect, Schema } from "effect"
 import { SchemaX } from "@nunofyobiz/effect-extras"
 
-// Decoding expands percent-escapes
-const decoded = Effect.runSync(Schema.decodeEffect(SchemaX.URLSafeFilePath)("a%2Fb.txt"))
-assert.deepStrictEqual(decoded, "a/b.txt")
+// Recover an uploaded file path from a URL parameter.
+const decoded = Effect.runSync(Schema.decodeEffect(SchemaX.URLSafeFilePath)("uploads%2Fteam%20photo.png"))
+assert.deepStrictEqual(decoded, "uploads/team photo.png")
 
-// Encoding produces the URL-safe form
-const encoded = Effect.runSync(Schema.encodeEffect(SchemaX.URLSafeFilePath)("a/b.txt"))
-assert.deepStrictEqual(encoded, "a%2Fb.txt")
+// Encode the path as one URL parameter, including its slash and space.
+const encoded = Effect.runSync(Schema.encodeEffect(SchemaX.URLSafeFilePath)("uploads/team photo.png"))
+assert.deepStrictEqual(encoded, "uploads%2Fteam%20photo.png")
 ```
 
 Added in v0.0.0
@@ -385,11 +396,10 @@ Added in v0.0.0
 Extracts the "constructor input" type of a `Schema` — what `.make({...})`
 accepts.
 
-Differs from `S["Type"]` (the decoded type) in that fields carrying
-constructor defaults (e.g. an `Overrideable` timestamp) are _optional_ in
-`MakeIn` but _required_ in `Type`. Use it in signatures that accept a value to
-construct, so callers can pass a plain object literal without supplying the
-defaulted, override-branded fields.
+Differs from `S["Type"]` (the decoded type) in that fields carrying constructor
+defaults are _optional_ in `MakeIn` but _required_ in `Type`. Use it in signatures
+that accept a value to construct, so callers can pass a plain object literal
+without supplying the defaulted fields.
 
 **Signature**
 
@@ -400,14 +410,17 @@ export type MakeIn<S extends { readonly "~type.make.in": unknown }> = S["~type.m
 **Example**
 
 ```ts
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 import { SchemaX } from "@nunofyobiz/effect-extras"
 
-const Person = Schema.Struct({ name: Schema.String, age: Schema.Number })
+const Settings = Schema.Struct({
+  username: Schema.String,
+  theme: Schema.String.pipe(Schema.withConstructorDefault(Effect.succeed("light")))
+})
 
-const input: SchemaX.MakeIn<typeof Person> = { name: "Ada", age: 36 }
-
-assert.deepStrictEqual(input, { name: "Ada", age: 36 })
+// Constructor input may omit the theme; the completed record includes it.
+const input: SchemaX.MakeIn<typeof Settings> = { username: "ada" }
+assert.deepStrictEqual(Settings.make(input), { username: "ada", theme: "light" })
 ```
 
 Added in v0.0.0
