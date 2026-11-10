@@ -27,6 +27,7 @@
       "Bash(pnpm lint)",
       "Bash(pnpm lint *)",
       "Bash(pnpm lint:fix)",
+      "Bash(pnpm lint:mermaid)",
       "Bash(pnpm test)",
       "Bash(pnpm test *)",
       "Bash(pnpm vitest *)",

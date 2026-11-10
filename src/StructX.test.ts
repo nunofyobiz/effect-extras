@@ -1,5 +1,5 @@
-import { Option, pipe } from "effect";
-import { describe, expect, test } from "vitest";
+import { Array, Option, pipe } from "effect";
+import { describe, expect, expectTypeOf, test } from "vitest";
 import {
   defined,
   filterDefined,
@@ -14,6 +14,13 @@ describe("Struct utils", () => {
     test("undefined", () => {
       expect(defined("name", undefined)).toStrictEqual({
         // No properties
+      });
+      expect(Object.hasOwn(defined("name", undefined), "name")).toBe(false);
+    });
+
+    test.each([-0, Number.NaN, 0n])("retains defined boundary %s", (value) => {
+      expect(defined("notificationLimit", value)).toStrictEqual({
+        notificationLimit: value,
       });
     });
 
@@ -55,6 +62,28 @@ describe("Struct utils", () => {
   });
 
   describe("filterDefined", () => {
+    test("singleton retained value", () => {
+      expect(filterDefined({ notifications: false })).toStrictEqual({
+        notifications: false,
+      });
+    });
+
+    test("singleton undefined is omitted", () => {
+      const result = filterDefined({ theme: undefined });
+      expect(result).toStrictEqual({});
+      expect(Object.hasOwn(result, "theme")).toBe(false);
+    });
+
+    test("only own enumerable string properties survive", () => {
+      const settings: Record<string, unknown> = Object.create({
+        theme: "dark",
+      });
+      Object.defineProperty(settings, "fontSize", { value: 14 });
+      settings.notifications = false;
+
+      expect(filterDefined(settings)).toStrictEqual({ notifications: false });
+    });
+
     test("empty input", () => {
       const input = {};
       const result = filterDefined(input);
@@ -71,6 +100,7 @@ describe("Struct utils", () => {
       expect(Object.keys(result)).toStrictEqual(["b", "c", "d", "e"]);
       expect("a" in result).toBe(false);
       expect(result).not.toBe(input);
+      // This assertion targets the original input, not the filtered result.
       expect(input).toStrictEqual({
         b: 0,
         a: undefined,
@@ -140,12 +170,18 @@ describe("Struct utils", () => {
           b: 0,
           c: false,
           d: null,
+          negativeZero: -0,
+          notANumber: Number.NaN,
+          zeroBigInt: 0n,
         }),
       ).toStrictEqual({
         a: "",
         b: 0,
         c: false,
         d: null,
+        negativeZero: -0,
+        notANumber: Number.NaN,
+        zeroBigInt: 0n,
       });
     });
 
@@ -173,7 +209,24 @@ describe("Struct utils", () => {
   describe("some", () => {
     test("none returns empty object", () => {
       expect(some("name", Option.none())).toStrictEqual({});
+      expect(Object.hasOwn(some("name", Option.none()), "name")).toBe(false);
     });
+
+    test.each([undefined, null, false, "", 0, -0, Number.NaN, 0n])(
+      "some preserves nullish or falsy payload %s",
+      (value) => {
+        const result = some("setting", Option.some(value));
+        expect(result).toStrictEqual({ setting: value });
+        expect(Object.hasOwn(result, "setting")).toBe(true);
+      },
+    );
+
+    test.each([{ displayName: "Ada" }, []])(
+      "some preserves reference payload %j",
+      (value) => {
+        expect(some("profile", Option.some(value)).profile).toBe(value);
+      },
+    );
 
     test("some returns singleton record", () => {
       expect(some("name", Option.some("value"))).toStrictEqual({
@@ -183,6 +236,55 @@ describe("Struct utils", () => {
   });
 
   describe("pickSome", () => {
+    test("empty lookup with either public overload", () => {
+      const settings: Record<string, Option.Option<string>> = {};
+      expect(pickSome(settings, "theme")).toStrictEqual({});
+      expect(pickSome(settings, "theme", "selectedTheme")).toStrictEqual({});
+    });
+
+    test("singleton None with either public overload", () => {
+      const settings = { theme: Option.none<string>() };
+      expect(pickSome(settings, "theme")).toStrictEqual({});
+      expect(pickSome(settings, "theme", "selectedTheme")).toStrictEqual({});
+    });
+
+    test.each([undefined, null, false, "", 0, -0, Number.NaN, 0n])(
+      "singleton Some preserves payload %s with either public overload",
+      (value) => {
+        const settings = { theme: Option.some(value) };
+        const originalKey = pickSome(settings, "theme");
+        const renamed = pickSome(settings, "theme", "selectedTheme");
+        expect(originalKey).toStrictEqual({ theme: value });
+        expect(Object.hasOwn(originalKey, "theme")).toBe(true);
+        expect(renamed).toStrictEqual({ selectedTheme: value });
+        expect(Object.hasOwn(renamed, "selectedTheme")).toBe(true);
+        expect(Object.hasOwn(renamed, "theme")).toBe(false);
+      },
+    );
+
+    test.each([{ displayName: "Ada" }, []])(
+      "preserves reference payload %j with either public overload",
+      (value) => {
+        const settings = { profile: Option.some(value) };
+        expect(pickSome(settings, "profile").profile).toBe(value);
+        expect(pickSome(settings, "profile", "user").user).toBe(value);
+      },
+    );
+
+    test("unchanged and empty-string output keys", () => {
+      const settings = { theme: Option.some("dark") };
+      expect(pickSome(settings, "theme", "theme")).toStrictEqual({
+        theme: "dark",
+      });
+      expect(pickSome(settings, "theme", "")).toStrictEqual({ "": "dark" });
+    });
+
+    test("empty-string lookup key with either public overload", () => {
+      const settings = { "": Option.some("dark") };
+      expect(pickSome(settings, "")).toStrictEqual({ "": "dark" });
+      expect(pickSome(settings, "", "theme")).toStrictEqual({ theme: "dark" });
+    });
+
     const record = {
       alpha: Option.some(100),
       beta: Option.none(),
@@ -256,6 +358,20 @@ describe("Struct utils", () => {
   });
 
   describe("truthy", () => {
+    test.each([-0, Number.NaN, 0n])("omits falsy boundary %s", (value) => {
+      const result = truthy("notificationLimit", value);
+      expect(result).toStrictEqual({});
+      expect(Object.hasOwn(result, "notificationLimit")).toBe(false);
+    });
+
+    test.each([true, 1, -1, 1n, -1n])("retains truthy value %s", (value) => {
+      expect(truthy("setting", value)).toStrictEqual({ setting: value });
+    });
+
+    test.each([{}, []])("retains empty reference value %j", (value) => {
+      expect(truthy("setting", value).setting).toBe(value);
+    });
+
     test("undefined", () => {
       expect(truthy("name", undefined)).toStrictEqual({
         // No properties
@@ -294,9 +410,73 @@ describe("Struct utils", () => {
   });
 
   describe("hasNotNullableProperty", () => {
-    test("works", () => {
-      expect(pipe({ id: "1" }, hasNotNullableProperty("id"))).toBe(true);
-      expect(pipe({ id: null }, hasNotNullableProperty("id"))).toBe(false);
+    interface Profile {
+      nickname?: string | number | boolean | bigint | null | undefined;
+    }
+    const cases: [Profile, boolean][] = [
+      [{ nickname: "Ada" }, true],
+      [{ nickname: "" }, true],
+      [{ nickname: false }, true],
+      [{ nickname: 0 }, true],
+      [{ nickname: -0 }, true],
+      [{ nickname: Number.NaN }, true],
+      [{ nickname: 0n }, true],
+      [{ nickname: null }, false],
+      [{ nickname: undefined }, false],
+      [{}, false],
+    ];
+
+    test.each(cases)(
+      "direct and piped calls agree for %s",
+      (profile, expected) => {
+        const direct = hasNotNullableProperty(profile, "nickname");
+        const piped = pipe(
+          profile,
+          hasNotNullableProperty<Profile, "nickname">("nickname"),
+        );
+        expect(direct).toBe(expected);
+        expect(piped).toBe(direct);
+      },
+    );
+
+    test("direct guard narrows a nullable property", () => {
+      const uppercaseName = (profile: {
+        displayName: string | null | undefined;
+      }) => {
+        if (hasNotNullableProperty(profile, "displayName")) {
+          expectTypeOf(profile.displayName).toEqualTypeOf<string>();
+          return profile.displayName.toUpperCase();
+        }
+        return "Anonymous";
+      };
+
+      expect(uppercaseName({ displayName: "Ada" })).toBe("ADA");
+      expect(uppercaseName({ displayName: null })).toBe("Anonymous");
+    });
+
+    test("curried filtering predicate narrows an optional nullable property", () => {
+      interface NamedProfile {
+        displayName?: string | null | undefined;
+      }
+      const profiles: NamedProfile[] = [
+        { displayName: "Ada" },
+        { displayName: null },
+        { displayName: undefined },
+        {},
+        { displayName: "" },
+      ];
+      const names = pipe(
+        profiles,
+        Array.filter(
+          hasNotNullableProperty<NamedProfile, "displayName">("displayName"),
+        ),
+        Array.map((profile) => {
+          expectTypeOf(profile.displayName).toEqualTypeOf<string>();
+          return profile.displayName.toUpperCase();
+        }),
+      );
+
+      expect(names).toStrictEqual(["ADA", ""]);
     });
   });
 });

@@ -1,5 +1,29 @@
 # @nunofyobiz/effect-extras
 
+## 4.1.1
+
+### Patch Changes
+
+- [#75](https://github.com/nunofyobiz/effect-extras/pull/75) [`4c9e032`](https://github.com/nunofyobiz/effect-extras/commit/4c9e03284953170247c143655365c247deb4150a) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Ship practical EffectX examples and complete callback timing, error, value preservation, and polling boundary tests. Clarify eager construction and execution-time behavior without changing the helpers' signatures or runtime behavior.
+
+- [#66](https://github.com/nunofyobiz/effect-extras/pull/66) [`8f44ab3`](https://github.com/nunofyobiz/effect-extras/commit/8f44ab3aa7deb744d810c567cd3c5eaa7dc25872) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Ship ArrayX docs with everyday examples and clearer ordering, indexing, and equality descriptions. Expand tests for edge cases, both calling styles, type narrowing, and invalid runtime inputs without changing public behavior or types.
+
+- [#76](https://github.com/nunofyobiz/effect-extras/pull/76) [`0f24b2d`](https://github.com/nunofyobiz/effect-extras/commit/0f24b2dd44b81125abe426e7b0b0458f74af9409) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Document MapX.getOrElseSetGet with a practical catalogue-cache example showing population, reuse, and stored-object identity. Complete its behavioral tests for nullish and falsy values, throwing fallbacks, and equivalent direct and piped calls.
+
+- [#83](https://github.com/nunofyobiz/effect-extras/pull/83) [`ef774c5`](https://github.com/nunofyobiz/effect-extras/commit/ef774c5d3e59a69dd022fcdcfd92162aeee3c652) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Ship practical NonNullableX documentation examples and stronger contract tests for nullish handling, callback execution, type narrowing, and nullable ordering. Public signatures and runtime behavior are unchanged.
+
+- [#79](https://github.com/nunofyobiz/effect-extras/pull/79) [`d419e5e`](https://github.com/nunofyobiz/effect-extras/commit/d419e5e64b4864e1f44d16a0fb03f41ce78522c7) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Explain StructX helpers with practical profile and settings examples, including undefined omission, Option payload preservation, truthy filtering, and nullable-property narrowing.
+
+- [#68](https://github.com/nunofyobiz/effect-extras/pull/68) [`bdf4e31`](https://github.com/nunofyobiz/effect-extras/commit/bdf4e314819055f4f87ea012906ff732420809b0) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Fix `NumberX.indexToExcel` to return `None` for NaN, fractional, infinite, negative, and beyond-safe-range indexes. Passing `Infinity` no longer hangs.
+
+- [#74](https://github.com/nunofyobiz/effect-extras/pull/74) [`0d6267c`](https://github.com/nunofyobiz/effect-extras/commit/0d6267ce61768bb7beed4964c10bc0157a3e36c2) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Improve SetX's shipped documentation with selected-tag examples and unchanged-instance guarantees. Clarify that safelyMutate passes a shallow copy to its callback and returns the callback's exact Set result, which may be another set. This is a patch under the shipped-docs rule; runtime behavior and signatures are unchanged.
+
+- [#81](https://github.com/nunofyobiz/effect-extras/pull/81) [`dc33de8`](https://github.com/nunofyobiz/effect-extras/commit/dc33de80d8d8e7204d381915d0de4ee63f674a6f) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Ship practical PredicateX documentation examples and stronger contract tests for handler selection, type narrowing, and string and record boundaries. Public signatures and runtime behavior are unchanged.
+
+- [#69](https://github.com/nunofyobiz/effect-extras/pull/69) [`12ad99b`](https://github.com/nunofyobiz/effect-extras/commit/12ad99bad1fb1554cb992c3542b67fd23419258e) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Ship RecordX docs with practical settings and product-lookup examples, clarify canonicalization and reducer identity, and strengthen the behavioral specification with edge-case and dual-call tests. Public types are unchanged. `deleteByPath` now returns `None` for paths that only resolve through inherited properties.
+
+- [#78](https://github.com/nunofyobiz/effect-extras/pull/78) [`07afb95`](https://github.com/nunofyobiz/effect-extras/commit/07afb95c5725d8604268a2b824598b7b7a258747) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Ship practical settings examples for ResultX.fromOption and PromiseX.asVoid, with accompanying edge-case tests for undefined payloads, controlled promise settlement, exact rejection preservation, and invalid nullish containers. Public signatures and runtime behavior are unchanged.
+
 ## 4.1.0
 
 ### Minor Changes

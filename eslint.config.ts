@@ -55,6 +55,11 @@ const config = defineConfig([
     plugins: {
       vitest,
     },
+    settings: {
+      vitest: {
+        vitestImports: ["@effect/vitest"],
+      },
+    },
     rules: {
       ...vitest.configs.recommended.rules,
     },
@@ -367,7 +372,7 @@ const config = defineConfig([
 
   // Rule overrides for config files (import devDependencies freely)
   {
-    files: ["*.ts"],
+    files: ["*.ts", "scripts/**/*.ts"],
     rules: {
       "import/no-extraneous-dependencies": "off",
     },

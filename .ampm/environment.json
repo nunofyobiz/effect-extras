@@ -17,6 +17,30 @@
           "expectedExitCode": 0
         }
       ]
+    },
+    "refine": {
+      "phases": ["refine"],
+      "backends": ["docker"],
+      "docker": {
+        "dockerfile": ".ampm/refine-agent.Dockerfile",
+        "context": "."
+      },
+      "resources": {
+        "minimumMemoryMiB": 2048
+      },
+      "checks": [
+        {
+          "name": "pnpm",
+          "argv": ["bash", "-lc", "node --version && pnpm --version"],
+          "expectedExitCode": 0
+        },
+        {
+          "name": "mmdc",
+          "argv": ["/usr/local/bin/ampm-check-mmdc"],
+          "expectedExitCode": 0,
+          "provides": [{ "kind": "tool", "name": "mmdc" }]
+        }
+      ]
     }
   }
 }

@@ -14,33 +14,37 @@ import { dual } from "effect/Function";
 const USER_INSTANT_DURATION = Duration.millis(200);
 
 /**
- * Flattens an `Effect` that succeeds with an `Option` into an `Effect` that
- * fails with `onNone()` when the `Option` is `None`.
+ * Requires a value from an effectful optional lookup, failing with `onNone()`
+ * when the lookup returns `None`. Use it when a missing value should stop the
+ * computation rather than remain optional.
  *
  * When the wrapped `Option` is `Some(value)` the effect succeeds with `value`;
  * when it is `None` the effect fails with the error produced by the `onNone`
- * thunk. An existing failure of the source effect is preserved untouched, so the
- * result's error channel is the union of the original error and the `None`
- * error.
+ * thunk. `onNone` runs only when a `None` result is executed, once per execution;
+ * it is not called during construction, for `Some`, or for a source failure.
+ * Existing source failures are preserved. A throwing `onNone` becomes an
+ * execution defect rather than a typed failure.
  *
  * @example
  * ```ts
  * import { Effect, Option, Result } from "effect"
  * import { EffectX } from "@nunofyobiz/effect-extras"
  *
- * const some = EffectX.flattenOption(
- *   Effect.succeed(Option.some(1)),
- *   () => "missing",
+ * // A saved theme becomes a required setting without changing its value.
+ * const theme = EffectX.flattenOption(
+ *   Effect.succeed(Option.some("dark")),
+ *   () => "No saved theme",
  * )
- * assert.deepStrictEqual(Effect.runSync(Effect.result(some)), Result.succeed(1))
+ * assert.deepStrictEqual(Effect.runSync(Effect.result(theme)), Result.succeed("dark"))
  *
- * const none = EffectX.flattenOption(
- *   Effect.succeed(Option.none<number>()),
- *   () => "missing",
+ * // A missing setting produces the chosen error only when the effect runs.
+ * const missingTheme = EffectX.flattenOption(
+ *   Effect.succeed(Option.none<string>()),
+ *   () => "No saved theme",
  * )
  * assert.deepStrictEqual(
- *   Effect.runSync(Effect.result(none)),
- *   Result.fail("missing"),
+ *   Effect.runSync(Effect.result(missingTheme)),
+ *   Result.fail("No saved theme"),
  * )
  * ```
  *
@@ -100,32 +104,34 @@ export const fromOptionOrElse: {
 );
 
 /**
- * Repeatedly calls a synchronous `try` thunk until its result satisfies the
- * `until` refinement, sleeping `sleepDuration` between attempts and failing with
- * a `TimeoutError` once `maxDuration` elapses.
+ * Reads a synchronous value until it becomes usable, returning the value
+ * narrowed by `until`. Use it to wait for a non-effectful condition, such as a
+ * value saved by a callback.
  *
- * The thunk is evaluated immediately; if its first result already passes the
- * refinement the effect succeeds without any delay. Otherwise it polls on the
- * `sleepDuration` interval (defaulting to 200ms — the threshold below which a
- * delay reads as "instant" to a user) until either the predicate holds (the
- * effect succeeds with the narrowed `B` value) or `maxDuration` is exceeded (the
- * effect fails with a `Cause.TimeoutError`). Use it to await an external,
- * non-effectful condition such as a flag flipped by a callback.
+ * Both `try` and `until` run immediately when this helper is called. If the
+ * first value matches, the returned effect succeeds with that captured value
+ * on every execution without polling. Otherwise, each execution starts the
+ * timeout and delayed attempts, spaced by `sleepDuration` (200ms by default).
+ * Polling stops on a match or fails with `Cause.TimeoutError` at `maxDuration`.
+ * Callback throws during the initial attempt escape synchronously; throws
+ * during delayed attempts become execution defects, not timeout failures.
  *
  * @example
  * ```ts
- * import { Duration, Effect } from "effect"
+ * import { Duration, Effect, Predicate } from "effect"
  * import { EffectX } from "@nunofyobiz/effect-extras"
  *
- * // First attempt already matches, so it resolves immediately.
- * const effect = EffectX.tryUntil({
- *   try: () => 1,
- *   until: (value: number): value is number => value === 1,
- *   sleepDuration: Duration.millis(100),
+ * // The display name is already saved, so construction captures it immediately.
+ * const readSavedName = (): string | undefined => "Sam"
+ * const displayName = EffectX.tryUntil({
+ *   try: readSavedName,
+ *   until: Predicate.isString,
  *   maxDuration: Duration.seconds(1),
  * })
  *
- * assert.deepStrictEqual(Effect.runSync(effect), 1)
+ * // Reusing the effect returns the captured name without reading or waiting again.
+ * assert.deepStrictEqual(Effect.runSync(displayName), "Sam")
+ * assert.deepStrictEqual(Effect.runSync(displayName), "Sam")
  * ```
  *
  * @category sequencing
