@@ -16,7 +16,14 @@
 
 The hook runs `lint-staged --no-stash` to avoid the shared stash; partial-staging protection stays enabled, so unstaged hunks are hidden while tasks run.
 
-If a hook blocks a commit, no commit is created, but its fixes stay in the index and working tree instead of being rolled back. Read the output, review the fixes, fix the surfaced issue, re-stage, and commit again — don't bypass with `--no-verify`. CI re-runs commitlint on PRs as a backstop.
+If a hook fails, no commit is created, and its fixes stay in the index and working tree instead of
+being rolled back. The hook restores hidden unstaged hunks of partly staged files; if restoration
+fails, it preserves `$(git rev-parse --git-dir)/lint-staged_unstaged.patch` and prints the recovery
+command. Recover those hunks before retrying; a leftover patch blocks the next run to prevent it
+being overwritten. After recovery, remove the patch, review the fixes, fix the issue, re-stage, and
+run `git commit` again. Don't bypass with `--no-verify`.
+
+CI re-runs commitlint on PRs as a backstop.
 
 ## Commit signing
 
