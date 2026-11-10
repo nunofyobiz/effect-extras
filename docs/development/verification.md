@@ -37,6 +37,9 @@ you intended to touch.
 pushed in one task's tree can be popped by another's, and a pop here can land another task's files in
 this tree, read as work you did. Commit your in-progress work to your own branch instead — a commit is
 cheap and private, and `git reset --soft HEAD~1` undoes it without leaving a stray ref.
+The pre-commit hook runs `lint-staged --no-stash`, keeping unstaged hunks hidden without touching the
+shared stash. If a hook task fails, its fixes stay in the index and working tree instead of being
+rolled back; review and re-stage them before retrying.
 
 ## Node version
 

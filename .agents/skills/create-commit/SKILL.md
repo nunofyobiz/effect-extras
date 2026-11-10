@@ -88,9 +88,12 @@ Run the change-relevant checks the `verify-commit` skill selects from the diff â
   `prettier --write` on staged Markdown / YAML / JSON5 / CSS.
 - **commit-msg** runs `commitlint` to validate the Conventional Commits format.
 
-If a hook fails, the commit is rejected and nothing is written â€” fix the issue, re-stage, and run
-`git commit` again (there's nothing to `--amend`, since no commit was created). Don't bypass with
-`--no-verify`.
+The hook runs `lint-staged --no-stash` to avoid the shared stash; partial-staging protection stays
+enabled, so unstaged hunks are hidden while tasks run.
+
+If a hook fails, no commit is created, but its fixes stay in the index and working tree instead of
+being rolled back. Review the fixes, fix the issue, re-stage, and run `git commit` again (there's
+nothing to `--amend`, since no commit was created). Don't bypass with `--no-verify`.
 
 ## Signed commits
 
