@@ -17,16 +17,22 @@ import { dual } from "effect/Function";
  *
  * @example
  * ```ts
+ * import { Struct } from "effect"
  * import { StructX } from "@nunofyobiz/effect-extras"
  *
+ * type Profile = { displayName: string; notifications: boolean }
  * type Transform = StructX.PartialTransform<
- *   { a: number; b: string },
- *   { a: (n: number) => boolean }
+ *   Profile,
+ *   { displayName: (name: string) => string }
  * >
+ * const transform: Transform = { displayName: (name) => name.trim() }
+ * const profile: Profile = { displayName: " Ada ", notifications: false }
  *
- * const evolve: Transform = { a: (n) => n > 0 }
- *
- * assert.deepStrictEqual(evolve.a(1), true)
+ * // Trim the display name while leaving the other profile fields unchanged.
+ * assert.deepStrictEqual(Struct.evolve(profile, transform), {
+ *   displayName: "Ada",
+ *   notifications: false,
+ * })
  * ```
  *
  * @category models
@@ -62,13 +68,17 @@ export type PartialTransform<O, T> = {
  * assert.deepStrictEqual(StructX.defined("name", undefined), {})
  *
  * // Falsy-but-defined values are kept
- * assert.deepStrictEqual(StructX.defined("name", 0), { name: 0 })
+ * assert.deepStrictEqual(StructX.defined("notificationLimit", 0), { notificationLimit: 0 })
  *
  * // Typical use: spread to conditionally include an optional field
- * const maybeAge: number | undefined = undefined
- * assert.deepStrictEqual({ id: 1, ...StructX.defined("age", maybeAge) }, {
- *   id: 1,
- * })
+ * const nickname: string | undefined = undefined
+ * const profile: { displayName: string; nickname?: string; notifications?: boolean } = {
+ *   displayName: "Ada",
+ *   ...StructX.defined("nickname", nickname),
+ *   ...StructX.defined("notifications", false),
+ * }
+ * // The unset nickname is absent, while the explicit false setting survives.
+ * assert.deepStrictEqual(profile, { displayName: "Ada", notifications: false })
  * ```
  *
  * @category constructors
@@ -89,15 +99,18 @@ export const defined = <const K extends string, V>(
  * `undefined` means "leave this field unchanged" while every other value —
  * including `null`, `0`, `""`, `false`, and `Option.none()` — means "set the
  * field to exactly this".
+ * Only own enumerable string properties are considered; inherited,
+ * non-enumerable, and symbol properties are excluded.
  *
  * @example
  * ```ts
  * import { StructX } from "@nunofyobiz/effect-extras"
  *
- * // Drops `b` (undefined) but keeps every other value, including null/0/false
+ * // Leave the untouched theme out of the update; explicitly clear the avatar
+ * // and keep the disabled notifications and zero notification limit.
  * assert.deepStrictEqual(
- *   StructX.filterDefined({ a: "x", b: undefined, c: 0, d: null, e: false }),
- *   { a: "x", c: 0, d: null, e: false },
+ *   StructX.filterDefined({ theme: undefined, avatar: null, notifications: false, notificationLimit: 0 }),
+ *   { avatar: null, notifications: false, notificationLimit: 0 },
  * )
  * ```
  *
@@ -121,6 +134,8 @@ export const filterDefined = <R extends Record<string, unknown>>(
  * `undefined`, this keys off `Option` presence. Spread `...some("key", opt)` to
  * conditionally include a field only when the `Option` carries a value, which
  * stays correct under `exactOptionalPropertyTypes: true`.
+ * A `Some` payload is preserved even when it is nullish or falsy:
+ * `Some(undefined)` creates an own property containing `undefined`.
  *
  * @example
  * ```ts
@@ -134,6 +149,11 @@ export const filterDefined = <R extends Record<string, unknown>>(
  *
  * // None → property omitted entirely
  * assert.deepStrictEqual(StructX.some("name", Option.none()), {})
+ *
+ * // An explicitly supplied nickname is present even when its payload is undefined.
+ * const profile = StructX.some("nickname", Option.some(undefined))
+ * assert.deepStrictEqual(profile, { nickname: undefined })
+ * assert.strictEqual(Object.hasOwn(profile, "nickname"), true)
  * ```
  *
  * @category constructors
@@ -181,7 +201,7 @@ const someSingleton: {
  * ideal for spreading an optional field out of a lookup table into an object
  * literal under `exactOptionalPropertyTypes: true`. By default the output key
  * matches the lookup key; pass `renameKeyTo` to emit the value under a different
- * name.
+ * name. As with {@link some}, nullish and falsy `Some` payloads are preserved.
  *
  * @example
  * ```ts
@@ -189,18 +209,23 @@ const someSingleton: {
  * import { StructX } from "@nunofyobiz/effect-extras"
  *
  * const lookup = {
- *   a: Option.some(100),
- *   b: Option.none<number>(),
+ *   displayName: Option.some("Ada"),
+ *   nickname: Option.none<string>(),
  * }
  *
  * // Some → singleton record under the same key
- * assert.deepStrictEqual(StructX.pickSome(lookup, "a"), { a: 100 })
+ * assert.deepStrictEqual(StructX.pickSome(lookup, "displayName"), { displayName: "Ada" })
  *
  * // None → property omitted entirely
- * assert.deepStrictEqual(StructX.pickSome(lookup, "b"), {})
+ * assert.deepStrictEqual(StructX.pickSome(lookup, "nickname"), {})
  *
- * // Rename the output key
- * assert.deepStrictEqual(StructX.pickSome(lookup, "a", "count"), { count: 100 })
+ * // Use the saved display name as the profile's public name.
+ * assert.deepStrictEqual(StructX.pickSome(lookup, "displayName", "name"), { name: "Ada" })
+ *
+ * // Some(undefined) keeps an own nickname property rather than omitting it.
+ * const profile = StructX.pickSome({ nickname: Option.some(undefined) }, "nickname")
+ * assert.deepStrictEqual(profile, { nickname: undefined })
+ * assert.strictEqual(Object.hasOwn(profile, "nickname"), true)
  * ```
  *
  * @category constructors
@@ -232,7 +257,7 @@ export function pickSome<const K1 extends string, V, const K2 extends string>(
  * empty object `{}` otherwise — meant to be spread into an object literal.
  *
  * Stricter than {@link defined}: it drops not just `undefined` but every falsy
- * value (`null`, `false`, `0`, `""`, `NaN`), and narrows the value type
+ * value (`null`, `false`, `0`, `-0`, `0n`, `""`, `NaN`), and narrows the value type
  * accordingly. Use it to spread a field only when it carries a meaningful,
  * non-falsy value.
  *
@@ -240,13 +265,15 @@ export function pickSome<const K1 extends string, V, const K2 extends string>(
  * ```ts
  * import { StructX } from "@nunofyobiz/effect-extras"
  *
- * // Truthy value → singleton record
+ * // Include a populated profile name, but omit a blank nickname.
  * assert.deepStrictEqual(StructX.truthy("name", "Ada"), { name: "Ada" })
  *
  * // Falsy values → property omitted entirely
- * assert.deepStrictEqual(StructX.truthy("name", ""), {})
- * assert.deepStrictEqual(StructX.truthy("name", 0), {})
- * assert.deepStrictEqual(StructX.truthy("name", false), {})
+ * assert.deepStrictEqual(StructX.truthy("nickname", ""), {})
+ * // Zero and false also disappear; use defined to preserve those settings.
+ * assert.deepStrictEqual(StructX.truthy("notificationLimit", 0), {})
+ * assert.deepStrictEqual(StructX.truthy("notifications", false), {})
+ * assert.deepStrictEqual(StructX.defined("notifications", false), { notifications: false })
  * ```
  *
  * @category constructors
@@ -271,20 +298,23 @@ export const truthy = <const K extends string, V>(
  *
  * @example
  * ```ts
- * import { pipe } from "effect"
+ * import { Array, pipe } from "effect"
  * import { StructX } from "@nunofyobiz/effect-extras"
  *
- * // data-first
- * assert.deepStrictEqual(
- *   StructX.hasNotNullableProperty({ id: "1" }, "id"),
- *   true,
+ * type Profile = { displayName: string | null | undefined }
+ * const profiles: Profile[] = [
+ *   { displayName: "Ada" },
+ *   { displayName: null },
+ *   { displayName: undefined },
+ * ]
+ * // Keep profiles with a name; the narrowed string is safe to uppercase.
+ * const names = pipe(
+ *   profiles,
+ *   Array.filter(StructX.hasNotNullableProperty<Profile, "displayName">("displayName")),
+ *   Array.map((profile) => profile.displayName.toUpperCase()),
  * )
- *
- * // data-last (pipeable); a null value fails the guard
- * assert.deepStrictEqual(
- *   pipe({ id: null }, StructX.hasNotNullableProperty("id")),
- *   false,
- * )
+ * assert.deepStrictEqual(names, ["ADA"])
+ * assert.strictEqual(StructX.hasNotNullableProperty(profiles[0], "displayName"), true)
  * ```
  *
  * @category refinements

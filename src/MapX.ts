@@ -20,17 +20,30 @@ import { dual } from "effect/Function";
  * ```ts
  * import { MapX } from "@nunofyobiz/effect-extras"
  * import { pipe } from "effect"
+ * import nodeAssert from "node:assert"
  *
- * const cache = new Map<string, Array<string>>()
- * const entries = MapX.getOrElseSetGet(cache, "a", () => [])
- * entries.push("first")
- * assert.deepStrictEqual(cache.get("a"), ["first"])
+ * type CatalogueItem = { id: string; name: string }
+ * const cache = new Map<string, CatalogueItem>()
  *
- * // Hit: returns the same stored value and ignores the fallback (data-last)
- * assert.strictEqual(
- *   pipe(cache, MapX.getOrElseSetGet("a", () => ["second"])),
- *   entries
+ * // A miss populates the cache with the catalogue item and returns that same object.
+ * const mug = MapX.getOrElseSetGet(cache, "mug", () => ({ id: "mug", name: "Coffee mug" }))
+ * nodeAssert.deepStrictEqual(mug, { id: "mug", name: "Coffee mug" })
+ * nodeAssert.strictEqual(cache.get("mug"), mug)
+ *
+ * // A piped hit reuses the cached mug; the replacement fallback is ignored.
+ * nodeAssert.strictEqual(
+ *   pipe(cache, MapX.getOrElseSetGet("mug", () => ({ id: "mug", name: "Replacement mug" }))),
+ *   mug
  * )
+ *
+ * // Piped calls also populate missing items, leaving the cached mug in place.
+ * const notebook = pipe(cache, MapX.getOrElseSetGet("notebook", () => ({ id: "notebook", name: "Notebook" })))
+ * nodeAssert.strictEqual(cache.get("notebook"), notebook)
+ * nodeAssert.strictEqual(MapX.getOrElseSetGet(cache, "notebook", () => mug), notebook)
+ * nodeAssert.deepStrictEqual([...cache], [
+ *   ["mug", { id: "mug", name: "Coffee mug" }],
+ *   ["notebook", { id: "notebook", name: "Notebook" }]
+ * ])
  * ```
  *
  * @category combinators

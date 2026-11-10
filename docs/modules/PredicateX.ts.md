@@ -26,13 +26,12 @@ Added in v0.0.0
 
 ## matchRefine
 
-Runs a refinement against `value` and branches on the result, passing the
-narrowed value to the `whenTrue` handler.
+Chooses one handler using a type guard. When the guard succeeds, `whenTrue`
+receives the original value with its type narrowed; otherwise, `whenFalse`
+runs with no arguments.
 
-It pairs a `Predicate.Refinement<A, B>` with two continuations so the success
-branch receives `value` already narrowed to `B`, replacing an `if`/`else` that
-would otherwise re-check or cast. Supports both data-first and data-last
-(pipeable) call styles.
+Use it to turn an optional or mixed-type value into a result, such as a greeting
+with a fallback for a missing display name. Supports direct and piped calls.
 
 **Signature**
 
@@ -52,27 +51,30 @@ export declare const matchRefine: (<A, B extends A, C>(
 
 ```ts
 import { PredicateX } from "@nunofyobiz/effect-extras"
-import { Predicate, pipe } from "effect"
+import { pipe, String } from "effect"
 
-// Data-first
+const displayName: unknown = "Ada"
+// A provided name becomes a personalised greeting.
 assert.deepStrictEqual(
-  PredicateX.matchRefine("hello", Predicate.isString, {
-    whenTrue: (value) => `String: ${value}`,
-    whenFalse: () => "Not a string"
+  PredicateX.matchRefine(displayName, PredicateX.isNonEmptyString, {
+    whenTrue: (name) => `Hello, ${name}!`,
+    whenFalse: () => "Hello, guest!"
   }),
-  "String: hello"
+  "Hello, Ada!"
 )
 
-// Data-last (pipeable)
+const missingDisplayName: unknown = undefined
+// A missing name uses the fallback, then the greeting is uppercased.
 assert.deepStrictEqual(
   pipe(
-    42,
-    PredicateX.matchRefine(Predicate.isString, {
-      whenTrue: (value) => `String: ${value}`,
-      whenFalse: () => "Not a string"
-    })
+    missingDisplayName,
+    PredicateX.matchRefine(PredicateX.isNonEmptyString, {
+      whenTrue: (name) => `Hello, ${name}!`,
+      whenFalse: () => "Hello, guest!"
+    }),
+    String.toUpperCase
   ),
-  "Not a string"
+  "HELLO, GUEST!"
 )
 ```
 
@@ -82,12 +84,10 @@ Added in v0.0.0
 
 ## isNonEmptyString
 
-Refines an `unknown` value to a non-empty `string`, returning `true` only when
-the value is present, is a `string`, and has at least one character.
+Checks whether an unknown value is a string with at least one character,
+narrowing it to `string` on success. Useful for checking optional display names.
 
-This is the compound guard the repo's conventions call for: it folds
-`Predicate.isString` and `String.isNonEmpty` into a single reusable refinement
-so call sites get `value is string` narrowing without restating the checks.
+Strings are not trimmed: whitespace-only strings also pass.
 
 **Signature**
 
@@ -100,25 +100,26 @@ export declare function isNonEmptyString(value: unknown): value is string
 ```ts
 import { PredicateX } from "@nunofyobiz/effect-extras"
 
-assert.deepStrictEqual(PredicateX.isNonEmptyString("hello"), true)
+const displayName: unknown = "Ada"
+// A provided name passes; an empty or missing name does not.
+assert.deepStrictEqual(PredicateX.isNonEmptyString(displayName), true)
 assert.deepStrictEqual(PredicateX.isNonEmptyString(""), false)
 assert.deepStrictEqual(PredicateX.isNonEmptyString(null), false)
-assert.deepStrictEqual(PredicateX.isNonEmptyString(123), false)
+// Spaces count as characters because the guard does not trim.
+assert.deepStrictEqual(PredicateX.isNonEmptyString("   "), true)
 ```
 
 Added in v0.0.0
 
 ## unsafeIsRecord
 
-Refines an `unknown` value to a plain `Record<string, unknown>` — `true` only
-for a non-null, non-array object whose prototype is `Object.prototype` (an
-object literal) or `null` (an `Object.create(null)` map).
+Checks whether an unknown value is an object whose prototype is
+`Object.prototype` (an ordinary object) or `null` (an `Object.create(null)` map),
+narrowing it to `Record<string, unknown>` on success. Useful for checking whether
+a settings value has a record shape before working with its entries.
 
-Effect ships no `Predicate.isRecord`. `Predicate.isObject` is the closest, but
-it also accepts `Map`, `Set`, `Date`, `RegExp`, and class instances. This guard
-adds a prototype check to rule those out, narrowing to `Record<string, unknown>`
-so the JSON-tree helpers (`RecordX.deepMerge`, `RecordX.canonicalize`,
-`RecordX.deleteByPath`) can compose without an `as` cast.
+Arrays, nullish values, primitives, and objects with other prototypes such as
+`Map`, `Set`, `Date`, `RegExp`, or class instances fail.
 
 It is named **`unsafe`** because the narrowing comes purely from the value's
 runtime shape — it does _not_ validate the key or value types. A symbol-keyed
@@ -137,9 +138,14 @@ export declare function unsafeIsRecord(value: unknown): value is Record<string, 
 ```ts
 import { PredicateX } from "@nunofyobiz/effect-extras"
 
-assert.deepStrictEqual(PredicateX.unsafeIsRecord({ a: 1 }), true)
+const settings: unknown = { theme: "dark", autosave: true }
+// Ordinary settings objects and maps with no prototype have a record shape.
+assert.deepStrictEqual(PredicateX.unsafeIsRecord(settings), true)
 assert.deepStrictEqual(PredicateX.unsafeIsRecord(Object.create(null)), true)
-assert.deepStrictEqual(PredicateX.unsafeIsRecord([1, 2]), false)
+// Symbol keys and unchecked values still pass: this is not validation.
+assert.deepStrictEqual(PredicateX.unsafeIsRecord({ [Symbol("setting")]: undefined }), true)
+// A list of setting names is not a record.
+assert.deepStrictEqual(PredicateX.unsafeIsRecord(["theme", "autosave"]), false)
 assert.deepStrictEqual(PredicateX.unsafeIsRecord(new Map()), false)
 assert.deepStrictEqual(PredicateX.unsafeIsRecord(null), false)
 ```
