@@ -237,7 +237,7 @@ for (const item of tree.filter(Boolean)) {
           (!ts.isIdentifier(node.name) || couldBeFunction(node.initializer))
         ) {
           binding(node.name);
-        } else if (ts.isParameter(node) && !ts.isIdentifier(node.name)) {
+        } else if (!ts.isIdentifier(node.name)) {
           binding(node.name, true);
         }
       } else if (
