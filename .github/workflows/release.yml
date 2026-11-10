@@ -76,7 +76,7 @@ jobs:
             await github.rest.git.updateRef({ owner, repo, ref: `heads/${branch}`, sha: signed.sha, force: true });
             core.info(`Re-signed ${ref.object.sha} -> ${signed.sha} (verified).`);
       # Best-effort auto-merge for the now-signed Version Packages PR. CI must still pass;
-      # deploy remains responsible for ensuring the shared PR merges before calling a release complete.
+      # otherwise the operator merges the verified head through the release agent's handoff.
       - name: Enable auto-merge on the Version Packages PR
         if: steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.published != 'true'
         env:
