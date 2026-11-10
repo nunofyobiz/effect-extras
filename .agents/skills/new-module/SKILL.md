@@ -27,7 +27,9 @@ src/
 
 1. **`src/MyModule.ts`** — flat `export const` helpers (no `namespace` or class wrapper, so a
    consumer's bundler can tree-shake per function). Use `dual` for any helper taking a data argument
-   plus other arguments, data-last overload first. Every export needs the JSDoc bar in
+   plus other arguments, data-last overload first for new helpers. Preserve existing published overload
+   order per [Dual functions](../../../docs/development/effect-patterns.md#dual-functions).
+   Every export needs the JSDoc bar in
    [`*X` modules and API docs](../../../docs/development/modules-and-api-docs.md): a plain-language
    description, a concrete `@example` that type-checks and asserts, `@since`, and `@category`.
 2. **`src/MyModule.test.ts`** — written to the [Tests](../../../docs/development/tests.md) bar: happy
