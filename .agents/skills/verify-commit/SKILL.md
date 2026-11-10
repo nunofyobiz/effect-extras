@@ -64,6 +64,11 @@ pnpm build
 `tsc` + `babel` → `dist/` (ESM + `.d.ts`, one file per module). Catches `exports` / entry-point
 problems that unit tests miss.
 
+When a change promises declaration stability apart from JSDoc, also follow
+[Compare declaration surfaces](../../../docs/development/verification.md#compare-declaration-surfaces).
+It pins a merge-base baseline and emits comment-free declarations outside both worktrees without
+touching `dist/`; check that preservation before the full gate rebuilds it.
+
 ### 6. Packaging (needs a prior build)
 
 ```bash

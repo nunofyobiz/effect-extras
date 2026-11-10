@@ -66,6 +66,243 @@ Before claiming a task done, run **`pnpm check-all`**. It runs, in order:
 9. `pnpm docgen` — `@effect/docgen`: type-checks every JSDoc `@example` (via `tsx`) and regenerates
    the API docs under `docs/` from the source
 
+For a change that promises no declaration changes apart from JSDoc, also
+[compare declaration surfaces](#compare-declaration-surfaces). Do that before `pnpm check-all`
+when checking that the comparison itself preserves `dist/`: the full gate intentionally rebuilds it.
+
+## Compare declaration surfaces
+
+Compare against the **merge-base of the branch and `origin/main`**, not main's tip. An empty
+comparison means the branch's own changes left the emitted declaration surface stable. It does
+**not** prove the output matches a newer `origin/main` tip. When that matters, rebase onto main
+first, then compare again. This checks declarations, not runtime behavior.
+
+Run from the current worktree. Each command below is a separate step. Replace placeholders with
+the recorded literal values, using absolute paths (quoted if needed); they are not shell
+substitutions. The detached baseline is the only worktree this recipe owns. No branch or stash is
+created, and neither tree's real `dist/` is used. The commands were verified with TypeScript 6.0.3
+and this repository's `tsconfig.build.json`.
+
+### Prepare the baseline
+
+1. If current-tree dependencies are missing, install them before recording the initial state:
+
+   ```sh
+   pnpm install --frozen-lockfile
+   ```
+
+2. Record the current status output, including an empty result:
+
+   ```sh
+   git status --porcelain=v1 --untracked-files=all
+   ```
+
+3. Record whether `dist/` exists:
+
+   ```sh
+   test -e dist
+   ```
+
+   Exit 0 means it exists; exit 1 means it is absent.
+
+4. Resolve and record the printed SHA as `<baseline-sha>`. Use that exact SHA throughout:
+
+   ```sh
+   git merge-base HEAD origin/main
+   ```
+
+5. Create a scratch root. Confirm the printed path is outside the current worktree and record it
+   as `<scratch-root>`. Record `<scratch-root>/baseline` as `<scratch-path>`:
+
+   ```sh
+   mktemp -d
+   ```
+
+6. If `dist/` existed, save it for the preservation check:
+
+   ```sh
+   cp -a dist <scratch-root>/dist-before
+   ```
+
+7. Create the detached baseline worktree:
+
+   ```sh
+   git worktree add --detach <scratch-path> <baseline-sha>
+   ```
+
+8. Install its dependencies against its own lockfile, which may differ from the branch's:
+
+   ```sh
+   pnpm --dir <scratch-path> install --frozen-lockfile
+   ```
+
+### Emit and compare
+
+Use a **fresh output directory for every emission**, alongside the baseline worktree, outside both
+worktrees. Reusing an output directory can leave stale files that hide removed modules. Require
+successful compilation before diffing; a partial emission is not evidence of stability.
+
+1. Emit the baseline declarations:
+
+   ```sh
+   pnpm --dir <scratch-path> exec tsc -p tsconfig.build.json --emitDeclarationOnly --removeComments --declarationMap false --sourceMap false --outDir <scratch-root>/baseline-dts
+   ```
+
+2. Emit the current worktree's declarations:
+
+   ```sh
+   pnpm exec tsc -p tsconfig.build.json --emitDeclarationOnly --removeComments --declarationMap false --sourceMap false --outDir <scratch-root>/branch-dts
+   ```
+
+   These commands bypass `pnpm build`, whose clean step removes `dist/`. The compiler removes
+   comments and JSDoc by construction; no regex filtering is needed. Declaration maps and source
+   maps are disabled, so there are no map files or source-map footer differences. Output should
+   contain only `.d.ts` files.
+
+3. Compare one module (replace `<Module>`, for example with `BooleanX`):
+
+   ```sh
+   diff -u <scratch-root>/baseline-dts/<Module>.d.ts <scratch-root>/branch-dts/<Module>.d.ts
+   ```
+
+4. Compare the whole declaration tree, including added or removed modules:
+
+   ```sh
+   diff -ru <scratch-root>/baseline-dts <scratch-root>/branch-dts
+   ```
+
+For either comparison, exit 0 with no output means stable. Exit 1 reports declaration differences:
+treat them as signature changes to fix or explain in the PR. Higher exit codes mean the comparison
+failed, not that declarations changed. Dependency or compiler versions can also affect emission;
+investigate differences between the two lockfiles when explaining unexpected output.
+
+### Worked examples
+
+Keep `baseline-dts` pristine. These temporary experiments edit only the owned scratch worktree's
+`src/BooleanX.ts`; restore after each one.
+
+Change only the JSDoc sentence from “Converts a `boolean` to its binary digit” to “Converts a
+boolean into a binary digit”. Re-emit into a fresh directory:
+
+```sh
+pnpm --dir <scratch-path> exec tsc -p tsconfig.build.json --emitDeclarationOnly --removeComments --declarationMap false --sourceMap false --outDir <scratch-root>/jsdoc-dts
+```
+
+Compare the whole tree:
+
+```sh
+diff -ru <scratch-root>/baseline-dts <scratch-root>/jsdoc-dts
+```
+
+The verified result is empty output, exit 0, just like the unchanged-tree comparison. Restore:
+
+```sh
+pnpm --dir <scratch-path> exec git restore --source <baseline-sha> -- src/BooleanX.ts
+```
+
+Now temporarily widen `toBinary`'s explicit return annotation from `0 | 1` to `number`. Emit into
+another fresh directory:
+
+```sh
+pnpm --dir <scratch-path> exec tsc -p tsconfig.build.json --emitDeclarationOnly --removeComments --declarationMap false --sourceMap false --outDir <scratch-root>/signature-dts
+```
+
+Compare the module:
+
+```sh
+diff -u <scratch-root>/baseline-dts/BooleanX.d.ts <scratch-root>/signature-dts/BooleanX.d.ts
+```
+
+The verified result exits 1; its signature hunk is:
+
+```diff
+@@ -1 +1 @@
+-export declare const toBinary: (value: boolean) => 0 | 1;
++export declare const toBinary: (value: boolean) => number;
+```
+
+Restore the experimental signature before cleanup:
+
+```sh
+pnpm --dir <scratch-path> exec git restore --source <baseline-sha> -- src/BooleanX.ts
+```
+
+### Verify preservation and clean up
+
+1. Repeat the initial status command and require identical output:
+
+   ```sh
+   git status --porcelain=v1 --untracked-files=all
+   ```
+
+2. If `dist/` existed, require an empty comparison (exit 0):
+
+   ```sh
+   diff -qr <scratch-root>/dist-before dist
+   ```
+
+   If it was absent, confirm it remains absent (exit 0):
+
+   ```sh
+   test ! -e dist
+   ```
+
+3. Inspect the exact recorded scratch worktree. Confirm the experiments are reverted and there are
+   no unexpected tracked changes or untracked source files:
+
+   ```sh
+   pnpm --dir <scratch-path> exec git status --short --untracked-files=all
+   ```
+
+4. Resolve unexpected changes before proceeding. Remove only the recorded worktree, normally:
+
+   ```sh
+   git worktree remove <scratch-path>
+   ```
+
+   If removal refuses, inspect what blocks it first; do not automatically force removal or discard
+   unexpected source work.
+
+5. Confirm the recorded scratch path no longer appears:
+
+   ```sh
+   git worktree list
+   ```
+
+6. Remove each recorded output directory individually. Run only the commands for directories you
+   actually created (the last three are conditional on the examples and the `dist/` snapshot):
+
+   ```sh
+   rm -r <scratch-root>/baseline-dts
+   ```
+
+   ```sh
+   rm -r <scratch-root>/branch-dts
+   ```
+
+   ```sh
+   rm -r <scratch-root>/jsdoc-dts
+   ```
+
+   ```sh
+   rm -r <scratch-root>/signature-dts
+   ```
+
+   ```sh
+   rm -r <scratch-root>/dist-before
+   ```
+
+7. Remove the now-empty scratch root:
+
+   ```sh
+   rmdir <scratch-root>
+   ```
+
+Report the tested HEAD SHA, comparison outputs and exit statuses, preservation checks, and the
+final worktree list. Then run the separate repository-wide gate before claiming the task done.
+
+## CI coverage
+
 While iterating, run the individual checks (faster). CI mirrors these as one job per check (including `mermaid` for `pnpm lint:mermaid`), plus:
 `commitlint` on PR commits, a `renovate-config-validator --strict` job, a `pack --dry-run`
 that catches `files` / tarball misconfigurations before a real release (it uses `pnpm pack`, not
