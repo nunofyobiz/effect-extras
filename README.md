@@ -97,7 +97,10 @@ bottom. A utility belongs here only if **all** of these hold:
    site is just as clear, do not wrap it.
 
 When a new or changed helper takes a data argument plus other arguments, use
-`dual`: declare the data-last overload first and the data-first overload second.
+`dual`: for new helpers, declare the data-last overload first and the data-first
+overload second. Preserve existing published overload order, because reordering
+changes the published type declaration — see
+[Dual functions](./docs/development/effect-patterns.md#dual-functions).
 
 Name a helper after the plain operation it performs: `mapError`, not `mapLeft`;
 `mapInput`, not `contramap`; and `inspect`, not `tap`. When it does the same

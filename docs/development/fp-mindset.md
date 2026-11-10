@@ -35,8 +35,9 @@ utility waiting to be named:
    data manipulation over type parameters such as `<A>` and `<B>` in the module the type calls for.
    Its useful name or expected cross-project reuse can justify exporting it before those callers are
    visible here. If it takes data plus other arguments, use `dual` with the data-last overload first
-   and the data-first overload second. Replace the inline steps with one call and add exhaustive
-   tests.
+   and the data-first overload second for new helpers. Preserve existing published overload order
+   (see [Dual functions](./effect-patterns.md#dual-functions)). Replace the inline steps with one call
+   and add exhaustive tests.
 
 This is how the utility layer grows: not by upfront design, but by recognizing structure already
 present in a pipe and giving it a name. (Not in tension with "don't re-implement Effect's control-flow
@@ -70,8 +71,9 @@ Before writing a new helper, check whether one of the existing modules already c
 3. **Use plain Effect-aligned names** — reuse Effect's name for the same operation; otherwise use a
    distinct plain name, never functional-programming theory jargon. `OptionX.inspectSome` is an
    observer, not `tap`.
-4. **Use `dual` for data plus other arguments** — declare the data-last overload first, then the
-   data-first overload.
+4. **Use `dual` for data plus other arguments** — for new helpers, declare the data-last overload
+   first, then the data-first overload. Preserve existing published overload order per
+   [Dual functions](./effect-patterns.md#dual-functions).
 5. **Follow the module/barrel pattern** — a flat `src/<module>.ts` (+ `src/<module>.test.ts`) + an
    `export * as <module> from "./<module>.js";` line in `src/index.ts`. Choose the module name using
    the [canonical placement rule](./what-belongs-here.md#names-and-modules).
