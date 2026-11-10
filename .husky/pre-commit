@@ -9,4 +9,30 @@ if git diff --cached --name-only --diff-filter=ACMR \
   git add docs/
 fi
 
-pnpm exec lint-staged
+# Avoid backup stashes: refs/stash is shared across worktrees.
+unstaged_patch="$(git rev-parse --git-dir)/lint-staged_unstaged.patch"
+
+print_recovery() {
+  printf 'Unstaged changes are saved in %s. Restore them before retrying:\n' "$unstaged_patch" >&2
+  printf 'git apply --whitespace=nowarn --recount --unidiff-zero "%s"\n' "$unstaged_patch" >&2
+}
+
+# Never overwrite a patch left by an interrupted run or a failed restoration.
+if [ -f "$unstaged_patch" ]; then
+  print_recovery
+  exit 1
+fi
+
+if pnpm exec lint-staged --no-stash; then
+  rm -f "$unstaged_patch"
+else
+  # lint-staged 17 skips restoring hidden hunks when a task fails without a backup.
+  if [ -f "$unstaged_patch" ]; then
+    if git apply --whitespace=nowarn --recount --unidiff-zero "$unstaged_patch"; then
+      rm -f "$unstaged_patch"
+    else
+      print_recovery
+    fi
+  fi
+  exit 1
+fi
