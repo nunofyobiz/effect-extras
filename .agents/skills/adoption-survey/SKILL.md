@@ -33,11 +33,12 @@ indentation, or filename filters. Tests, components, and tracked generated files
 
 The inventory includes named function and class declarations/expressions, nested functions, methods,
 accessors, constructors, destructured bindings, and assignment targets. It conservatively retains
-bindings, defaulted parameters, and properties whose initializers might produce functions, including
-aliases and factory/`dual(...)` results; inspect these and explicitly skip non-functions. Imports,
-parameters without defaults, type-only signatures, and bindings/properties initialized with known
-non-function values are omitted. Traversal still visits their children, so functions inside object
-and array literals are included. Anonymous callbacks without a binding belong to the manual sweep.
+bindings, defaulted parameters (including nested object/array binding defaults), and properties whose
+initializers might produce functions, including aliases and factory/`dual(...)` results; inspect these
+and explicitly skip non-functions. Imports, parameters without defaults, type-only signatures, and
+bindings/properties initialized with known non-function values are omitted. Traversal still visits
+their children, so functions inside object and array literals are included. Anonymous callbacks
+without a binding belong to the manual sweep.
 
 ```ts
 import { execFileSync } from "node:child_process";
@@ -155,11 +156,19 @@ for (const item of tree.filter(Boolean)) {
         kind: ts.SyntaxKind[node.kind],
       });
     };
-    const binding = (name: ts.BindingName) => {
-      if (ts.isIdentifier(name)) add(name, name.text);
-      else
+    const binding = (name: ts.BindingName, defaultsOnly = false) => {
+      if (ts.isIdentifier(name)) {
+        if (!defaultsOnly) add(name, name.text);
+      } else
         for (const element of name.elements) {
-          if (ts.isBindingElement(element)) binding(element.name);
+          if (ts.isBindingElement(element))
+            binding(
+              element.name,
+              defaultsOnly &&
+                (!element.initializer ||
+                  (ts.isIdentifier(element.name) &&
+                    !couldBeFunction(element.initializer))),
+            );
         }
     };
     const assignment = (node: ts.Expression) => {
@@ -228,6 +237,8 @@ for (const item of tree.filter(Boolean)) {
           (!ts.isIdentifier(node.name) || couldBeFunction(node.initializer))
         ) {
           binding(node.name);
+        } else if (ts.isParameter(node) && !ts.isIdentifier(node.name)) {
+          binding(node.name, true);
         }
       } else if (
         ts.isMethodDeclaration(node) ||
