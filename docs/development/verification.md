@@ -40,9 +40,14 @@ cheap and private, and `git reset --soft HEAD~1` undoes it without leaving a str
 
 ## Node version
 
-Pinned in `.nvmrc` to **24.15.0** for development. The published `engines.node` floor is `>=22`,
-and CI typechecks + tests on Node **22 and 24** to keep that promise honest. Don't raise the floor
-without an open discussion.
+Node is pinned in `.nvmrc` to **24.15.0** for development; pnpm is pinned in
+`package.json#packageManager`. These are the toolchain version sources of truth.
+`.ampm/agent.Dockerfile` and `.ampm/refine-agent.Dockerfile` also pin Node and pnpm: whenever
+`.nvmrc` or `package.json#packageManager` changes, update both Dockerfiles in the same change.
+See the [agent environment README](../../.ampm/README.md) for details.
+
+The published `engines.node` floor is `>=22`, and CI typechecks + tests on Node **22 and 24** to
+keep that promise honest. Don't raise the floor without an open discussion.
 
 ## Verification ritual
 
