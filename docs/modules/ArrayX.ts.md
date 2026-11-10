@@ -154,9 +154,10 @@ Added in v0.0.0
 
 ## ~~filterMapNullable~~
 
+Deprecated. Use `Array.flatMapNullishOr` instead.
+
 Transforms each element and drops results that are `null` or `undefined`.
-Use Effect's `Array.flatMapNullishOr` for new code that maps optional results;
-the result type is narrowed to `NonNullable<B>`.
+The result type is narrowed to `NonNullable<B>`.
 
 A nullable-friendly `Array.filterMap`: where `filterMap` expects `f` to
 return an `Option`, this accepts a function returning `B | null` (or
@@ -228,9 +229,10 @@ Added in v0.0.0
 
 ## ~~categorize~~
 
+Deprecated. Use `Array.groupBy` instead.
+
 Collects items into arrays under their category names, preserving their order
-within each category. Use Effect's `Array.groupBy` for new category-based
-grouping code.
+within each category.
 
 Each item is appended to the array under its category, preserving input
 order. The result is `Partial<Record<C, A[]>>` because not every possible

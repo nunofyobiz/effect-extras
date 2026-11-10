@@ -9,6 +9,7 @@ this table — cite the rule when running `pnpm changeset`:
 | ------------------------------------------------------------------------------------------------ | --------- |
 | Breaking change to a public export, or a widened/raised `effect` peer range                      | **major** |
 | New public helper, new `*X` module, or other backward-compatible capability                      | **minor** |
+| Deprecation of a public export                                                                   | **minor** |
 | Bug fix, shipped docs, internal refactor, or a dep bump with no consumer-visible behavior change | **patch** |
 
 When in doubt, pick the higher one.
@@ -19,6 +20,23 @@ the tarball (`files` = `dist` + `src`, plus the README npm ships). Repo-only cha
 CI / workflow edits, husky hooks, `AGENTS.md` / `CLAUDE.md` and other contributor docs, editor /
 tooling config, and devDep-only lockfile bumps. When you skip a changeset, add a one-line note to the
 PR (e.g. "no changeset: CI-only, nothing ships") so the omission reads as deliberate, not forgotten.
+
+## Deprecating a published helper
+
+When Effect ships an equivalent of a helper that already shipped, deprecate the helper rather than
+removing it. It stays exported with an unchanged signature until the next major release. A deprecation
+earns a **minor** changeset naming each deprecated helper, its exact replacement, and any behaviour
+change. Follow the [deprecated-export rules](./modules-and-api-docs.md#deprecated-exports) for its
+JSDoc, example, implementation, and README entry.
+
+A deprecated export lives until the next major release, whatever triggers that major — a breaking
+public API change or a widened/raised `effect` peer range. No removal task is scheduled. Whoever cuts
+the major inventories the remaining deprecated exports with `rg -n '@deprecated' src` and removes
+every export still tagged `@deprecated`, updating affected references and including the removals in
+the major changeset. The [release-bump skill](../../.agents/skills/release-bump/SKILL.md) includes this
+preparation before verification.
+
+## Release workflow
 
 Flow: `pnpm changeset` (in the same PR) → merge to `main`. The **Release** workflow
 ([release.yml](../../.github/workflows/release.yml)) — running under a **GitHub App token**, not

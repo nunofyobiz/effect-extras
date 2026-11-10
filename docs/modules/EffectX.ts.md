@@ -26,6 +26,11 @@ Added in v0.0.0
 
 ## ~~fromOptionOrElse~~
 
+Deprecated. Use `Effect.fromOption(option, onNone)` instead.
+
+Since its 4.1.0 deprecation, `onNone` runs once, when the effect is built from
+`None`, rather than on every execution.
+
 Converts an `Option` to an `Effect`, mapping the `None` case to a caller-chosen
 error via the `onNone` thunk.
 

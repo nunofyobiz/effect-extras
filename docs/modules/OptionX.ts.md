@@ -31,6 +31,8 @@ Added in v0.0.0
 
 ## ~~tupleOf~~
 
+Deprecated. Use `Option.product` instead.
+
 Combines two `Option`s into an `Option` of a tuple, succeeding only when both
 are `Some`.
 

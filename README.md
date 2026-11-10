@@ -83,6 +83,9 @@ bottom. A utility belongs here only if **all** of these hold:
    modules (`Array`, `Option`, `Record`, `Predicate`, `String`, `Number`, `Order`,
    `Result`, `Match`, `Struct`, …) are wide — check them first. Read the installed
    `node_modules/effect` types when you need the exact local API signature.
+   Do not add a new equivalent here. If the helper already shipped, follow the
+   [deprecation lifecycle](./docs/development/versioning-and-releasing.md#deprecating-a-published-helper):
+   deprecate it now and keep its export and signature until the next major release.
 2. **It is generic and pure.** It is one common data manipulation over type
    parameters such as `<A>` and `<B>`, has no mutation, and makes sense in a
    project that shares nothing with yours. An explicit observer such as

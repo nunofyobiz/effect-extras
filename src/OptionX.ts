@@ -7,6 +7,8 @@ import { Option, Predicate } from "effect";
 import { constVoid, dual } from "effect/Function";
 
 /**
+ * Deprecated. Use `Option.product` instead.
+ *
  * Combines two `Option`s into an `Option` of a tuple, succeeding only when both
  * are `Some`.
  *

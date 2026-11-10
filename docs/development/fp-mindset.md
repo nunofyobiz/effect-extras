@@ -81,5 +81,7 @@ Before writing a new helper, check whether one of the existing modules already c
    helpers are consumed by every layer above them, they outlive the surrounding code, and their tests
    are the only spec they have.
 7. **Document it for a stranger** — the [`*X` modules and API docs](./modules-and-api-docs.md) bar:
-   a plain-language description and at least one `@example` built on a concrete, everyday use case,
-   with comments explaining what happens to that data.
+   a plain-language description and at least one asserted `@example` built on a concrete, everyday
+   use case, with comments explaining what happens to that data. For deprecated exports, follow the
+   [replacement-example exception](./modules-and-api-docs.md#deprecated-exports); their testing bar
+   still applies.

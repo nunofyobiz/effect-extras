@@ -6,7 +6,8 @@ description: Cut a release of @nunofyobiz/effect-extras. Reads the diff since th
 # release-bump
 
 Walks through cutting a release of the single published package `@nunofyobiz/effect-extras`. It
-assumes the code + doc changes for the release are already committed.
+assumes the code + doc changes for the release are already committed; a major release also prepares
+and commits the deprecated-export removals in step 3.
 
 ## When to invoke
 
@@ -42,12 +43,34 @@ Read the diff since the last release and suggest a bump per
 | ---------------------------------------------------------------------------------- | ----- |
 | Breaking change to a public export, or a widened/raised `effect` peer range        | major |
 | New public helper, new `*X` module, or other backward-compatible capability        | minor |
+| Deprecation of a public export                                                     | minor |
 | Bug fix, shipped docs, internal refactor, dep bump with no consumer-visible change | patch |
 
 Tell the user the suggestion + the highest-severity reason. They confirm or override. When in
 doubt, pick the higher one.
 
-### 3. Run the verification gates
+### 3. Prepare deprecated-export removals for a major
+
+For a minor or patch release, keep deprecated exports and their signatures unchanged. A new
+deprecation's minor changeset names each helper, its replacement, and any behaviour change; follow
+the [deprecation lifecycle](../../../docs/development/versioning-and-releasing.md#deprecating-a-published-helper).
+
+For a major release, whatever triggers it (including a widened/raised `effect` peer range), find all
+remaining deprecated exports:
+
+```bash
+rg -n '@deprecated' src
+```
+
+Remove every export still tagged `@deprecated` in `src/`. Update affected references, tests, barrel
+exports, README entries, and generated documentation as applicable. Include the removals in the
+major changeset. No separate removal task is scheduled: this is part of cutting the next major.
+
+Run the change-relevant checks from [verify-commit](../verify-commit/SKILL.md), then commit these
+prepared changes and the major changeset using [create-commit](../create-commit/SKILL.md) before
+continuing. Step 5 can reuse that changeset.
+
+### 4. Run the verification gates
 
 ```bash
 pnpm check-all
@@ -59,7 +82,10 @@ publishable tarball **without contacting the registry** (a real `publish --dry-r
 package exists, since the branch sits at an already-published version). If anything fails → stop,
 surface it.
 
-### 4. Write the changeset
+### 5. Write or confirm the changeset
+
+If step 3 already committed the major changeset, confirm it covers the release and removals.
+Otherwise create the changeset:
 
 ```bash
 pnpm changeset
@@ -73,14 +99,16 @@ Select the package, pick the bump from step 2, and draft the summary:
 <bulleted list of consumer-facing changes — what they'll see, not what we did>
 ```
 
-### 5. Commit the changeset
+### 6. Commit the changeset
+
+If the changeset was already committed in step 3, continue to step 7. Otherwise:
 
 ```bash
 git add .changeset/*.md
 git commit -m "chore(release): changeset for <summary>"
 ```
 
-### 6. Push + open a PR (or push to main)
+### 7. Push + open a PR (or push to main)
 
 On a branch:
 
