@@ -8,12 +8,56 @@ Exhaustive coverage per public function. This is non-negotiable: these utilities
 layer above them, they outlive the surrounding code, and they have no domain context to specify them
 other than their tests. **The tests are the spec.** Tests use `@effect/vitest`.
 
-A helper's test file is complete only when all three of the following hold.
+A helper's test file is complete only when the applicable requirements below hold.
 
 ## Happy path and every edge case
 
 Every helper is tested on its normal use and on every edge case: empty, single element, boundaries, and
 each branch. Type-level correctness is tested too, where the helper's whole point is type narrowing.
+
+## Asserting types
+
+Use Vitest's `expectTypeOf(...).toEqualTypeOf<...>()` to assert a narrowed result, a return type, or
+a type-only export. For example, adapted from `src/NonNullableX.test.ts`:
+
+```ts
+import { expectTypeOf, test } from "vitest";
+import { fromNullableOrThrow } from "./NonNullableX.js";
+
+test("removes both nullish types", () => {
+  const requireSetting = (value: string | null | undefined) => {
+    const result = fromNullableOrThrow(value);
+    expectTypeOf(result).toEqualTypeOf<string>();
+    return result;
+  };
+
+  requireSetting("help@example.com");
+});
+```
+
+To assert that a call must **not** compile, put `// @ts-expect-error - <reason>` immediately before
+the rejected call. If the call starts compiling, the unused directive fails typechecking. This is
+a type-level use of the same suppression sanctioned for
+[runtime edge cases](#runtime-edge-cases-the-types-reject). A compiler rejection assertion pins what
+callers may pass; it does not assert runtime behavior. If the test executes the rejected call, also
+assert its runtime result or failure as described there.
+
+A comment is never a type assertion: every claim about a type in a test must be backed by an
+`expectTypeOf` call or a `@ts-expect-error` line.
+
+Only [`pnpm tc`](./verification.md#verification-ritual) enforces these type-level assertions: the root
+`tsconfig.json` includes test files. `pnpm test` does not catch incorrect type assertions because
+Vitest does not type-check here and `expectTypeOf` does nothing at runtime.
+
+## Testing Schema exports
+
+Test successful decode and encode in both directions. For every input the schema rejects, test
+rejection in every direction where it is rejected. When the schema defines its own failure message,
+assert that message too. The `IntFromString` tests in `src/SchemaX.test.ts` demonstrate decode and
+encode coverage, including rejection of an unsafe integer on encode.
+
+Use `expectTypeOf` for type-only exports such as `SchemaX.MakeIn` and for an exported schema's
+declared type. The struct-helper tests in `src/SchemaX.test.ts` show how to pin a schema's type.
 
 ## Runtime edge cases the types reject
 
