@@ -100,8 +100,15 @@ importing a framework or assuming a runtime; a wrapper that just renames an Effe
 one obvious line; or a control-flow combinator Effect already ships (`sequence`, `when`, `unless`).
 Extend Effect's _data_ surface, not its control flow.
 
+## Graduation evidence
+
 When unsure, leave it at the call site rather than exporting it. A **second, unrelated** call site
-is strong evidence that a helper should graduate into this package — a call site in a separate,
-unrelated consuming repository counts as that second call site. A public helper can also belong
-sooner when it gives a common generic operation a useful name or has a clear expectation of reuse
-across unrelated consumers that are not visible here.
+is strong evidence that a helper should graduate into this package. A call site in a separate,
+unrelated consuming repository counts, as does a call from a React, Next, or any other framework or
+UI component file: each invocation counts like any other call site. The framework-free rule applies
+to the helper's own implementation, which must import no framework, not to its callers.
+
+More independent usage across call sites, files, and repositories strengthens the evidence; it is
+not a mandatory numerical gate. A public helper can also belong sooner when it gives a common
+generic operation a useful name or has a clear expectation of reuse across unrelated consumers
+that are not visible here. Every helper must still pass the four-part test above.
