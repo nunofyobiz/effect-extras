@@ -7,12 +7,14 @@ import { Schema } from "effect";
 import { dual } from "effect/Function";
 
 /**
- * Decodes a `FormData` into a typed value using a `Schema`, throwing on
- * validation failure.
+ * Decodes submitted form fields into a typed value using a schema, throwing
+ * synchronously when validation fails. Use it to validate a form before using
+ * its values.
  *
  * Built on v4's native `Schema.fromFormData`, which first parses the `FormData`
- * entries into a nested tree record (bracket-path notation is supported) and then
- * decodes that tree with the provided inner schema. For schemas with non-string
+ * entries into a nested tree record (bracket-path notation is supported, and
+ * repeated keys become arrays) and then decodes that tree with the provided
+ * inner schema. For schemas with non-string
  * fields (for example `Schema.Int`), wrap the inner schema in
  * `Schema.toCodecStringTree(schema, { keepDeclarations: true })` so the
  * string → number/boolean coercion happens. Usable only with schemas that have
@@ -23,18 +25,22 @@ import { dual } from "effect/Function";
  * @example
  * ```ts
  * import { Schema } from "effect"
- * import { FormDataX } from "@nunofyobiz/effect-extras"
+ * import { FormDataX, SchemaX } from "@nunofyobiz/effect-extras"
  *
  * const formData = new FormData()
- * formData.append("name", "John")
- * formData.append("age", "30")
+ * formData.append("displayName", "  Mira Patel  ")
+ * formData.append("teamSize", "3")
  *
  * const result = FormDataX.decodeSync(
  *   formData,
- *   Schema.Struct({ name: Schema.String, age: Schema.NumberFromString }),
+ *   Schema.Struct({
+ *     displayName: SchemaX.TrimmedNonEmptyString,
+ *     teamSize: SchemaX.IntFromString,
+ *   }),
  * )
  *
- * assert.deepStrictEqual(result, { name: "John", age: 30 })
+ * // The team sign-up trims the display name and converts the team size to an integer.
+ * assert.deepStrictEqual(result, { displayName: "Mira Patel", teamSize: 3 })
  * ```
  *
  * @category conversions

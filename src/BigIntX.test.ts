@@ -31,5 +31,11 @@ describe("BigInt utils", () => {
         ),
       ).toThrow("Value 9007199254740992 is outside safe integer range");
     });
+
+    test("just below MIN_SAFE_INTEGER", () => {
+      expect(() =>
+        toNumberOrThrow(BigInt(Number.MIN_SAFE_INTEGER) - 1n),
+      ).toThrow("Value -9007199254740992 is outside safe integer range");
+    });
   });
 });

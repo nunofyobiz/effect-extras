@@ -6,8 +6,7 @@
 import { Number as EffectNumber, Order } from "effect";
 
 /**
- * Builds an `Order.Order` for an enum-like set of values from an explicit rank
- * table, sorting each value by its assigned numeric rank.
+ * Orders a set of values by their assigned numeric ranks, lowest rank first.
  *
  * Use it when a union of string (or other `PropertyKey`) literals has a natural
  * priority that isn't its alphabetical order — pass a record mapping every
@@ -18,11 +17,12 @@ import { Number as EffectNumber, Order } from "effect";
  * import { OrderX } from "@nunofyobiz/effect-extras"
  * import { Array } from "effect"
  *
- * const byAge = OrderX.rankedEnum({ child: 0, parent: 1, grandparent: 2 })
+ * const OrderTicketPriorities = OrderX.rankedEnum({ urgent: 0, normal: 1, low: 2 })
  *
+ * // Show urgent support tickets before normal and low-priority tickets.
  * assert.deepStrictEqual(
- *   Array.sort(["parent", "grandparent", "child"], byAge),
- *   ["child", "parent", "grandparent"]
+ *   Array.sort(["low", "urgent", "normal"], OrderTicketPriorities),
+ *   ["urgent", "normal", "low"]
  * )
  * ```
  *
