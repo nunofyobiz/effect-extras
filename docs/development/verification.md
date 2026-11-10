@@ -55,6 +55,7 @@ Before claiming a task done, run **`pnpm check-all`**. It runs, in order:
    Mermaid's own parser under a jsdom DOM shim (no browser). A failure prints the file, the line
    where the block starts, and the parser error. It validates **syntax only**: it does not show
    layout or readability, and a diagram that parses can still render badly or misstate the prose.
+   Changes to Mermaid blocks also need the [manual visual review](#visual-review-of-mermaid-diagrams).
 4. `pnpm test` — Vitest (`@effect/vitest`)
 5. `pnpm build` — `tsc` + `babel` (ESM, one output file + `.d.ts` per module, with
    `/*#__PURE__*/` annotations — see [Tree-shaking & packaging](./tree-shaking-and-packaging.md))
@@ -86,3 +87,26 @@ peer range, not just the stable development versions. Its required-check name de
 check name doesn't change every time the floor moves. When you raise the supported floor, bump
 `peerDependencies.effect` in `package.json` **and** `matrix.floor` in the same change — that's a
 **major** bump under [versioning and releasing](./versioning-and-releasing.md).
+
+## Visual review of Mermaid diagrams
+
+Whenever you add or edit a fenced `mermaid` block, visually review the rendered diagram. This is an
+extra manual step alongside `pnpm lint:mermaid`, the automated syntax-only check in `pnpm check-all`.
+
+1. Copy the changed block's contents (without the fences) to a scratch file outside the checkout,
+   for example `/tmp/effect-extras-decision.mmd`.
+2. Check that the renderer is on PATH with `command -v mmdc`, then render the scratch file:
+   ```sh
+   mmdc -i /tmp/effect-extras-decision.mmd -o /tmp/effect-extras-decision.png
+   ```
+3. Open the image and check that:
+   - every node and edge label is present and not cut off;
+   - the flow reads in the intended direction without tangled or crossing edges;
+   - the diagram matches the text around it.
+
+Never commit rendered images or copied blocks. If `mmdc` is not on PATH or the render fails, report
+that the visual check was not done and leave review to a person using the GitHub Markdown preview;
+never report that pending review as completed.
+
+Line wrapping depends on the rendering browser's fonts, so a local render can wrap differently from
+GitHub; fix wraps that split words, not every short line.
