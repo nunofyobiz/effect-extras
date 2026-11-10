@@ -23,16 +23,21 @@ block below to the ignored scratch file `.agent-ops/list-adoption-functions.ts`,
 pnpm exec tsx .agent-ops/list-adoption-functions.ts <repository-path> <commit-sha> <area>...
 ```
 
+This scratch-script invocation is not allowlisted in `.claude/settings.json`; expect a permission
+prompt in sessions that enforce that allowlist.
+
 An area is a concrete directory or file path, or `.` for the whole repository; not a glob. The
 command reads Git trees and blobs at the pinned revision, never source from the working tree. It
 parses JS/TS, including JSX/TSX and module variants, traversing all scopes without export, generic,
 indentation, or filename filters. Tests, components, and tracked generated files are included.
 
-The inventory deliberately includes a conservative superset: all variable bindings, imports,
-properties, and assignment targets can hold functions, including aliases and factory/`dual(...)`
-results. Explicitly skip non-functions after inspection. Named declarations/expressions, nested
-functions, methods, accessors, and destructured bindings retain distinct source positions. Anonymous
-callbacks without a binding are part of the separate manual sweep.
+The inventory includes named function and class declarations/expressions, nested functions, methods,
+accessors, constructors, destructured bindings, and assignment targets. It conservatively retains
+bindings, defaulted parameters, and properties whose initializers might produce functions, including
+aliases and factory/`dual(...)` results; inspect these and explicitly skip non-functions. Imports,
+parameters without defaults, type-only signatures, and bindings/properties initialized with known
+non-function values are omitted. Traversal still visits their children, so functions inside object
+and array literals are included. Anonymous callbacks without a binding belong to the manual sweep.
 
 ```ts
 import { execFileSync } from "node:child_process";
@@ -53,7 +58,7 @@ const git = (...args: string[]) =>
     encoding: "utf8",
     maxBuffer: 128 * 1024 * 1024,
   });
-if (!/^[a-f0-9]{40}$/.test(requestedRevision)) {
+if (!/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(requestedRevision)) {
   throw new Error("Supply a full commit SHA");
 }
 const revision = git(
@@ -183,24 +188,58 @@ for (const item of tree.filter(Boolean)) {
         add(node, node.getText(source));
       }
     };
+    const couldBeFunction = (node: ts.Expression): boolean => {
+      if (
+        ts.isParenthesizedExpression(node) ||
+        ts.isAsExpression(node) ||
+        ts.isTypeAssertionExpression(node) ||
+        ts.isSatisfiesExpression(node) ||
+        ts.isNonNullExpression(node)
+      ) {
+        return couldBeFunction(node.expression);
+      }
+      return !(
+        ts.isLiteralExpression(node) ||
+        ts.isObjectLiteralExpression(node) ||
+        ts.isArrayLiteralExpression(node) ||
+        ts.isTemplateExpression(node) ||
+        ts.isNewExpression(node) ||
+        node.kind === ts.SyntaxKind.TrueKeyword ||
+        node.kind === ts.SyntaxKind.FalseKeyword ||
+        node.kind === ts.SyntaxKind.NullKeyword ||
+        ts.isPrefixUnaryExpression(node) ||
+        ts.isTypeOfExpression(node) ||
+        ts.isVoidExpression(node) ||
+        ts.isDeleteExpression(node)
+      );
+    };
     const visit = (node: ts.Node) => {
       if (
-        (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node)) &&
+        (ts.isFunctionDeclaration(node) ||
+          ts.isFunctionExpression(node) ||
+          ts.isClassDeclaration(node) ||
+          ts.isClassExpression(node)) &&
         node.name
       ) {
         add(node, node.name.text);
       } else if (ts.isVariableDeclaration(node) || ts.isParameter(node)) {
-        // Parameters can bind callbacks or carry function-valued defaults, too.
-        binding(node.name);
+        if (
+          node.initializer &&
+          (!ts.isIdentifier(node.name) || couldBeFunction(node.initializer))
+        ) {
+          binding(node.name);
+        }
       } else if (
         ts.isMethodDeclaration(node) ||
-        ts.isMethodSignature(node) ||
         ts.isGetAccessorDeclaration(node) ||
         ts.isSetAccessorDeclaration(node) ||
-        ts.isPropertyDeclaration(node) ||
-        ts.isPropertySignature(node) ||
-        ts.isPropertyAssignment(node) ||
         ts.isShorthandPropertyAssignment(node)
+      ) {
+        add(node, node.name.getText(source));
+      } else if (
+        (ts.isPropertyDeclaration(node) || ts.isPropertyAssignment(node)) &&
+        node.initializer &&
+        couldBeFunction(node.initializer)
       ) {
         add(node, node.name.getText(source));
       } else if (ts.isConstructorDeclaration(node)) {
@@ -211,13 +250,6 @@ for (const item of tree.filter(Boolean)) {
         node.operatorToken.kind <= ts.SyntaxKind.LastAssignment
       ) {
         assignment(node.left);
-      } else if (
-        ts.isImportSpecifier(node) ||
-        ts.isNamespaceImport(node) ||
-        ts.isImportEqualsDeclaration(node) ||
-        (ts.isImportClause(node) && node.name)
-      ) {
-        if (node.name) add(node, node.name.text);
       }
       ts.forEachChild(node, visit);
     };
@@ -287,11 +319,120 @@ Give **every inventory entry** a recorded outcome in the survey:
 - **Skipped** — give a one-line reason, such as “domain-shaped by name” or “non-function binding.”
 
 Equivalent helpers can share one candidate row, but every original entry must retain its mapping.
-Reconcile the inventory identities against those mappings: list entries with no outcome and require
-that list to be empty. Removing one mapping must leave an unresolved entry. **Any unclassified entry
-fails the completeness check.** An area may be called **swept** only after enumeration succeeds and
-every entry has an outcome. Narrow the claimed area accurately rather than silently excluding tests,
-components, generated functions, or inconvenient files within it.
+Retain a JSON outcome record alongside each repository's inventory, with this shape:
+
+```json
+{
+  "repository": "https://github.com/owner/repository",
+  "revision": "FULL_COMMIT_SHA_FROM_INVENTORY",
+  "outcomes": [
+    {
+      "path": "src/helpers.ts",
+      "line": 12,
+      "column": 7,
+      "name": "localHelper",
+      "kind": "Identifier",
+      "status": "skipped",
+      "reason": "non-function binding"
+    }
+  ]
+}
+```
+
+Copy `path`, `line`, `column`, `name`, and `kind` exactly from the inventory; together they key each
+outcome within the recorded repository and revision. Use `status: "adopted"` with a `candidate`
+link, `status: "rejected"` with a `candidate` link and a `reason` from the five categories above, or
+`status: "skipped"` with a nonempty one-line `reason`. Materialize every outcome as its own row,
+including bulk skips; prose or implicit rules do not resolve entries. Check that `repository` is the
+survey's recorded URL for the local checkout used to produce the inventory.
+
+Copy the following comparison to `.agent-ops/reconcile-adoption-functions.ts`. Save the inventory
+JSON as `.agent-ops/inventory.json` and the outcome record as `.agent-ops/outcomes.json` (retain both
+with the survey), then run:
+
+```sh
+pnpm exec tsx .agent-ops/reconcile-adoption-functions.ts .agent-ops/inventory.json .agent-ops/outcomes.json
+```
+
+```ts
+import { readFileSync } from "node:fs";
+
+const [inventoryPath, outcomesPath] = process.argv.slice(2);
+const inventory: {
+  revision: string;
+  entries: Identity[];
+  issues: unknown[];
+} = JSON.parse(readFileSync(inventoryPath, "utf8"));
+const record: {
+  repository: string;
+  revision: string;
+  outcomes: Outcome[];
+} = JSON.parse(readFileSync(outcomesPath, "utf8"));
+type Identity = {
+  path: string;
+  line: number;
+  column: number;
+  name: string;
+  kind: string;
+};
+type Outcome = Identity & {
+  status: string;
+  candidate?: string;
+  reason?: string;
+};
+const key = (entry: Identity) =>
+  JSON.stringify([
+    entry.path,
+    entry.line,
+    entry.column,
+    entry.name,
+    entry.kind,
+  ]);
+const reasons = new Set([
+  "domain rules",
+  "reimplements Effect control flow",
+  "already in Effect",
+  "too thin a wrapper",
+  "too narrow",
+]);
+const nonempty = (value: unknown): value is string =>
+  typeof value === "string" && value.trim().length > 0;
+if (!nonempty(record.repository) || record.revision !== inventory.revision) {
+  throw new Error("Record the repository URL and matching inventory revision");
+}
+const keys = new Set(inventory.entries.map(key));
+const resolved = new Set<string>();
+for (const outcome of record.outcomes) {
+  const identity = key(outcome);
+  if (!keys.has(identity) || resolved.has(identity)) {
+    throw new Error(`Unknown or duplicate outcome: ${identity}`);
+  }
+  const valid =
+    (outcome.status === "adopted" && nonempty(outcome.candidate)) ||
+    (outcome.status === "rejected" &&
+      nonempty(outcome.candidate) &&
+      reasons.has(outcome.reason ?? "")) ||
+    (outcome.status === "skipped" &&
+      nonempty(outcome.reason) &&
+      !/[\r\n]/.test(outcome.reason));
+  if (!valid) throw new Error(`Invalid outcome: ${identity}`);
+  resolved.add(identity);
+}
+const unresolved = inventory.entries.filter(
+  (entry: Identity) => !resolved.has(key(entry)),
+);
+console.log(JSON.stringify({ resolved: resolved.size, unresolved }, null, 2));
+if (unresolved.length > 0 || inventory.issues.length > 0) {
+  process.exitCode = 1;
+}
+```
+
+The comparison lists entries with no outcome and must exit successfully with an empty `unresolved`
+array; removing one mapping leaves that entry unresolved and fails the command. **Any unclassified
+entry fails the completeness check.** An area may be called **swept** only after enumeration succeeds,
+every entry has an outcome, and every `unparsed` path has been resolved as described above. Narrow
+the claimed area accurately rather than silently excluding tests, components, generated functions,
+or inconvenient files within it.
 
 Record inline `pipe` chains, anonymous lambdas, and other unnamed transformations as a **separate
 manual sweep**, with its paths, search method, and findings. Never fold that manual work into the
