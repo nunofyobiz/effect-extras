@@ -8,7 +8,46 @@ Exhaustive coverage per public function. This is non-negotiable: these utilities
 layer above them, they outlive the surrounding code, and they have no domain context to specify them
 other than their tests. **The tests are the spec.** Tests use `@effect/vitest`.
 
-A helper's test file is complete only when all three of the following hold.
+## Measuring one module's coverage
+
+Replace both `<Module>` placeholders with the module name (for example, `StructX`) before running:
+
+```sh
+pnpm vitest run --coverage --coverage.include=src/<Module>.ts src/<Module>.test.ts
+```
+
+The source include selects the module to measure; the test-file filter ensures only its own tests
+contribute coverage. Without that filter, another module's tests can reach this module through a
+bridge and hide missing cases in its own test file. The text coverage report prints in the terminal,
+and the HTML report is written to the git-ignored `coverage/` directory (`coverage/index.html`).
+Vitest 5's text reporter summarizes fully covered files rather than listing a source row for each one.
+
+This direct `pnpm vitest` command is allowed with flags: `.claude/settings.json` permits
+`pnpm vitest *`, and [AGENTS.md](../../AGENTS.md#permission-prompt-posture) sanctions
+`pnpm vitest run <file>`. The "run project scripts verbatim" rule still applies to scripts such as
+`pnpm test`; it does not forbid this direct invocation or authorize wrappers, environment-variable
+prefixes, pipes, redirects, or extra flags on project scripts.
+
+No numeric coverage threshold is enforced locally or in CI. The expected minimum is **100% of lines,
+branches, functions, and statements from the module's own test file**. A reviewer then judges
+exhaustiveness against the behavioral requirements below: happy paths and every edge case, runtime
+inputs the types reject, and both call styles for dual helpers. Coverage finds untested code; it does
+not prove the tests are complete.
+
+`test.todo` and `it.todo` placeholders assert nothing and never count toward this bar. A test file
+with a remaining placeholder for a public helper is incomplete.
+
+`/* v8 ignore */` coverage directives never satisfy the bar: reaching 100% by excluding code does not
+meet exhaustive coverage. Code that tests cannot reach must be removed or refactored, or raised with
+the operator for an explicit ruling. This guide does not authorize coverage-suppression comments.
+
+Delegation also limits what a green report proves. WarnResult delegates to InclusiveOr, where the
+branching lives, so executing WarnResult's wrappers can reach 100% with few cases. That is not evidence
+that every accepted input variant is tested: WarnResult's tests must still pin every variant each
+helper accepts. InclusiveOr must independently reach the coverage minimum through its own test file.
+
+A helper's test file is complete only when it meets this coverage minimum and all three behavioral
+requirements below.
 
 ## Happy path and every edge case
 
