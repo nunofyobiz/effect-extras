@@ -123,23 +123,23 @@ those names are deliberate carve-outs.
 ```mermaid
 flowchart TD
     A([Candidate helper or data type]) --> B{An owned data type?}
-    B -- Yes --> C{Does Effect have an<br/>equivalent type?}
+    B -- Yes --> C{Does Effect have<br/>an equivalent type?}
     C -- Yes --> R1[/Use Effect's type —<br/>do not add it here/]
     C -- No --> D{Does it encode any app's<br/>business logic or data model?}
     B -- No --> E{Does Effect already<br/>provide the operation?}
     E -- Yes --> R2[/Use Effect directly —<br/>do not add it here/]
     E -- No --> D
     D -- Yes --> R3[/Belongs in that app —<br/>this package is domain-free/]
-    D -- No --> F{Generic over type parameters, non-mutating,<br/>and reusable across unrelated projects?}
+    D -- No --> F{Generic over type<br/>parameters,<br/>non-mutating, and<br/>reusable across<br/>unrelated projects?}
     F -- No --> R3
-    F -- Yes --> G{Just a thin wrapper around<br/>an Effect built-in?}
+    F -- Yes --> G{Just a thin wrapper<br/>around an Effect<br/>built-in?}
     G -- Yes --> H{Meaningfully useful<br/>and universal?}
-    H -- No --> R4[/Skip it: a call-site<br/>one-liner is clearer/]
+    H -- No --> R4[/Skip it:<br/>a call-site<br/>one-liner<br/>is clearer/]
     H -- Yes --> I{Extends an<br/>Effect module?}
     G -- No --> I
-    I -- Yes --> J[Place in that X-suffixed module]
+    I -- Yes --> J[Place in that<br/>X-suffixed module]
     I -- No --> K{Extends a platform or language type<br/>with no Effect module?}
-    K -- Yes --> L[Place in that X-suffixed module]
+    K -- Yes --> L[Place in that<br/>X-suffixed module]
     K -- No --> M{An owned type with no<br/>Effect equivalent?}
     M -- Yes --> N[Place in the type's module<br/>with no X suffix]
     M -- No --> R5[/Revisit the type or module placement/]
