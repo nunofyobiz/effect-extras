@@ -29,7 +29,8 @@ src/
    consumer's bundler can tree-shake per function). Use `dual` for any helper taking a data argument
    plus other arguments, data-last overload first. Every export needs the JSDoc bar in
    [`*X` modules and API docs](../../../docs/development/modules-and-api-docs.md): a plain-language
-   description, a concrete `@example` that type-checks and asserts, `@since`, and `@category`.
+   description, a concrete `@example` that type-checks and asserts, the fixed placeholder
+   `@since 0.0.0`, and `@category` (see that guide for the placeholder policy).
 2. **`src/MyModule.test.ts`** — written to the [Tests](../../../docs/development/tests.md) bar: happy
    path and every edge case, a deliberately ill-typed runtime case with a reasoned
    `@ts-expect-error`, and both call styles for every `dual` export.
