@@ -35,14 +35,9 @@ ls .changeset/*.md | grep -vE 'README|config'
 
 ### 2. Pick the bump
 
-Read the diff since the last release and suggest a bump per
-[Versioning and releasing](../../../docs/development/versioning-and-releasing.md):
-
-| Change                                                                             | Bump  |
-| ---------------------------------------------------------------------------------- | ----- |
-| Breaking change to a public export, or a widened/raised `effect` peer range        | major |
-| New public helper, new `*X` module, or other backward-compatible capability        | minor |
-| Bug fix, shipped docs, internal refactor, dep bump with no consumer-visible change | patch |
+Read the diff since the last release and suggest a bump using the canonical bump table and
+changeset-decision prose in
+[Versioning and releasing](../../../docs/development/versioning-and-releasing.md).
 
 Tell the user the suggestion + the highest-severity reason. They confirm or override. When in
 doubt, pick the higher one.
