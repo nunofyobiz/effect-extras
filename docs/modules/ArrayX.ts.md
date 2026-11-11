@@ -16,6 +16,7 @@ Added in v0.0.0
 
 - [combinators](#combinators)
   - [insertUniq](#insertuniq)
+  - [upsertUniq](#upsertuniq)
 - [filtering](#filtering)
   - [compactNullable](#compactnullable)
   - [filterHead](#filterhead)
@@ -41,6 +42,8 @@ Added in v0.0.0
 Inserts or moves an item before another item, removing existing copies of the
 item first. Use it to reorder a list of string or number identifiers without
 mutating the original array.
+It always applies the requested placement, even when the item is already
+present. Use {@link upsertUniq} to leave an existing item where it is.
 
 The item is inserted before the first matching destination remaining after
 removal. A null or missing destination appends it to the end. When the
@@ -79,6 +82,53 @@ assert.deepStrictEqual(ArrayX.insertUniq(shopping, { item: "eggs", insertToBeLef
   "apples",
   "coffee",
   "eggs"
+])
+```
+
+Added in v0.0.0
+
+## upsertUniq
+
+Ensures an item is in the array without moving it if it is already present.
+Use it for ordered lists where adding an existing identifier should keep its
+position. If multiple copies match, the first stays and later copies are
+removed; unrelated items keep their order, including unrelated duplicates.
+
+A missing item is inserted before the first matching `insertToBeLeftOf`, or
+appended when the destination is missing, null, or equal to the item.
+Comparisons use strict equality (`===`): strings and numbers are distinct,
+signed zeros are equal, and `NaN` never matches or gets removed.
+Always returns a new array without mutating the input.
+Use {@link insertUniq} when the item should always move to the requested position.
+
+**Signature**
+
+```ts
+export declare const upsertUniq: (<A extends string | number>(config: {
+  item: A
+  insertToBeLeftOf: A | null
+}) => (array: readonly A[] | A[]) => A[]) &
+  (<A extends string | number>(array: readonly A[] | A[], config: { item: A; insertToBeLeftOf: A | null }) => A[])
+```
+
+**Example**
+
+```ts
+import { ArrayX } from "@nunofyobiz/effect-extras"
+
+const pinnedTabs = ["Mail", "Calendar", "Notes"]
+// Re-pinning Calendar keeps it in place, even when Mail is requested as its destination.
+assert.deepStrictEqual(ArrayX.upsertUniq(pinnedTabs, { item: "Calendar", insertToBeLeftOf: "Mail" }), [
+  "Mail",
+  "Calendar",
+  "Notes"
+])
+// Pin the missing Tasks tab just before Notes; the original pinned tabs stay unchanged.
+assert.deepStrictEqual(ArrayX.upsertUniq(pinnedTabs, { item: "Tasks", insertToBeLeftOf: "Notes" }), [
+  "Mail",
+  "Calendar",
+  "Tasks",
+  "Notes"
 ])
 ```
 
