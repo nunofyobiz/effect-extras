@@ -22,7 +22,9 @@ import {
   slice,
   takeFirstWhere,
   takeLastWhere,
+  upsertUniq,
 } from "./ArrayX.js";
+import { ArrayX } from ".";
 
 describe("Array utils", () => {
   describe("slice", () => {
@@ -443,6 +445,174 @@ describe("Array utils", () => {
           insertToBeLeftOf: "not-found",
         }),
       ).toStrictEqual(["a", "b", "c", "d", "new"]);
+    });
+  });
+
+  describe("upsertUniq", () => {
+    test.each([
+      {
+        input: ["Mail", "Notes"],
+        destination: "Mail",
+        expected: ["Tasks", "Mail", "Notes"],
+      },
+      {
+        input: ["Mail", "Notes", "Calendar"],
+        destination: "Notes",
+        expected: ["Mail", "Tasks", "Notes", "Calendar"],
+      },
+      {
+        input: ["Mail", "Notes"],
+        destination: "missing",
+        expected: ["Mail", "Notes", "Tasks"],
+      },
+      {
+        input: ["Mail", "Notes"],
+        destination: null,
+        expected: ["Mail", "Notes", "Tasks"],
+      },
+      {
+        input: ["Mail", "Notes"],
+        destination: "Tasks",
+        expected: ["Mail", "Notes", "Tasks"],
+      },
+      { input: [], destination: "Mail", expected: ["Tasks"] },
+      { input: ["Notes"], destination: "Notes", expected: ["Tasks", "Notes"] },
+    ])(
+      "inserts a missing item before $destination on $input",
+      ({ input, destination, expected }) => {
+        const original = [...input];
+        const config = { item: "Tasks", insertToBeLeftOf: destination };
+        const result = upsertUniq(input, config);
+        expect(result).toStrictEqual(expected);
+        expect(result).toStrictEqual(insertUniq(input, config));
+        // Insertion leaves the caller's array untouched.
+        expect(input).toStrictEqual(original);
+        expect(result).not.toBe(input);
+      },
+    );
+
+    test.each([
+      ["Calendar", "Mail", "Notes"],
+      ["Mail", "Calendar", "Notes"],
+      ["Mail", "Notes", "Calendar"],
+      ["Calendar"],
+    ])("keeps an existing item in place in %j", (...input) => {
+      const original = [...input];
+      for (const destination of [
+        null,
+        "missing",
+        "Mail",
+        "Notes",
+        "Calendar",
+      ]) {
+        const result = upsertUniq(input, {
+          item: "Calendar",
+          insertToBeLeftOf: destination,
+        });
+        expect(result).toStrictEqual(original);
+        // Even an unchanged result must leave the original array untouched.
+        expect(input).toStrictEqual(original);
+        expect(result).not.toBe(input);
+      }
+    });
+
+    test.each([
+      {
+        input: ["Calendar", "Calendar", "Notes"],
+        expected: ["Calendar", "Notes"],
+      },
+      {
+        input: ["Mail", "Calendar", "Notes", "Calendar", "Notes", "Calendar"],
+        expected: ["Mail", "Calendar", "Notes", "Notes"],
+      },
+      { input: ["Calendar", "Calendar"], expected: ["Calendar"] },
+    ])(
+      "keeps the first copy and removes later copies in $input",
+      ({ input, expected }) => {
+        const original = [...input];
+        const result = upsertUniq(input, {
+          item: "Calendar",
+          insertToBeLeftOf: "Mail",
+        });
+        expect(result).toStrictEqual(expected);
+        // Removing copies leaves the caller's array untouched.
+        expect(input).toStrictEqual(original);
+        expect(result).not.toBe(input);
+      },
+    );
+
+    test.each(["Calendar", "Tasks"])(
+      "data-first and data-last agree for %s with readonly input",
+      (item) => {
+        const input: readonly string[] = ["Mail", "Calendar", "Notes"];
+        const config = { item, insertToBeLeftOf: "Notes" };
+        const direct = upsertUniq(input, config);
+        const piped = pipe(input, upsertUniq(config));
+        expect(direct).toStrictEqual(
+          item === "Calendar"
+            ? ["Mail", "Calendar", "Notes"]
+            : ["Mail", "Calendar", "Tasks", "Notes"],
+        );
+        expect(piped).toStrictEqual(direct);
+        expect(input).toStrictEqual(["Mail", "Calendar", "Notes"]);
+        expect(direct).not.toBe(input);
+        expect(piped).not.toBe(input);
+      },
+    );
+
+    test("is exposed through the root ArrayX namespace", () => {
+      expect(ArrayX.upsertUniq).toBe(upsertUniq);
+      expect(
+        ArrayX.upsertUniq(["Mail"], { item: "Tasks", insertToBeLeftOf: null }),
+      ).toStrictEqual(["Mail", "Tasks"]);
+    });
+
+    test("an undefined destination appends a missing item at runtime", () => {
+      const result = upsertUniq(["Mail"], {
+        item: "Tasks",
+        // @ts-expect-error - untyped callers can pass undefined instead of the required nullable destination
+        insertToBeLeftOf: undefined,
+      });
+      expect(result).toStrictEqual(["Mail", "Tasks"]);
+    });
+
+    test("strict equality distinguishes numeric and string identifiers", () => {
+      expect(
+        upsertUniq<string | number>(["1", 1, "Notes", 1], {
+          item: 1,
+          insertToBeLeftOf: "1",
+        }),
+      ).toStrictEqual(["1", 1, "Notes"]);
+      expect(
+        upsertUniq<string | number>(["1", "Notes"], {
+          item: 1,
+          insertToBeLeftOf: "Notes",
+        }),
+      ).toStrictEqual(["1", 1, "Notes"]);
+    });
+
+    test("strict equality treats signed zeros alike and preserves the first value", () => {
+      expect(
+        upsertUniq([-0, 1, 0], { item: 0, insertToBeLeftOf: 1 }),
+      ).toStrictEqual([-0, 1]);
+      expect(
+        upsertUniq([0, 1, -0], { item: -0, insertToBeLeftOf: null }),
+      ).toStrictEqual([0, 1]);
+      expect(
+        upsertUniq([0, 1], { item: 2, insertToBeLeftOf: -0 }),
+      ).toStrictEqual([2, 0, 1]);
+    });
+
+    test("strict equality never matches NaN as an item or destination", () => {
+      expect(
+        upsertUniq([Number.NaN, 1, Number.NaN], {
+          item: Number.NaN,
+          insertToBeLeftOf: 1,
+        }),
+      ).toStrictEqual([Number.NaN, Number.NaN, 1, Number.NaN]);
+      expect(
+        upsertUniq([Number.NaN, 1], { item: 2, insertToBeLeftOf: Number.NaN }),
+      ).toStrictEqual([Number.NaN, 1, 2]);
     });
   });
 
