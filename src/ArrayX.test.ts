@@ -49,6 +49,15 @@ describe("Array utils", () => {
       expect(pipe(self, sameSet(that, undefined))).toBe(expected);
     });
 
+    test("treats holes in sparse arrays as undefined values", () => {
+      // eslint-disable-next-line unicorn/no-new-array -- a real hole is the point of this test
+      const sparse = new Array<undefined>(1);
+
+      expect(sameSet(sparse, [])).toBe(false);
+      expect(sameSet(sparse, [undefined])).toBe(true);
+      expect(sameSet(sparse, sparse.values())).toBe(true);
+    });
+
     test("uses Equal.equals for distinct structural values", () => {
       class Tag extends Data.Class<{ readonly name: string }> {}
       const left = new Tag({ name: "music" });

@@ -57,8 +57,8 @@ export const sameSet = dual<
     that: Iterable<A>,
     isEquivalent: Equivalence.Equivalence<A> = Equal.equals,
   ): boolean => {
-    const left = Array.fromIterable(self);
-    const right = self === that ? left : Array.fromIterable(that);
+    const left = [...self];
+    const right = self === that ? left : [...that];
 
     return (
       Array.every(left, (value) =>
