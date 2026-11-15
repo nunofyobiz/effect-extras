@@ -47,6 +47,9 @@ Select when the diff touches a fenced `mermaid` block. Parses every block in tra
 Mermaid's own parser (jsdom shim, no browser) and prints file, starting line, and parser error on
 failure. Syntax only: it does not show layout or readability.
 
+When adding or editing a fenced `mermaid` block, also complete the additional manual
+[visual review](../../../docs/development/verification.md#visual-review-of-mermaid-diagrams).
+
 ### 4. Tests
 
 ```bash
