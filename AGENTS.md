@@ -16,7 +16,14 @@ whenever it conflicts with convenience or anything else written here. If you rea
 
 **pnpm only.** Never npm, never yarn, never bun. The lockfile is `pnpm-lock.yaml`.
 
-If `pnpm` is not found, escalate in this exact order — do not chain them:
+Inside ampm's agent container, pnpm is already on PATH at the version pinned in
+`package.json#packageManager` — run it directly. If pnpm runs but `node_modules` is absent, run
+`pnpm install` before any other project script. If pnpm itself is not found in the container, stop
+and report a missing environment capability: the image is broken. Do not attempt the nvm escalation,
+install nvm, add a corepack shim, or invent another workaround.
+
+On a **developer machine only**, if `pnpm` is not found, escalate in this exact order — do not chain
+the steps:
 
 1. Run the command as-is. If it works, stop.
 2. Run `nvm use` (reads `.nvmrc`). Try again.
@@ -24,10 +31,13 @@ If `pnpm` is not found, escalate in this exact order — do not chain them:
 4. Only if all three fail, ask the user.
 
 `nvm ls` is a read (allowlisted) for _inspecting_ installed versions — it is **not** a bootstrap
-step. Don't probe Node state with it before running pnpm; just follow the escalation above.
+step. On a developer machine, don't probe Node state with it before running pnpm; follow the
+escalation above.
 
 Do **not** prepend `cd /path/to/repo` to pnpm commands — pnpm respects the current working
 directory, and chaining `cd && pnpm` triggers permission prompts unnecessarily.
+
+For toolchain-pin maintenance, see [Node version](./docs/development/verification.md#node-version).
 
 ### Permission-prompt posture
 
