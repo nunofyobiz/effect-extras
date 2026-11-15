@@ -197,13 +197,12 @@ If none of those work, that's a sign the shape is wrong — discuss before reach
 strict ESLint config already bans `any` and unused eslint-disable directives, so casts are one of the
 few escape hatches left; treat reaching for one as a design smell.
 
-**The one sanctioned suppression.** A test that deliberately calls a helper with input its types
-reject — proving what happens when untyped or loosely typed calling code reaches it — may suppress the
-resulting type error with `// @ts-expect-error - <reason naming the case>`. That is not a workaround
-for a design smell; it is the test asserting a real runtime behavior the types otherwise hide. Never
+**Sanctioned test suppressions.** A test may use `// @ts-expect-error - <reason naming the case>` to
+assert that a call must not compile or to prove runtime behavior for input the types reject. These
+deliberate assertions must never conceal an implementation failure. Never
 `@ts-ignore`: it has no trailing-reason requirement and keeps "working" even after the call starts
 compiling for real, so a stale suppression never surfaces. See
-[Tests — runtime edge cases the types reject](./tests.md#runtime-edge-cases-the-types-reject).
+[Tests — asserting types](./tests.md#asserting-types) for the complete rule.
 
 ## Time
 

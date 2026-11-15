@@ -23,9 +23,10 @@ If a fix would need any of these, stop and surface it instead of pushing it thro
 **A suppression needs a trailing reason.** Never add `// @ts-expect-error` or an ESLint
 `eslint-disable` comment without one naming why that exact site cannot conform. `@ts-ignore` is
 rejected outright by the strict ESLint config, not just discouraged — always `@ts-expect-error` with a
-reason. The one sanctioned, deliberate use of `@ts-expect-error` is a test proving the runtime behavior
-for input the types reject — see [Tests](./tests.md#runtime-edge-cases-the-types-reject). That is a
-promise you investigated the case, not a workaround for one you didn't.
+reason. Deliberate test-only uses of `@ts-expect-error` may assert that a call must not compile or
+prove runtime behavior for input the types reject — see [Tests](./tests.md#asserting-types) for the
+complete rule. These assertions pin an investigated case; they must never conceal an implementation
+failure.
 
 **Worktree path hygiene.** A tracked file can exist at two absolute paths when a task runs in its own
 git worktree: the task worktree and the main checkout. Edit through the cwd-relative path in the task

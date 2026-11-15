@@ -497,7 +497,6 @@ describe("Schema utils", () => {
           readonly b: typeof Schema.Number;
         }>
       >();
-      // Compile-time assertion: Picked should be Schema.Struct<{a, b}>
       // Runtime assertion via .fields:
       expect(Object.keys(Picked.fields).sort()).toStrictEqual(["a", "b"]);
     });
