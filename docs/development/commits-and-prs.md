@@ -4,7 +4,18 @@
   on that commit alone, and a reviewer can follow it in one sitting.
 - On an **unmerged feature branch**, amending / squashing / reordering is standing permission — keep the history clean. Update an open PR with `git push --force-with-lease` (never bare `--force`). Once a commit reaches `main`, it's history.
 - Gather focused evidence before pushing; run `pnpm check-all` before claiming a task done. PR title is itself a Conventional Commit.
-- `.agent-ops/` is gitignored — use it for agent scratch files that shouldn't be committed (e.g. a PR body passed to `gh pr create --body-file`).
+- **Committed planning and research documents** live at the repository root as descriptively named
+  Markdown files; [ADOPTION_CANDIDATES.md](../../ADOPTION_CANDIDATES.md) is the existing example.
+  `.agent-ops/` is gitignored and holds **uncommitted scratch only**, such as PR bodies.
+- `docs/` is not for planning documents: `docs/modules/` contains generated API documentation served
+  on the GitHub Pages site, while `docs/development/` contains contributor guidance and is excluded
+  from Pages by `docs/_config.yml`. Planning documents must never live under `src/`, which docgen
+  reads and the package publishes.
+- Planning and research documents must not appear in package contents. Root-level planning files
+  stay out because the package's `files` allowlist covers only `dist` and `src`, plus automatically
+  included package files such as README and LICENSE. After building, verify with `pnpm pack --dry-run`.
+  These documents need **no changeset**, and the PR adding one must say why: nothing ships (see
+  [versioning and releasing](./versioning-and-releasing.md)).
 - Skills: [create-commit](../../.agents/skills/create-commit/SKILL.md), [verify-commit](../../.agents/skills/verify-commit/SKILL.md), [push-pr](../../.agents/skills/push-pr/SKILL.md), and [rebase-main](../../.agents/skills/rebase-main/SKILL.md).
 
 ## Pre-commit hooks
