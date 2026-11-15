@@ -26,12 +26,31 @@ Flow: `pnpm changeset` (in the same PR) → merge to `main`. The **Release** wor
 changelog. Because it is App-authored, that PR triggers CI like any other PR; its bump commit is
 recreated through the **Git Data API** so it lands **Verified** (a bot cannot hold an SSH key, so it
 uses a mechanism separate from local Claude Code commit signing). The workflow attempts to enable
-auto-merge as a
-convenience, but whoever cuts the release must ensure the shared `changeset-release/main` PR merges
-after its required CI is green. ampm's deploy seat does this using the
-[release verification checklist](../../.ampm/steps/deploy.md). Its merge re-triggers the workflow,
-which publishes to npm via **OIDC trusted publishing** with provenance and no stored token. Do not
-publish locally or edit versions by hand; do not report a release complete until that post-merge
-workflow succeeds and the exact merged version is visible on npm with provenance and in a matching
-non-draft GitHub release. Skill:
+auto-merge as a best-effort convenience. Otherwise the operator uses the release agent's handoff to
+confirm the shared `changeset-release/main` PR's author (`app/effect-extras-release`), base (`main`),
+green required CI, and inclusion of the task's changeset, then merges exactly the verified head with
+a merge commit. Auto-merge or an earlier handoff may already have merged it; a changed head needs
+fresh verification. Its merge re-triggers the workflow, which publishes to npm via **OIDC trusted
+publishing** with provenance and no stored token. Do not publish locally or edit versions by hand.
+
+ampm agents have no GitHub access or credentials; all GitHub work goes through the factory. The
+[release verification checklist](../../.ampm/steps/deploy.md) uses its git mirror and the npm registry,
+and supplies operator handoffs for unavailable GitHub operations. **Interim operator override for
+ampm:** a task merge confirmed on `origin/main` counts as `released` and closes the task without
+waiting for GitHub-only operations or claiming npm publication. A task with no added changeset
+reports `no changeset: nothing publishes`, with no Version Packages handoff or publication claim.
+
+Npm publication requires an identified `chore(release): version packages` merge on `origin/main`
+that consumed the task's changeset and credits it in the new `CHANGELOG.md` version section. Read
+the exact version from that merge's `package.json`; require `v<version>` on `origin` to resolve to
+that merge (peeling annotated tags) and
+`npm view @nunofyobiz/effect-extras@<version> version dist.attestations --json` to show that exact
+version with `dist.attestations.provenance`. Publication evidence always states that the GitHub
+release page and workflow results were not checked; a tag alone proves neither. Incomplete evidence
+means publication is not yet verified, while the confirmed task still closes under the override.
+Pending version merges receive a head-pinned operator handoff; if no release-branch head is visible,
+the operator locates or creates the matching PR and verifies its current head before merging. An
+existing version merge with incomplete evidence receives a publication-investigation handoff instead.
+
+Interactive contributor skill:
 [`release-bump`](../../.agents/skills/release-bump/SKILL.md).

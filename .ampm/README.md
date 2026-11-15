@@ -1,8 +1,10 @@
 # .ampm/
 
-This repository customizes ampm's deploy seat with the [release verification
-procedure](./steps/deploy.md). It follows the shared Changesets "Version Packages" PR through
-publishing and verifies the resulting npm provenance and GitHub release. See [repo
+This repository customizes ampm's release agent with the [release verification
+procedure](./steps/deploy.md). It checks the factory-synced git mirror and npm registry, and hands
+GitHub-only operations to the operator through ampm. Under the interim operator override, a confirmed
+merged task closes in ampm; npm publication is claimed only with the specified tag, version merge,
+and registry provenance evidence. Agents receive no GitHub access or credentials. See [repo
 customization](https://github.com/nunofyobiz/ampm/blob/main/docs/repo-customization.md) for the
 available customizations.
 
