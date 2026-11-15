@@ -39,6 +39,16 @@ describe("Order utils", () => {
       expect(OrderRolesByAge("parent", "parent")).toBe(0);
     });
 
+    test("an unlisted value compares as -1 in either argument position", () => {
+      const order = rankedEnum({ urgent: 0, normal: 1, low: 2 });
+
+      // An undefined rank makes the subtraction NaN, whose sign here is -1.
+      // @ts-expect-error - deferred priority is absent from the rank table
+      expect(order("deferred", "normal")).toBe(-1);
+      // @ts-expect-error - deferred priority is absent from the rank table
+      expect(order("normal", "deferred")).toBe(-1);
+    });
+
     test("orders by rank, not value, including negative and non-contiguous ranks", () => {
       const order = rankedEnum({ low: -10, mid: 0, high: 5, top: 100 });
 

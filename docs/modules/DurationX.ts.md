@@ -24,9 +24,9 @@ Added in v0.0.0
 
 ## diff
 
-Computes the elapsed `Duration` from `that` to `self`, clamped at zero.
+Returns how much time has passed from `that` to `self`, clamped at zero.
 
-Represents the time that has passed since the reference instant `that`. When
+Use it to show how long ago an event happened. When
 `that` lies in the future relative to `self`, the elapsed time is `zero`
 rather than a negative duration.
 
@@ -43,30 +43,32 @@ export declare const diff: ((that: DateTime.DateTime) => (self: DateTime.DateTim
 import { DateTime, Duration, pipe } from "effect"
 import { DurationX } from "@nunofyobiz/effect-extras"
 
-const earlier = DateTime.makeUnsafe(1000)
-const later = DateTime.makeUnsafe(4000)
+const placedAt = DateTime.makeUnsafe("2026-10-14T09:15:00Z")
+const checkedAt = DateTime.makeUnsafe("2026-10-14T09:45:00Z")
 
-// data-first
-assert.deepStrictEqual(DurationX.diff(later, earlier), Duration.seconds(3))
+// The order was placed 30 minutes before it was checked.
+assert.deepStrictEqual(DurationX.diff(checkedAt, placedAt), Duration.minutes(30))
 
-// future reference clamps to zero
-assert.deepStrictEqual(DurationX.diff(earlier, later), Duration.zero)
+// A reference later than the check time gives zero elapsed time.
+assert.deepStrictEqual(DurationX.diff(placedAt, checkedAt), Duration.zero)
 
 // data-last (piped)
-assert.deepStrictEqual(pipe(later, DurationX.diff(earlier)), Duration.seconds(3))
+assert.deepStrictEqual(pipe(checkedAt, DurationX.diff(placedAt)), Duration.minutes(30))
 ```
 
 Added in v0.0.0
 
 ## mapAsUnit
 
-Transforms a `Duration` by converting it to a numeric `unit`, applying `map`,
-then converting back.
+Changes a duration's count in the chosen unit, then converts it back to a duration.
 
-Lets you operate on a duration in whatever unit is convenient — round it to
-whole minutes, halve its seconds, floor its days — without juggling
-conversions by hand. The `map` callback receives the duration expressed as a
-`number` of `unit`s and returns the new count.
+Use it to round a timeout or adjust an interval without converting units by hand.
+The `map` callback receives the duration as a `number` of `unit`s and returns
+the new count. Microsecond and nanosecond results must be finite integers or
+conversion throws a `RangeError`; other units accept fractional counts.
+Infinite durations reach the microsecond callback as `Infinity`, but nanosecond
+conversion throws `Duration.toNanos returned None` before calling `map`.
+Finite nanosecond counts outside the safe integer range also throw before `map`.
 
 **Signature**
 
@@ -81,20 +83,16 @@ export declare const mapAsUnit: ((
 **Example**
 
 ```ts
-import { Duration, Number, pipe } from "effect"
+import { Duration, pipe } from "effect"
 import { DurationX } from "@nunofyobiz/effect-extras"
 
-// data-first: halve a 4-second duration
-assert.deepStrictEqual(DurationX.mapAsUnit(Duration.seconds(4), "second", Number.divideUnsafe(2)), Duration.seconds(2))
+const requestTimeout = Duration.millis(1250)
+
+// Round the 1.25-second timeout up to two whole seconds.
+assert.deepStrictEqual(DurationX.mapAsUnit(requestTimeout, "second", Math.ceil), Duration.seconds(2))
 
 // data-last (piped)
-assert.deepStrictEqual(
-  pipe(
-    Duration.minutes(10),
-    DurationX.mapAsUnit("minute", (minutes) => minutes + 5)
-  ),
-  Duration.minutes(15)
-)
+assert.deepStrictEqual(pipe(requestTimeout, DurationX.mapAsUnit("second", Math.ceil)), Duration.seconds(2))
 ```
 
 Added in v0.0.0
