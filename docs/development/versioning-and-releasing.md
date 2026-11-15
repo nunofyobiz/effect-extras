@@ -13,12 +13,24 @@ this table — cite the rule when running `pnpm changeset`:
 
 When in doubt, pick the higher one.
 
-**When a changeset doesn't make sense, say so in the PR.** A changeset _is_ a release, so only a
-change that reaches a consumer of the published package warrants one — and the published surface is
-the tarball (`files` = `dist` + `src`, plus the README npm ships). Repo-only changes don't qualify:
-CI / workflow edits, husky hooks, `AGENTS.md` / `CLAUDE.md` and other contributor docs, editor /
-tooling config, and devDep-only lockfile bumps. When you skip a changeset, add a one-line note to the
-PR (e.g. "no changeset: CI-only, nothing ships") so the omission reads as deliberate, not forgotten.
+The published surface is the tarball: `package.json` selects `dist`, `src`, and
+`!src/**/*.test.ts` in `files`, and npm also includes the README. Wording edits to shipped prose
+earn a **patch** changeset even when exports, types, and runtime behavior are unchanged. This
+includes JSDoc in published `src/` (which also ships in emitted `.d.ts` declarations) and every
+README edit. The README ships as a whole: contributor-only sections such as "Releasing" have no
+exemption. An exemption would require an explicit policy change from the operator.
+
+**When a changeset doesn't make sense, say so in the PR.** Repo-only changes don't qualify:
+changes that touch only co-located `*.test.ts` files (excluded from the package), CI / workflow
+edits, husky hooks, contributor docs outside the package (`AGENTS.md` / `CLAUDE.md`,
+`docs/development/`, and skills), editor / tooling config, and devDep-only lockfile bumps. When you
+skip a changeset, add a one-line note to the PR (e.g. "no changeset: CI-only, nothing ships") so the
+omission reads as deliberate, not forgotten.
+
+All pending changesets roll into one shared **"Version Packages"** PR and release at the highest
+pending bump. A late patch changeset added while a minor is pending ships in that minor release,
+under its **"Patch Changes"** heading; it does not produce a separate patch version. This is
+expected. Do not edit or remove pending changesets to force a separate release.
 
 Flow: `pnpm changeset` (in the same PR) → merge to `main`. The **Release** workflow
 ([release.yml](../../.github/workflows/release.yml)) — running under a **GitHub App token**, not
