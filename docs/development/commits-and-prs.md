@@ -14,7 +14,16 @@
 - **pre-commit** first regenerates the API docs when non-test `src/**/*.ts` is staged — it runs `pnpm docgen` and `git add docs/` so every source change commits up-to-date `docs/` (and a broken `@example` blocks the commit, the same gate CI enforces). Then it runs `lint-staged` — ESLint `--fix` (with the Prettier integration) on staged JS/TS, and `prettier --write` on staged Markdown / YAML / JSON5 / CSS. The `src` guard keeps docs-free commits fast (docgen is a whole-project, ~6–7s run).
 - **commit-msg** runs `commitlint` against [commitlint.config.ts](../../commitlint.config.ts) to enforce Conventional Commits.
 
-If a hook blocks a commit, read the output, fix the surfaced issue, re-stage, and commit again — don't bypass with `--no-verify`. CI re-runs commitlint on PRs as a backstop.
+The hook runs `lint-staged --no-stash` to avoid the shared stash; partial-staging protection stays enabled, so unstaged hunks are hidden while tasks run.
+
+If a hook fails, no commit is created, and its fixes stay in the index and working tree instead of
+being rolled back. The hook restores hidden unstaged hunks of partly staged files; if restoration
+fails, it preserves `$(git rev-parse --git-dir)/lint-staged_unstaged.patch` and prints the recovery
+command. Recover those hunks before retrying; a leftover patch blocks the next run to prevent it
+being overwritten. After recovery, remove the patch, review the fixes, fix the issue, re-stage, and
+run `git commit` again. Don't bypass with `--no-verify`.
+
+CI re-runs commitlint on PRs as a backstop.
 
 ## Commit signing
 
