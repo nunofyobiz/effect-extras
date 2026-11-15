@@ -72,13 +72,20 @@ inspect `.mock.calls` — don't hand-roll the same bookkeeping with a local arra
 
 ## Working with existing tests
 
-> Provenance: StoryCut's AGENTS.md "Working with existing tests", on a point the operator's rule and
-> ampm are both silent on.
+> Provenance: the workflow is adapted from StoryCut's AGENTS.md "Working with existing tests";
+> the placeholder-removal requirement is direct operator direction.
 
 When changing a helper's behavior:
 
 1. Read the existing tests covering it first.
 2. Update the assertions that changed because the behavior changed, with a comment explaining _why_ —
    don't silently re-baseline an expectation.
-3. Add tests for any previously-uncovered case the change introduces.
+3. Add tests for any previously-uncovered case the change introduces. When a change adds a real test
+   covering a function, the same change must delete any `test.todo` placeholder for that function.
 4. Run `pnpm test` and confirm everything passes.
+
+A `test.todo` is a placeholder, not a test: it asserts nothing, so deleting it does not count as
+editing or removing an existing test. Instructions such as "existing tests pass without edits" or
+"don't edit existing test cases" protect real assertions and never require keeping a placeholder.
+A placeholder beside a passing test reads as missing coverage and inflates the todo count reported
+by `pnpm test`.
