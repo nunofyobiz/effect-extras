@@ -37,28 +37,27 @@ const logBase = dual<
 );
 
 /**
- * Computes the logarithm of `number` in the given `base`, throwing when the
- * inputs fall outside the domain of `log`.
+ * Computes the logarithm of `number` in the given `base`, for example to count
+ * how many doublings produce a given increase.
  *
  * Throws when `number <= 0`, when `base` is `<= 0` or `1`, or when `number` and
  * `base` sit on opposite sides of `1` (a fractional base with `number >= 1`, or
- * a base `>= 1` with `number < 1`) — cases where the real logarithm is
- * undefined or non-finite. Reach for it only when the inputs are already known
- * to be valid.
+ * a base `>= 1` with `number < 1`). These restrictions also reject inputs whose
+ * mathematical logarithm would be negative. Use it when inputs meet those rules.
+ * NaN passes through as NaN; infinity is not always rejected: an infinite base
+ * with a finite number greater than one returns zero.
  *
  * @example
  * ```ts
  * import { pipe } from "effect"
  * import { NumberX } from "@nunofyobiz/effect-extras"
  *
- * // data-first
- * assert.deepStrictEqual(NumberX.unsafeLogBase(8, 2), 3)
- * assert.deepStrictEqual(NumberX.unsafeLogBase(100, 10), 2)
+ * const storageIncrease = 8
+ * // Three doublings produce an eightfold increase in storage.
+ * assert.deepStrictEqual(NumberX.unsafeLogBase(storageIncrease, 2), 3)
+ * assert.deepStrictEqual(pipe(storageIncrease, NumberX.unsafeLogBase(2)), 3)
  *
- * // data-last (piped)
- * assert.deepStrictEqual(pipe(8, NumberX.unsafeLogBase(2)), 3)
- *
- * // throws outside the domain of log
+ * // Zero cannot describe a multiplicative increase.
  * assert.throws(() => NumberX.unsafeLogBase(0, 2))
  * ```
  *
@@ -96,23 +95,23 @@ const toPercentOf = dual<
 
 /**
  * Expresses `numerator` as a percentage of `total`, throwing on division by
- * zero.
+ * zero. Use it to show a part of a total, such as a discount relative to a cart.
  *
  * Returns `(numerator / total) * 100`. When `total` is `0` the percentage is
  * undefined, so this throws rather than returning `Infinity` or `NaN` — use it
- * only when `total` is known to be non-zero.
+ * only when `total` is known to be neither `0` nor `-0`.
+ * Negative operands are allowed; NaN and infinities follow JavaScript division.
  *
  * @example
  * ```ts
  * import { pipe } from "effect"
  * import { NumberX } from "@nunofyobiz/effect-extras"
  *
- * // data-first
- * assert.deepStrictEqual(NumberX.unsafeToPercentOf(1, 2), 50)
- * assert.deepStrictEqual(NumberX.unsafeToPercentOf(2, 1), 200)
- *
- * // data-last (piped)
- * assert.deepStrictEqual(pipe(1, NumberX.unsafeToPercentOf(2)), 50)
+ * const discount = 15
+ * const cartTotal = 60
+ * // A $15 discount saves 25% of a $60 cart total.
+ * assert.deepStrictEqual(NumberX.unsafeToPercentOf(discount, cartTotal), 25)
+ * assert.deepStrictEqual(pipe(discount, NumberX.unsafeToPercentOf(cartTotal)), 25)
  *
  * // throws on division by zero
  * assert.throws(() => NumberX.unsafeToPercentOf(1, 0))
@@ -136,20 +135,21 @@ export const unsafeToPercentOf = dual<
 /**
  * Formats `number` with a fixed number of decimal places, returning a `string`.
  *
- * A pipeable wrapper around `Number.prototype.toFixed` — the result is rounded
- * (not truncated) to `numberDigits` decimals and always carries exactly that
- * many digits after the point.
+ * Use it to display a price with trailing zeroes. It uses native `toFixed`
+ * rounding, including its floating-point limitations. Digit counts are truncated
+ * toward zero and must then be between 0 and 100; NaN means 0. Invalid counts
+ * throw RangeError. NaN and infinities render as text, and magnitudes at least
+ * `1e21` use exponential notation instead of fixed decimal places.
  *
  * @example
  * ```ts
  * import { pipe } from "effect"
  * import { NumberX } from "@nunofyobiz/effect-extras"
  *
- * // data-first
- * assert.deepStrictEqual(NumberX.toFixed(3.236242, 2), "3.24")
- *
- * // data-last (piped)
- * assert.deepStrictEqual(pipe(3.236242, NumberX.toFixed(0)), "3")
+ * const price = 12.5
+ * // Display the price with two decimal places, including a trailing zero.
+ * assert.deepStrictEqual(NumberX.toFixed(price, 2), "12.50")
+ * assert.deepStrictEqual(pipe(price, NumberX.toFixed(2)), "12.50")
  * ```
  *
  * @category conversions
@@ -165,21 +165,22 @@ export const toFixed = dual<
 /**
  * Rounds `number` to a fixed number of decimal places, returning a `number`.
  *
- * Unlike {@link toFixed}, the result stays a `number` (no trailing zeroes) — it
- * formats via `toFixed` then parses back, which sidesteps the usual
- * floating-point rounding artifacts. See
- * https://stackoverflow.com/a/29494612/22875620.
+ * Use it when a rounded price must stay numeric rather than carry trailing
+ * zeroes for display. It formats via {@link toFixed} then converts back to a
+ * number, inheriting native floating-point limitations: `2.675` rounded to two
+ * places is `2.67`. Digit counts are truncated toward zero and must then be
+ * between 0 and 100; NaN means 0 and invalid counts throw RangeError.
+ * NaN and infinities stay numeric; magnitudes at least `1e21` remain unchanged.
  *
  * @example
  * ```ts
  * import { pipe } from "effect"
  * import { NumberX } from "@nunofyobiz/effect-extras"
  *
- * // data-first
- * assert.deepStrictEqual(NumberX.roundToDigits(3.236242, 2), 3.24)
- *
- * // data-last (piped)
- * assert.deepStrictEqual(pipe(3.736242, NumberX.roundToDigits(0)), 4)
+ * const discountedPrice = 19.876
+ * // Round the price to cents while keeping a number for later calculations.
+ * assert.deepStrictEqual(NumberX.roundToDigits(discountedPrice, 2), 19.88)
+ * assert.deepStrictEqual(pipe(discountedPrice, NumberX.roundToDigits(2)), 19.88)
  * ```
  *
  * @category mapping
@@ -196,24 +197,23 @@ export const roundToDigits = dual<
 
 /**
  * Renders `number` as a `string`, left-padded with zeroes to at least
- * `numberDigits` characters.
+ * `numberDigits` characters. Use it for fixed-width order numbers.
  *
  * If the number's string representation is already as long as (or longer than)
- * `numberDigits`, it is returned unchanged.
+ * `numberDigits`, it is returned unchanged. Padding applies to the whole string,
+ * including signs: `padLeftZeroes(-1, 3)` is `"0-1"`. NaN and infinities are also
+ * padded as text. Fractional widths are truncated; NaN and non-positive widths
+ * add no padding. An infinite positive width throws RangeError.
  *
  * @example
  * ```ts
  * import { pipe } from "effect"
  * import { NumberX } from "@nunofyobiz/effect-extras"
  *
- * // data-first
- * assert.deepStrictEqual(NumberX.padLeftZeroes(1, 3), "001")
- *
- * // longer than the target width is returned unchanged
- * assert.deepStrictEqual(NumberX.padLeftZeroes(1000, 3), "1000")
- *
- * // data-last (piped)
- * assert.deepStrictEqual(pipe(10, NumberX.padLeftZeroes(3)), "010")
+ * const orderNumber = 42
+ * // Print order 42 in a five-character order-number field.
+ * assert.deepStrictEqual(NumberX.padLeftZeroes(orderNumber, 5), "00042")
+ * assert.deepStrictEqual(pipe(orderNumber, NumberX.padLeftZeroes(5)), "00042")
  * ```
  *
  * @category conversions
@@ -229,15 +229,17 @@ export const padLeftZeroes = dual<
 /**
  * Converts a `0`-indexed value to its `1`-indexed rank by adding `1`.
  *
- * Handy for presentation where humans count from one (e.g. the element at
- * index `0` is shown as "item 1").
+ * Use it to show an array position as a leaderboard rank, where people count
+ * from one. It only adds one: it does not validate indexes, so fractions,
+ * negatives, NaN and infinities follow ordinary JavaScript addition.
  *
  * @example
  * ```ts
  * import { NumberX } from "@nunofyobiz/effect-extras"
  *
- * assert.deepStrictEqual(NumberX.indexToRank(0), 1)
- * assert.deepStrictEqual(NumberX.indexToRank(4), 5)
+ * const leaderboardIndex = 4
+ * // The player at array position 4 is in fifth place.
+ * assert.deepStrictEqual(NumberX.indexToRank(leaderboardIndex), 5)
  * ```
  *
  * @category mapping
@@ -250,7 +252,8 @@ const EXCEL_COLUMNS_BASE_CHARS = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
 
 /**
  * Converts a `0`-indexed column number into its bijective base-26 spreadsheet
- * label (`A`, `B`, …, `Z`, `AA`, `AB`, …).
+ * label (`A`, `B`, …, `Z`, `AA`, `AB`, …). Use it to label columns in a
+ * spreadsheet export.
  *
  * Returns `None` for any `index` that is not a non-negative safe integer.
  * Valid indexes return a `Some` label. Indexing is `0`-based here, so `0` is `"A"` and `25` is `"Z"`,
@@ -262,8 +265,9 @@ const EXCEL_COLUMNS_BASE_CHARS = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
  * import { NumberX } from "@nunofyobiz/effect-extras"
  *
  * // Label columns in a spreadsheet export, starting with column A at index 0.
+ * const exportColumnIndex = 26
  * assert.deepStrictEqual(NumberX.indexToExcel(0), Option.some("A"))
- * assert.deepStrictEqual(NumberX.indexToExcel(26), Option.some("AA"))
+ * assert.deepStrictEqual(NumberX.indexToExcel(exportColumnIndex), Option.some("AA"))
  * // A fractional column index cannot identify a spreadsheet column.
  * assert.deepStrictEqual(NumberX.indexToExcel(26.5), Option.none())
  * assert.deepStrictEqual(NumberX.indexToExcel(-1), Option.none())
