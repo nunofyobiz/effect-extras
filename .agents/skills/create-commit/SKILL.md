@@ -92,6 +92,9 @@ If a hook fails, the commit is rejected and nothing is written — fix the issue
 `git commit` again (there's nothing to `--amend`, since no commit was created). Don't bypass with
 `--no-verify`.
 
+The hook uses `lint-staged --no-stash` to avoid the shared `refs/stash`. Task edits remain in the
+index on failure; review them and re-stage the corrected files before retrying.
+
 ## Signed commits
 
 Commits are **SSH-signed automatically** so they land with GitHub's **Verified** badge: git signs
