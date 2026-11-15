@@ -498,11 +498,12 @@ export const filterTail = dual<
   <A>(predicate: Predicate.Predicate<A>) => (array: A[]) => A[],
   <A>(array: A[], predicate: Predicate.Predicate<A>) => A[]
 >(2, <A>(array: A[], predicate: Predicate.Predicate<A>): A[] =>
-  // Effect 4.0.2 has no `dropRightWhile`, so this reverses twice instead of
-  // slicing once. That's a deliberate trade for staying on Effect `Array`
-  // with no manual index slicing.
-  Array.reverse(
-    Array.dropWhile(Array.reverse(array), Predicate.not(predicate)),
+  Option.match(
+    Array.findLastIndex(array, (value) => predicate(value)),
+    {
+      onNone: () => [],
+      onSome: (index) => Array.take(array, index + 1),
+    },
   ),
 );
 
