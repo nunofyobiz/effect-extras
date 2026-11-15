@@ -47,8 +47,10 @@ if (Number.isNumber(n)) { ... } //            not: typeof n === "number"
 
 A compound predicate worth reusing (an `isNonEmptyString` combining `isNotNullish`, `isString`, and
 `String.isNonEmpty`) belongs in `PredicateX` when it clears the
-[canonical admission test](./what-belongs-here.md). A second call site is strong evidence, while a
-useful generic name or clear expectation of cross-project reuse can also justify exporting it.
+[canonical admission test](./what-belongs-here.md) and
+[graduation evidence](./what-belongs-here.md#graduation-evidence). Use that rule for unrelated
+callers, including framework or UI components, and for useful-name or expected-reuse evidence that
+can justify an early export.
 
 ## Dual functions
 
@@ -257,5 +259,6 @@ const sorted = Array.sort(
 
 Specialized order helpers — ranking enum-like values (`OrderX.rankedEnum`) or pushing nulls last —
 belong in `OrderX` / `NonNullableX` only when they clear the
-[canonical admission test](./what-belongs-here.md). Leave a one-off inline; an inline use alone is
-not enough evidence to add a public helper.
+[canonical admission test](./what-belongs-here.md) and
+[graduation evidence](./what-belongs-here.md#graduation-evidence). Keep a one-off inline unless its
+useful generic name or expected reuse justifies a public helper under that rule.
