@@ -30,8 +30,9 @@ here only if **all** of these hold:
    do not wrap it.
 
 When a new or changed helper takes a data argument plus other arguments, use `dual`: declare the
-data-last overload first and the data-first overload second. This gives callers both a pipeable and a
-direct form without changing the operation.
+data-last overload first and the data-first overload second for new helpers. Preserve existing
+published overload order — see [Dual functions](./effect-patterns.md#dual-functions). This gives
+callers both a pipeable and a direct form without changing the operation.
 
 ### Names and modules
 

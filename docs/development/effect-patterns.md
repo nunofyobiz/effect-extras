@@ -53,20 +53,54 @@ useful generic name or clear expectation of cross-project reuse can also justify
 ## Dual functions
 
 When a new or changed helper takes a data argument plus other arguments, use `dual` from
-`effect/Function` (not `Function.dual()`). Declare the **data-last** (piped) overload first, then
-**data-first**:
+`effect/Function` (not `Function.dual()`). For new helpers, declare the **data-last** (piped)
+overload first, then **data-first**. The arity counts the data-first arguments.
+
+Prefer the type-argument form for a straightforward pair of call signatures. Generic function types
+work here too; genericity alone does not require a different declaration form:
 
 ```ts
+import { Predicate } from "effect";
 import { dual } from "effect/Function";
 
-export const withPrefix = dual<
-  (prefix: string) => (id: string) => string, // data-last: pipe(id, withPrefix("x:"))
-  (id: string, prefix: string) => string //      data-first: withPrefix(id, "x:")
+type NullableHandlers<A, B> = {
+  whenNotNullable: (value: NonNullable<A>) => B;
+  whenNullable: () => B;
+};
+
+export const matchNullable = dual<
+  <A, B>(handlers: NullableHandlers<A, B>) => (value: A) => B,
+  <A, B>(value: A, handlers: NullableHandlers<A, B>) => B
 >(
-  2, // arity of the data-first overload
-  (id, prefix) => `${prefix}${id}`,
+  2,
+  <A, B>(value: A, handlers: NullableHandlers<A, B>): B =>
+    Predicate.isNotNullish(value)
+      ? handlers.whenNotNullable(value)
+      : handlers.whenNullable(),
 );
 ```
+
+Use a const annotated with an overload object when a longer overload set, per-overload documentation,
+or an existing published declaration is clearer that way. The same fully checked implementation can
+be written in this form (using `NullableHandlers`, `Predicate`, and `dual` above):
+
+```ts
+export const matchNullableAnnotated: {
+  <A, B>(handlers: NullableHandlers<A, B>): (value: A) => B;
+  <A, B>(value: A, handlers: NullableHandlers<A, B>): B;
+} = dual(
+  2,
+  <A, B>(value: A, handlers: NullableHandlers<A, B>): B =>
+    Predicate.isNotNullish(value)
+      ? handlers.whenNotNullable(value)
+      : handlers.whenNullable(),
+);
+```
+
+An existing published helper keeps its overload order: reordering changes the published type
+declaration. `FormDataX.decodeSync` intentionally keeps its data-first overload first for this reason.
+Both forms require a fully type-checked implementation; see [No type assertions](#no-type-assertions)
+for generic narrowing limitations and rejected workarounds.
 
 This lets helpers sit naturally in a consumer's `pipe` chain _and_ be called directly. See
 [What belongs here](./what-belongs-here.md#names-and-modules) for whether a helper belongs, where it
@@ -74,12 +108,20 @@ lives, and how to name it.
 
 ## Data-first vs `pipe`
 
-Prefer **data-first** for single calls; use `pipe()` only when chaining 2+ operations.
+Prefer **data-first** for single calls when the operation provides that form; use `pipe()` for chains
+of 2+ operations. When an Effect built-in is data-last only, write even a single call as
+`pipe(value, BuiltIn(args))`. For example, `String.padStart` in the installed Effect version has no
+data-first form; `NumberX.padLeftZeroes` uses this exception.
 
 ```ts
+import { Effect, Option, Schema, String, pipe } from "effect";
+
 // Good — data-first for single calls
 Option.getOrElse(option, () => fallback);
 Effect.map(effect, fn);
+
+// Good — pipe for a single data-last-only built-in
+pipe("7", String.padStart(3, "0"));
 
 // Good — pipe for chains of 2+
 pipe(
@@ -88,17 +130,27 @@ pipe(
   Option.getOrElse(() => fallback),
 );
 
-// Bad — pipe wrapping a single call
+// Bad — pipe wrapping a single call that has a data-first form
 pipe(
   option,
   Option.getOrElse(() => fallback),
 );
 
-// Good — pass a curried function directly (no wrapper lambda)
+// Good — pass a curried function directly when overload inference is unaffected
 Option.flatMap(option, Schema.decodeUnknownOption(MyId));
 
-// Bad — unnecessary lambda wrapping a single function call
+// Bad — unnecessary lambda when overload inference is unaffected
 Option.flatMap(option, (value) => Schema.decodeUnknownOption(MyId)(value));
+```
+
+Passing an overloaded function point-free (as a bare reference) can make TypeScript resolve to its
+last overload and silently widen the result type. A wrapper lambda is required when it preserves the
+intended overload inference. Give it a one-line comment explaining why, as in the `WarnResult` bridge
+pattern below, where `fromInclusiveOr` has variant-specific overloads:
+
+```ts
+// The lambda preserves the bridge's variant-specific overload inference.
+const result = Effect.map(effectOfBoth, (io) => fromInclusiveOr(io));
 ```
 
 ## `Result` over custom discriminated unions
@@ -193,9 +245,35 @@ one of:
 - a `Predicate.is*` refinement function — for type guards
 - a `parseX(...): Effect<X, ParseError>` boundary function — for parsing external input
 
-If none of those work, that's a sign the shape is wrong — discuss before reaching for `as`. The
-strict ESLint config already bans `any` and unused eslint-disable directives, so casts are one of the
-few escape hatches left; treat reaching for one as a design smell.
+When `Match.value` / `Match.when` cannot narrow a generic, not-yet-narrowed type parameter,
+prefer a type-checked `Predicate` refinement with a short ternary. The refinement narrows the generic
+value, and the explicit generic parameters and return type let the compiler check both branches:
+
+```ts
+import { Predicate } from "effect";
+
+const matchValue = <A, B>(
+  value: A,
+  handlers: {
+    whenNotNullable: (value: NonNullable<A>) => B;
+    whenNullable: () => B;
+  },
+): B =>
+  Predicate.isNotNullish(value)
+    ? handlers.whenNotNullable(value)
+    : handlers.whenNullable();
+```
+
+A non-exported overloaded implementation whose implementation signature uses `unknown`, leaving its
+body unchecked against the public generic overloads, is **not accepted** as an alternative to `as`.
+It hides a cast just as an assertion does. The existing `matchNullable` / `mapNullable`
+implementations behind `NonNullableX.match` / `NonNullableX.map`, and `matchRefineValue` behind
+`PredicateX.matchRefine`, are not a precedent.
+
+If none of the fully type-checked approaches works, stop and ask the operator for an explicit decision
+before reaching for `as` or an unchecked implementation signature. There is no general escape hatch.
+The strict ESLint config already bans `any` and unused eslint-disable directives; reaching for a cast
+remains a design smell.
 
 **The one sanctioned suppression.** A test that deliberately calls a helper with input its types
 reject — proving what happens when untyped or loosely typed calling code reaches it — may suppress the
