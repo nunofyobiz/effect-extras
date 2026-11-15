@@ -7,21 +7,19 @@ import { Array, Match, String } from "effect";
 import { dual } from "effect/Function";
 
 /**
- * Prepends `start` to `string_`.
- *
- * v4's `String` module has no native `prepend` (only `concat`), so this fills
- * the gap as a pipeable helper.
+ * Adds `start` to the beginning of `string_`. Use it to label a filename or
+ * add a fixed prefix while building a string in a pipeline.
  *
  * @example
  * ```ts
  * import { pipe } from "effect"
  * import { StringX } from "@nunofyobiz/effect-extras"
  *
- * // data-first
- * assert.deepStrictEqual(StringX.prepend("world", "hello "), "hello world")
+ * // Label a saved report as a backup without changing its extension.
+ * assert.deepStrictEqual(StringX.prepend("report.csv", "backup-"), "backup-report.csv")
  *
- * // data-last (piped)
- * assert.deepStrictEqual(pipe("world", StringX.prepend("hello ")), "hello world")
+ * // The pipeable form adds the same filename label.
+ * assert.deepStrictEqual(pipe("report.csv", StringX.prepend("backup-")), "backup-report.csv")
  * ```
  *
  * @category combinators
@@ -33,20 +31,19 @@ export const prepend = dual<
 >(2, (string_: string, start: string): string => String.concat(start, string_));
 
 /**
- * Wraps `string_` between `start` and `end`.
- *
- * No v4 native equivalent — handy for quoting, bracketing, or fencing a value.
+ * Wraps `string_` between `start` and `end`. Use it to quote a value or put
+ * brackets around text. Wrapping is literal: embedded quotes are not escaped.
  *
  * @example
  * ```ts
  * import { pipe } from "effect"
  * import { StringX } from "@nunofyobiz/effect-extras"
  *
- * // data-first
- * assert.deepStrictEqual(StringX.surround("value", "[", "]"), "[value]")
+ * // Quote a CSV cell containing a comma; this cell has no embedded quotes to escape.
+ * assert.deepStrictEqual(StringX.surround("Paris, France", '"', '"'), '"Paris, France"')
  *
- * // data-last (piped)
- * assert.deepStrictEqual(pipe("value", StringX.surround("(", ")")), "(value)")
+ * // The pipeable form quotes the same cell.
+ * assert.deepStrictEqual(pipe("Paris, France", StringX.surround('"', '"')), '"Paris, France"')
  * ```
  *
  * @category combinators
@@ -60,25 +57,23 @@ export const surround = dual<
 );
 
 /**
- * Prepends `start` to `string_` unless `string_` already starts with it.
- *
- * Idempotent: applying it to an already-prefixed string is a no-op, so
- * `ensurePrepend("foofoo", "foo")` stays `"foofoo"` rather than gaining a
- * second `"foo"`.
+ * Adds `start` to the beginning of `string_` only when it is missing.
+ * Use it to give a URL path a leading slash without adding another slash
+ * to a path that already has one.
  *
  * @example
  * ```ts
  * import { pipe } from "effect"
  * import { StringX } from "@nunofyobiz/effect-extras"
  *
- * // data-first — adds the prefix when missing
- * assert.deepStrictEqual(StringX.ensurePrepend("bar", "foo"), "foobar")
+ * // Give a settings URL path its missing leading slash.
+ * assert.deepStrictEqual(StringX.ensurePrepend("settings/profile", "/"), "/settings/profile")
  *
- * // idempotent — already prefixed, returned unchanged
- * assert.deepStrictEqual(StringX.ensurePrepend("foobar", "foo"), "foobar")
+ * // An already-prefixed path stays unchanged.
+ * assert.deepStrictEqual(StringX.ensurePrepend("/settings/profile", "/"), "/settings/profile")
  *
- * // data-last (piped)
- * assert.deepStrictEqual(pipe("bar", StringX.ensurePrepend("foo")), "foobar")
+ * // The pipeable form adds the same leading slash.
+ * assert.deepStrictEqual(pipe("settings/profile", StringX.ensurePrepend("/")), "/settings/profile")
  * ```
  *
  * @category combinators
@@ -95,32 +90,35 @@ export const ensurePrepend = dual<
 );
 
 /**
- * Replaces the inclusive line range `[startLine, endLine]` of `content` with
- * `replacement` lines, returning the rejoined string.
+ * Replaces lines `startLine` through `endLine`, including both ends, with
+ * `replacement` lines. Use it to update or delete settings in a text config file.
  *
  * `content` is split on `\n`; the zero-based lines `startLine` through `endLine`
  * (both inclusive) are dropped and `replacement` is spliced into their place.
- * Pass an empty `replacement` to delete the range. Indices clamp naturally via
- * `Array.take`/`Array.drop`, so out-of-range values don't throw.
+ * Pass an empty `replacement` to delete the range. The prefix length (`startLine`)
+ * and suffix offset (`endLine + 1`) are rounded down and clamped to the line count;
+ * negative values and NaN become zero. A start after the end can repeat lines.
  *
  * @example
  * ```ts
  * import { pipe } from "effect"
  * import { StringX } from "@nunofyobiz/effect-extras"
  *
- * // data-first — replace lines 1..2 with a single line
+ * const config = "host=localhost\nport=3000\ndebug=true\nlogging=info"
+ *
+ * // Replace the port and debug settings, keeping the host and logging lines.
  * assert.deepStrictEqual(
- *   StringX.replaceLineRange("a\nb\nc\nd", 1, 2, ["X"]),
- *   "a\nX\nd",
+ *   StringX.replaceLineRange(config, 1, 2, ["port=8080", "debug=false"]),
+ *   "host=localhost\nport=8080\ndebug=false\nlogging=info",
  * )
  *
- * // an empty replacement deletes the range
- * assert.deepStrictEqual(StringX.replaceLineRange("a\nb\nc\nd", 1, 2, []), "a\nd")
+ * // Delete the port and debug overrides so their defaults can apply.
+ * assert.deepStrictEqual(StringX.replaceLineRange(config, 1, 2, []), "host=localhost\nlogging=info")
  *
- * // data-last (piped)
+ * // The pipeable form makes the same settings update.
  * assert.deepStrictEqual(
- *   pipe("a\nb\nc", StringX.replaceLineRange(1, 1, ["X", "Y"])),
- *   "a\nX\nY\nc",
+ *   pipe(config, StringX.replaceLineRange(1, 2, ["port=8080", "debug=false"])),
+ *   "host=localhost\nport=8080\ndebug=false\nlogging=info",
  * )
  * ```
  *
@@ -161,7 +159,8 @@ export const replaceLineRange = dual<
 
 /**
  * Inserts `lines` immediately before the line at `anchorIndex`, preserving the
- * anchor line and everything after it; returns the rejoined string.
+ * anchor line and everything after it. Use it to add a comment above a setting
+ * in a text config file.
  *
  * `content` is split on `\n` and `lines` are spliced in just before the
  * zero-based `anchorIndex`. An `anchorIndex` of `0` prepends, and one at or past
@@ -172,14 +171,22 @@ export const replaceLineRange = dual<
  * import { pipe } from "effect"
  * import { StringX } from "@nunofyobiz/effect-extras"
  *
- * // data-first — insert before line 1, keeping the anchor and the rest
- * assert.deepStrictEqual(StringX.insertBeforeLine("a\nb\nc", 1, ["X"]), "a\nX\nb\nc")
+ * const config = "host=localhost\nport=8080"
  *
- * // an anchor at the end appends
- * assert.deepStrictEqual(StringX.insertBeforeLine("a\nb", 2, ["X"]), "a\nb\nX")
+ * // Explain the port setting without replacing it.
+ * assert.deepStrictEqual(
+ *   StringX.insertBeforeLine(config, 1, ["# Local development port"]),
+ *   "host=localhost\n# Local development port\nport=8080",
+ * )
  *
- * // data-last (piped)
- * assert.deepStrictEqual(pipe("a\nb", StringX.insertBeforeLine(0, ["X"])), "X\na\nb")
+ * // An anchor at the end appends a new setting.
+ * assert.deepStrictEqual(StringX.insertBeforeLine(config, 2, ["debug=false"]), "host=localhost\nport=8080\ndebug=false")
+ *
+ * // The pipeable form inserts the same explanatory comment.
+ * assert.deepStrictEqual(
+ *   pipe(config, StringX.insertBeforeLine(1, ["# Local development port"])),
+ *   "host=localhost\n# Local development port\nport=8080",
+ * )
  * ```
  *
  * @category combinators
