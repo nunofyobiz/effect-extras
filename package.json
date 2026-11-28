@@ -69,7 +69,7 @@
   },
   "devDependencies": {
     "@babel/cli": "7.29.7",
-    "@babel/core": "7.29.7",
+    "@babel/core": "7.29.13",
     "@changesets/changelog-github": "0.5.1",
     "@changesets/cli": "2.29.7",
     "@commitlint/config-conventional": "20.5.3",
